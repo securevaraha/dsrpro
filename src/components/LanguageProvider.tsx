@@ -111,7 +111,48 @@ const translations = {
     addFirstPayment: 'Add First Payment',
     paymentsReport: 'Payments Report',
     getStarted: 'Get Started',
-    settlements: 'Settlements',
+    dsrPro: 'DSR Pro',
+    dubaiPremierPOS: 'Dubai\'s Premier POS System',
+    advancedPOSTitle: 'Advanced POS System for Dubai',
+    transformBusinessDesc: 'Transform your Dubai business with our advanced POS system. VAT compliant, Arabic-first interface, and built specifically for UAE retail, restaurants, and service businesses.',
+    noCreditCard: 'No credit card required • Setup in 5 minutes • Multi-language Support',
+    advancedPOSDesc: 'Advanced POS terminals with touch screens, barcode scanning, and receipt printing',
+    mobileAppDesc: 'Mobile app for inventory management, sales tracking, and customer engagement',
+    instantProcessingDesc: 'Lightning-fast transaction processing with offline capability',
+    whyChooseDSR: 'Why Choose DSR Pro?',
+    builtForUAE: 'Built specifically for UAE businesses with local expertise',
+    uaeBanking: 'UAE Banking Integration',
+    uaeBankingDesc: 'Direct integration with Emirates NBD, ADCB, FAB, and other local banks',
+    localSupport: 'Local Support Team',
+    localSupportDesc: '24/7 support in Arabic and English from our Dubai office',
+    aedCurrency: 'AED Currency Support',
+    aedCurrencyDesc: 'Native AED support with proper formatting and calculations',
+    cloudOnPremise: 'Cloud & On-Premise',
+    cloudOnPremiseDesc: 'Flexible deployment options to meet your security requirements',
+    whatClientsSay: 'What Our Clients Say',
+    testimonial1: '"DSR Pro transformed our accounting process. VAT compliance is now effortless."',
+    testimonial2: '"Excellent support team and the Arabic interface is perfect for our staff."',
+    testimonial3: '"Best ERP solution we\'ve used. Saves us 10+ hours weekly on financial reporting."',
+    ahmed: 'Ahmed Al Mansouri',
+    ceoAlMansouri: 'CEO, Al Mansouri Trading',
+    fatima: 'Fatima Hassan',
+    financeManager: 'Finance Manager, Dubai Retail Co.',
+    mohammad: 'Mohammad Khalil',
+    ownerKhalil: 'Owner, Khalil Construction',
+    readyTransform: 'Ready to Transform Your Business?',
+    join500UAE: 'Join 500+ UAE businesses already using DSR Pro',
+    startFreeTrial: 'Start Free Trial',
+    callUs: 'Call +971 4 123 4567',
+    product: 'Product',
+    features: 'Features',
+    pricing: 'Pricing',
+    support: 'Support',
+    helpCenter: 'Help Center',
+    contactUs: 'Contact Us',
+    training: 'Training',
+    contactInfo: 'Contact',
+    dubaiUAE: 'Dubai, UAE',
+    uaeLeadingERP: 'UAE\'s leading ERP solution for modern businesses.',
   },
   ar: {
     signIn: 'تسجيل الدخول',
@@ -327,7 +368,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>('en')
 
   const t = (key: string) => {
-    return translations[language][key as keyof typeof translations['en']] || key
+    return (translations[language] as any)[key] || key
   }
 
   return (
