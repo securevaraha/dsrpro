@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&family=Noto+Sans+Arabic:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --toast-bg: #ffffff;
+    --toast-text: #2C2C54;
+    --toast-border: #E5E7EB;
+  }
+  
+  .dark {
+    --toast-bg: #1F2937;
+    --toast-text: #E8E8E8;
+    --toast-border: #374151;
+  }
+  
+  * {
+    @apply border-border dark:border-border-dark;
+  }
+  
+  html {
+    font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
+  }
+  
+  body {
+    @apply bg-background dark:bg-background-dark text-text dark:text-text-dark transition-colors duration-300;
+  }
+  
+  .dark body {
+    @apply bg-background-dark;
+  }
+}
+
+@layer components {
+  .dubai-card {
+    @apply bg-white dark:bg-gray-800 rounded-card shadow-elegant border border-border dark:border-border-dark transition-all duration-300 hover:shadow-lg;
+  }
+  
+  .dubai-button {
+    @apply bg-dubai-gradient text-white font-semibold py-3 px-6 rounded-card shadow-dubai hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+  }
+  
+  .pos-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+  }
+  
+  .table-header {
+    @apply bg-gray-50 dark:bg-gray-700 text-text dark:text-text-dark;
+  }
+  
+  .table-row {
+    @apply bg-white dark:bg-gray-800 text-text dark:text-text-dark border-b border-border dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors;
+  }
+  
+  .table-cell {
+    @apply px-6 py-4 text-sm text-text dark:text-text-dark;
+  }
+  
+  .form-input {
+    @apply w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+  }
+  
+  .form-select {
+    @apply w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+  }
+  
+  .modal-overlay {
+    @apply fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50 backdrop-blur-sm;
+  }
+  
+  .modal-content {
+    @apply relative top-20 mx-auto p-6 border w-full max-w-md shadow-xl rounded-card dubai-card animate-in fade-in-0 zoom-in-95 duration-300;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-card hover:bg-gray-300 dark:hover:bg-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .animate-in {
+    animation-fill-mode: both;
+  }
+  
+  .fade-in-0 {
+    animation-name: fadeIn;
+  }
+  
+  .zoom-in-95 {
+    animation-name: zoomIn;
+  }
+  
+  .duration-300 {
+    animation-duration: 300ms;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
