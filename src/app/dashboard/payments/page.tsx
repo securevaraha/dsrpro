@@ -4,6 +4,7 @@ import { Plus, Download, Eye, Edit, Trash2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
 interface Payment {
   _id: string
@@ -19,6 +20,9 @@ export default function Payments() {
   const { t } = useLanguage()
   const [payments, setPayments] = useState<Payment[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
+  const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null)
   const [formData, setFormData] = useState({
     paymentNumber: '',
     date: '',
@@ -62,21 +66,78 @@ export default function Payments() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      toast.success(t('addPayment') + ' successful')
-      setShowModal(false)
-      setFormData({ 
-        paymentNumber: '', 
-        date: '', 
-        vendorId: '', 
-        paymentMethod: 'cash', 
-        bankAccount: '', 
-        amount: '', 
-        description: '' 
+      const method = editingPayment ? 'PUT' : 'POST'
+      const url = editingPayment ? `/api/transactions/${editingPayment._id}` : '/api/transactions'
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'payment',
+          ...formData,
+          amount: parseFloat(formData.amount)
+        })
       })
-      fetchPayments()
+      
+      if (response.ok) {
+        toast.success(editingPayment ? 'Payment updated successfully' : 'Payment added successfully')
+        setShowModal(false)
+        resetForm()
+        fetchPayments()
+      } else {
+        throw new Error('Failed to save payment')
+      }
     } catch (error) {
-      toast.error('Failed to add payment')
+      toast.error('Failed to save payment')
     }
+  }
+
+  const handleEdit = (payment: Payment) => {
+    setEditingPayment(payment)
+    setFormData({
+      paymentNumber: payment.paymentNumber,
+      date: format(new Date(payment.date), 'yyyy-MM-dd'),
+      vendorId: '1',
+      paymentMethod: payment.paymentMethod,
+      bankAccount: '',
+      amount: payment.amount.toString(),
+      description: payment.description
+    })
+    setShowModal(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deletingPayment) return
+    
+    try {
+      const response = await fetch(`/api/transactions/${deletingPayment._id}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        toast.success('Payment deleted successfully')
+        setShowDeleteDialog(false)
+        setDeletingPayment(null)
+        fetchPayments()
+      } else {
+        throw new Error('Failed to delete payment')
+      }
+    } catch (error) {
+      toast.error('Failed to delete payment')
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({ 
+      paymentNumber: '', 
+      date: '', 
+      vendorId: '', 
+      paymentMethod: 'cash', 
+      bankAccount: '', 
+      amount: '', 
+      description: '' 
+    })
+    setEditingPayment(null)
   }
 
   const generatePaymentNumber = () => {
@@ -129,7 +190,7 @@ export default function Payments() {
                         {payment.paymentNumber}
                       </td>
                       <td className="table-cell">
-                        {format(new Date(payment.date), 'dd/MM/yyyy')}
+                        {format(new Date(payment.date), 'dd-MMM-yyyy')}
                       </td>
                       <td className="table-cell">
                         {payment.vendorName}
@@ -145,7 +206,7 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="table-cell font-medium">
-                        ₹{payment.amount.toLocaleString()}
+                        AED {payment.amount.toLocaleString()}
                       </td>
                       <td className="table-cell">
                         {payment.description}
@@ -159,18 +220,38 @@ export default function Payments() {
                             <Eye className="h-4 w-4" />
                           </button>
                           <button 
+                            onClick={() => {
+                              const { exportToExcel, reportColumns } = require('@/lib/excelExport')
+                              exportToExcel({
+                                filename: 'payments_report',
+                                sheetName: 'Payments',
+                                columns: reportColumns.payments(t),
+                                data: payments.map(p => ({
+                                  ...p,
+                                  date: format(new Date(p.date), 'dd-MMM-yyyy'),
+                                  amount: `AED ${p.amount.toLocaleString()}`
+                                })),
+                                title: t('paymentsReport'),
+                                isRTL: false
+                              })
+                            }}
                             className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 transition-colors" 
                             title="Download"
                           >
                             <Download className="h-4 w-4" />
                           </button>
                           <button 
+                            onClick={() => handleEdit(payment)}
                             className="text-primary hover:text-accent transition-colors" 
                             title={t('edit')}
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button 
+                            onClick={() => {
+                              setDeletingPayment(payment)
+                              setShowDeleteDialog(true)
+                            }}
                             className="text-danger hover:text-red-700 transition-colors" 
                             title={t('delete')}
                           >
@@ -191,7 +272,9 @@ export default function Payments() {
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-card dubai-card">
-            <h3 className="text-lg font-bold text-text dark:text-text-dark mb-4">{t('addPayment')}</h3>
+            <h3 className="text-lg font-bold text-text dark:text-text-dark mb-4">
+              {editingPayment ? 'Edit Payment' : t('addPayment')}
+            </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
                 type="text"
@@ -258,15 +341,7 @@ export default function Payments() {
                   type="button"
                   onClick={() => {
                     setShowModal(false)
-                    setFormData({ 
-                      paymentNumber: '', 
-                      date: '', 
-                      vendorId: '', 
-                      paymentMethod: 'cash', 
-                      bankAccount: '', 
-                      amount: '', 
-                      description: '' 
-                    })
+                    resetForm()
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-card hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
                 >
@@ -276,13 +351,42 @@ export default function Payments() {
                   type="submit"
                   className="dubai-button px-4 py-2 text-sm"
                 >
-                  {t('addPayment')}
+                  {editingPayment ? 'Update Payment' : t('addPayment')}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Delete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete payment {deletingPayment?.paymentNumber}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 mt-4">
+            <button
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setDeletingPayment(null)
+              }}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-card hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

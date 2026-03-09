@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata = {
   title: 'DSR Pro - Dubai POS & ERP Solution',
   description: 'UAE\'s leading POS system and ERP solution for Dubai businesses. VAT compliant, Arabic support.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

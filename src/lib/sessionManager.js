@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from 'uuid'
 
 export const createSession = async (userId, req) => {
   const sessionId = uuidv4()
-  const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown'
-  const userAgent = req.headers['user-agent'] || 'unknown'
+  const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || req.ip || 'unknown'
+  const userAgent = req.headers.get('user-agent') || 'unknown'
   
   // Parse device info from user agent
   const deviceInfo = parseUserAgent(userAgent)
