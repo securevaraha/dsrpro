@@ -29,6 +29,8 @@ export default function Vendors() {
     companyName: '',
     phone: '',
     email: '',
+    password: '',
+    role: 'vendor',
     address: '',
     bankDetails: '',
     status: 'active' as 'active' | 'inactive'
@@ -113,7 +115,7 @@ export default function Vendors() {
     
     setShowModal(false)
     setEditingVendor(null)
-    setFormData({ name: '', companyName: '', phone: '', email: '', address: '', bankDetails: '', status: 'active' })
+    setFormData({ name: '', companyName: '', phone: '', email: '', password: '', role: 'vendor', address: '', bankDetails: '', status: 'active' })
   }
 
   const handleEdit = (vendor: Vendor) => {
@@ -123,6 +125,8 @@ export default function Vendors() {
       companyName: vendor.companyName || '',
       phone: vendor.phone,
       email: vendor.email,
+      password: '',
+      role: 'vendor',
       address: '',
       bankDetails: '',
       status: vendor.status
@@ -131,7 +135,8 @@ export default function Vendors() {
   }
 
   const handleDelete = async (vendor: Vendor) => {
-    if (confirm(t('confirm') + '?')) {
+    const confirmed = window.confirm(`Are you sure you want to delete ${vendor.name}? This action cannot be undone.`)
+    if (confirmed) {
       await optimisticDelete(
         vendor._id,
         async () => {
@@ -149,8 +154,8 @@ export default function Vendors() {
       <div>
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-text dark:text-text-dark">{t('vendors')}</h1>
-            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{t('manageVendors')}</p>
+            <h1 className="text-2xl font-semibold text-text dark:text-text-dark">Users</h1>
+            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">Manage vendors and agents</p>
           </div>
           <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
             <LoadingButton
@@ -159,7 +164,7 @@ export default function Vendors() {
               className="dubai-button inline-flex items-center justify-center"
             >
               <Plus className="h-4 w-4 mr-2" />
-              {t('addVendor')}
+              Add User
             </LoadingButton>
           </div>
         </div>
@@ -198,7 +203,7 @@ export default function Vendors() {
                       className="dubai-button"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      {t('addVendor')}
+                      Add User
                     </LoadingButton>
                   ) : undefined}
                 />
@@ -265,7 +270,7 @@ export default function Vendors() {
           <div className="modal-overlay">
             <div className="modal-content">
               <h3 className="text-lg font-bold text-text dark:text-text-dark mb-4">
-                {editingVendor ? t('edit') + ' ' + t('vendor') : t('addVendor')}
+                {editingVendor ? 'Edit User' : 'Add User'}
               </h3>
               {optimisticLoading ? (
                 <FormSkeleton fields={5} />
@@ -302,6 +307,22 @@ export default function Vendors() {
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                   />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    required={!editingVendor}
+                    className="form-input"
+                    value={formData.password || ''}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  />
+                  <select
+                    className="form-select"
+                    value={formData.role || 'vendor'}
+                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  >
+                    <option value="vendor">{t('vendor')}</option>
+                    <option value="agent">{t('agent')}</option>
+                  </select>
                   <select
                     className="form-select"
                     value={formData.status}
@@ -316,7 +337,7 @@ export default function Vendors() {
                       onClick={() => {
                         setShowModal(false)
                         setEditingVendor(null)
-                        setFormData({ name: '', companyName: '', phone: '', email: '', address: '', bankDetails: '', status: 'active' })
+                        setFormData({ name: '', companyName: '', phone: '', email: '', password: '', role: 'vendor', address: '', bankDetails: '', status: 'active' })
                       }}
                       variant="secondary"
                     >
@@ -327,7 +348,7 @@ export default function Vendors() {
                       loading={optimisticLoading}
                       variant="primary"
                     >
-                      {editingVendor ? t('update') : t('addVendor')}
+                      {editingVendor ? 'Update User' : 'Add User'}
                     </LoadingButton>
                   </div>
                 </form>

@@ -4,6 +4,7 @@ import Transaction from '@/models/Transaction'
 import User from '@/models/User'
 import Client from '@/models/Client'
 import jwt from 'jsonwebtoken'
+import { getCurrentUserId, addAuditFields } from '@/lib/audit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,6 +32,8 @@ export async function GET(request: NextRequest) {
       .populate('vendorId', 'name email')
       .populate('agentId', 'name email')
       .populate('clientId', 'name businessType')
+      .populate('createdBy', 'name')
+      .populate('updatedBy', 'name')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -52,7 +55,13 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB()
     
+    const token = request.cookies.get('token')?.value
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
     const {
+      type,
       posId,
       vendorId,
       agentId,
@@ -63,30 +72,36 @@ export async function POST(request: NextRequest) {
       metadata
     } = await request.json()
     
-    // Calculate commissions
-    const client = await Client.findById(clientId)
-    const commission = (amount * client.commissionRate) / 100
-    const agentCommission = commission * 0.6 // 60% to agent
-    const vendorCommission = commission * 0.4 // 40% to vendor
+    const transactionId = `${type?.toUpperCase() || 'TXN'}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
     
-    const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
+    const currentUserId = getCurrentUserId(request)
     
-    const transaction = new Transaction({
+    const transactionData: any = addAuditFields({
       transactionId,
+      type: type || 'transaction',
       posId,
       vendorId,
       agentId,
       clientId,
-      amount,
-      commission,
-      agentCommission,
-      vendorCommission,
+      amount: parseFloat(amount),
       paymentMethod,
       description,
       metadata,
       status: 'completed'
-    })
+    }, currentUserId)
     
+    // Calculate commissions only if client exists
+    if (clientId) {
+      const client = await Client.findById(clientId)
+      if (client) {
+        const commission = (amount * client.commissionRate) / 100
+        transactionData.commission = commission
+        transactionData.agentCommission = commission * 0.6
+        transactionData.vendorCommission = commission * 0.4
+      }
+    }
+    
+    const transaction = new Transaction(transactionData)
     await transaction.save()
     
     return NextResponse.json({ 
@@ -94,6 +109,10 @@ export async function POST(request: NextRequest) {
       transaction
     })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
+    console.error('Transaction creation error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to create transaction',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }

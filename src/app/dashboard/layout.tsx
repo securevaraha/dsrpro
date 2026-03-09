@@ -148,49 +148,51 @@ export default function DashboardLayout({
 
       <div className="flex flex-col w-0 flex-1 overflow-hidden bg-background dark:bg-background-dark">
         {/* Header */}
-        <div className="sticky top-0 z-10 h-16 bg-white dark:bg-gray-800 border-b border-border dark:border-border-dark flex items-center justify-between px-4 sm:px-6 shadow-sm">
+        <div className="sticky top-0 z-10 h-14 sm:h-16 bg-white dark:bg-gray-800 border-b border-border dark:border-border-dark flex items-center justify-between px-3 sm:px-6 shadow-sm">
           <div className="flex items-center min-w-0 flex-1">
             <button
-              className="md:hidden -ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-card text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+              className="md:hidden -ml-0.5 -mt-0.5 h-10 w-10 inline-flex items-center justify-center rounded-card text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
               onClick={() => setSidebarOpen(true)}
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-lg sm:text-xl font-semibold text-text dark:text-text-dark ml-2 md:ml-0 truncate">
-              {t('receiptPaymentManagement')}
+            <h1 className="text-base sm:text-lg md:text-xl font-semibold text-text dark:text-text-dark ml-2 md:ml-0 truncate">
+              DSR Pro
             </h1>
           </div>
           
-          <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+          <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4 flex-shrink-0">
             <div className="hidden sm:block">
               <LanguageDropdown />
             </div>
             
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-card bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="p-1.5 sm:p-2 rounded-card bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               {theme === 'light' ? 
-                <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" /> : 
-                <Sun className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300" /> : 
+                <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300" />
               }
             </button>
             
-            <NotificationDropdown />
+            <div className="hidden sm:block">
+              <NotificationDropdown />
+            </div>
             
             <UserProfileDropdown userRole="admin" userName={t('superAdmin')} />
           </div>
         </div>
         
         <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none bg-background dark:bg-background-dark">
-          <div className="p-4 sm:p-6 min-h-full bg-background dark:bg-background-dark">
+          <div className="p-3 sm:p-4 md:p-6 min-h-full bg-background dark:bg-background-dark">
             {children}
           </div>
         </main>
         
         {/* Footer */}
-        <footer className="sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t border-border dark:border-border-dark px-4 sm:px-6 py-4 shadow-sm">
-          <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+        <footer className="sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t border-border dark:border-border-dark px-3 sm:px-6 py-2 sm:py-4 shadow-sm">
+          <div className="text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">
             {t('copyright')}
           </div>
         </footer>

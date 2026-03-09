@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb'
 import User from '@/models/User'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { getCurrentUserId, addAuditFields } from '@/lib/audit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,17 +49,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
     
-    const { name, email, phone, role, companyName, address, bankDetails } = await request.json()
+    const { name, email, phone, role, companyName, address, bankDetails, password } = await request.json()
     
     const existingUser = await User.findOne({ email })
     if (existingUser) {
       return NextResponse.json({ error: 'User already exists' }, { status: 400 })
     }
     
-    const tempPassword = Math.random().toString(36).slice(-8)
-    const hashedPassword = await bcrypt.hash(tempPassword, 12)
+    const userPassword = password || Math.random().toString(36).slice(-8)
+    const hashedPassword = await bcrypt.hash(userPassword, 12)
     
-    const user = new User({
+    const currentUserId = getCurrentUserId(request)
+    const userData = addAuditFields({
       name,
       email,
       phone,
@@ -68,14 +70,16 @@ export async function POST(request: NextRequest) {
       bankDetails,
       password: hashedPassword,
       status: 'active'
-    })
+    }, currentUserId)
+    
+    const user = new User(userData)
     
     await user.save()
     
     return NextResponse.json({ 
       message: 'User created successfully',
       user: { ...user.toObject(), password: undefined },
-      tempPassword
+      tempPassword: password ? undefined : userPassword
     })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })

@@ -106,7 +106,11 @@ const translations = {
     total: 'Total',
     filter: 'Filter',
     sort: 'Sort',
-    refresh: 'Refresh'
+    noPaymentsFound: 'No Payments Found',
+    noPaymentsDescription: 'You haven\'t created any payments yet. Start by adding your first payment.',
+    addFirstPayment: 'Add First Payment',
+    paymentsReport: 'Payments Report',
+    getStarted: 'Get Started',
   },
   ar: {
     signIn: 'تسجيل الدخول',
@@ -204,7 +208,11 @@ const translations = {
     total: 'المجموع',
     filter: 'تصفية',
     sort: 'ترتيب',
-    refresh: 'تحديث'
+    noPaymentsFound: 'لم يتم العثور على مدفوعات',
+    noPaymentsDescription: 'لم تقم بإنشاء أي مدفوعات بعد. ابدأ بإضافة أول دفعة لك.',
+    addFirstPayment: 'إضافة أول دفعة',
+    paymentsReport: 'تقرير المدفوعات',
+    getStarted: 'ابدأ',
   },
   hi: {
     signIn: 'साइन इन',
@@ -302,7 +310,11 @@ const translations = {
     total: 'कुल',
     filter: 'फिल्टर',
     sort: 'सॉर्ट करें',
-    refresh: 'रिफ्रेश करें'
+    noPaymentsFound: 'कोई भुगतान नहीं मिला',
+    noPaymentsDescription: 'आपने अभी तक कोई भुगतान नहीं बनाया है। अपना पहला भुगतान जोड़कर शुरुआत करें।',
+    addFirstPayment: 'पहला भुगतान जोड़ें',
+    paymentsReport: 'भुगतान रिपोर्ट',
+    getStarted: 'शुरू करें',
   }
 }
 

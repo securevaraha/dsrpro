@@ -72,7 +72,7 @@
   }
   
   .modal-content {
-    @apply relative top-20 mx-auto p-6 border w-full max-w-md shadow-xl rounded-card dubai-card animate-in fade-in-0 zoom-in-95 duration-300;
+    @apply relative top-4 sm:top-20 mx-auto p-4 sm:p-6 border w-full max-w-md shadow-xl rounded-card dubai-card animate-in fade-in-0 zoom-in-95 duration-300;
   }
   
   .btn-secondary {

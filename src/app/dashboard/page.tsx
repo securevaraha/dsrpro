@@ -133,7 +133,7 @@ export default function Dashboard() {
                         {t('totalReceiptsToday')}
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        ₹{stats.totalReceipts.today.toLocaleString()}
+                        AED {stats.totalReceipts.today.toLocaleString()}
                       </dd>
                     </dl>
                   </div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
                         {t('totalPaymentsToday')}
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        ₹{stats.totalPayments.today.toLocaleString()}
+                        AED {stats.totalPayments.today.toLocaleString()}
                       </dd>
                     </dl>
                   </div>
@@ -169,7 +169,7 @@ export default function Dashboard() {
                         Total Commission
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        ₹{stats.totalCommission.toLocaleString()}
+                        AED {stats.totalCommission.toLocaleString()}
                       </dd>
                     </dl>
                   </div>
@@ -253,7 +253,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-success">
-                        ₹{transaction.amount.toLocaleString()}
+                      AED {transaction.amount.toLocaleString()}
                       </p>
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         transaction.status === 'completed' 
@@ -296,13 +296,13 @@ export default function Dashboard() {
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-500 dark:text-gray-400">Revenue (Month)</span>
                     <span className="text-sm font-medium text-success">
-                      ₹{stats.totalReceipts.month.toLocaleString()}
+                      AED {stats.totalReceipts.month.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-border dark:border-border-dark pt-4">
                     <span className="text-sm font-medium text-text dark:text-text-dark">Net Commission</span>
                     <span className="text-sm font-medium text-primary">
-                      ₹{stats.totalCommission.toLocaleString()}
+                      AED {stats.totalCommission.toLocaleString()}
                     </span>
                   </div>
                 </>

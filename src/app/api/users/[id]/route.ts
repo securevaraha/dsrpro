@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import User from '@/models/User'
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { getCurrentUserId, addAuditFields } from '@/lib/audit'
 
@@ -15,25 +16,32 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     
     const updateData = await request.json()
     
+    // Hash password if provided
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 12)
+    } else {
+      delete updateData.password
+    }
+    
     const currentUserId = getCurrentUserId(request)
     const auditedData = addAuditFields(updateData, currentUserId, true)
     
-    const transaction = await Transaction.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       params.id,
       auditedData,
       { new: true }
-    )
+    ).select('-password')
     
-    if (!transaction) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
     
     return NextResponse.json({ 
-      message: 'Transaction updated successfully',
-      transaction
+      message: 'User updated successfully',
+      user
     })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
   }
 }
 
@@ -46,16 +54,16 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    const transaction = await Transaction.findByIdAndDelete(params.id)
+    const user = await User.findByIdAndDelete(params.id)
     
-    if (!transaction) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
     
     return NextResponse.json({ 
-      message: 'Transaction deleted successfully'
+      message: 'User deleted successfully'
     })
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete transaction' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
   }
 }

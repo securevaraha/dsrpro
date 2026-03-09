@@ -1,40 +1,105 @@
 'use client'
-import { useState } from 'react'
-import { User, Bell, Shield, Globe, Palette, Save, History } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Save, User, Bell, Shield, Globe, Palette, Moon, Sun } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { useTheme } from '@/components/ThemeProvider'
-import { toast } from 'react-hot-toast'
-import SessionHistory from '@/components/SessionHistory'
 
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage()
-  const { theme, setTheme } = useTheme()
+  const { theme, toggleTheme } = useTheme()
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
+  const [profileData, setProfileData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    address: ''
+  })
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    pushNotifications: true,
+    smsNotifications: false,
+    weeklyReports: true
+  })
+
+  useEffect(() => {
+    fetchUserProfile()
+  }, [])
+
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch('/api/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setProfileData(data.user)
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error)
+    }
+  }
+
+  const saveProfile = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData)
+      })
+      
+      if (response.ok) {
+        toast.success('Profile updated successfully')
+      } else {
+        throw new Error('Failed to update profile')
+      }
+    } catch (error) {
+      toast.error('Failed to update profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveNotifications = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/notifications/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notificationSettings)
+      })
+      
+      if (response.ok) {
+        toast.success('Notification settings updated')
+      } else {
+        throw new Error('Failed to update notifications')
+      }
+    } catch (error) {
+      toast.error('Failed to update notification settings')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const tabs = [
-    { id: 'profile', name: t('profile'), icon: User },
-    { id: 'notifications', name: t('notifications'), icon: Bell },
-    { id: 'security', name: t('security'), icon: Shield },
-    { id: 'sessions', name: 'Sessions', icon: History },
-    { id: 'preferences', name: 'Preferences', icon: Globe },
+    { id: 'profile', label: t('profile'), icon: User },
+    { id: 'notifications', label: t('notifications'), icon: Bell },
+    { id: 'security', label: t('security'), icon: Shield },
+    { id: 'appearance', label: 'Appearance', icon: Palette },
+    { id: 'language', label: t('language'), icon: Globe }
   ]
-
-  const handleSave = () => {
-    toast.success(t('save') + ' successful')
-  }
 
   return (
     <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-text dark:text-text-dark">{t('settings')}</h1>
-          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{t('systemSettings')}</p>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-text dark:text-text-dark">{t('settings')}</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t('systemSettings')}</p>
       </div>
 
-      <div className="mt-8 flex flex-col lg:flex-row gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
-        <div className="lg:w-64">
+        <div className="lg:col-span-1">
           <nav className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -45,11 +110,11 @@ export default function Settings() {
                   className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-card transition-colors ${
                     activeTab === tab.id
                       ? 'bg-primary text-white'
-                      : 'text-text dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {tab.name}
+                  <Icon className="h-5 w-5 mr-3" />
+                  {tab.label}
                 </button>
               )
             })}
@@ -57,167 +122,273 @@ export default function Settings() {
         </div>
 
         {/* Content */}
-        <div className="flex-1">
+        <div className="lg:col-span-3">
           <div className="dubai-card p-6">
             {activeTab === 'profile' && (
               <div>
-                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">{t('profile')}</h3>
+                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-6">{t('profile')}</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
-                      {t('fullName')}
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                      defaultValue="Admin User"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
+                        {t('name')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={profileData.name}
+                        onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
+                        {t('email')}
+                      </label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={profileData.email}
+                        onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
+                        {t('phoneNumber')}
+                      </label>
+                      <input
+                        type="tel"
+                        className="form-input"
+                        value={profileData.phone}
+                        onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
+                        {t('companyName')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={profileData.companyName}
+                        onChange={(e) => setProfileData({...profileData, companyName: e.target.value})}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
-                      {t('email')}
+                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
+                      Address
                     </label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                      defaultValue="admin@dsrpro.com"
+                    <textarea
+                      className="form-input"
+                      rows={3}
+                      value={profileData.address}
+                      onChange={(e) => setProfileData({...profileData, address: e.target.value})}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
-                      {t('phoneNumber')}
-                    </label>
-                    <input
-                      type="tel"
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                      defaultValue="+971 50 123 4567"
-                    />
-                  </div>
+                  <button
+                    onClick={saveProfile}
+                    disabled={loading}
+                    className="dubai-button flex items-center"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {loading ? 'Saving...' : t('save')}
+                  </button>
                 </div>
               </div>
             )}
 
             {activeTab === 'notifications' && (
               <div>
-                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">{t('notifications')}</h3>
+                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-6">{t('notifications')}</h3>
                 <div className="space-y-4">
-                  <label className="flex items-center">
-                    <input type="checkbox" className="mr-3" defaultChecked />
-                    <span className="text-text dark:text-text-dark">Email notifications</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="mr-3" defaultChecked />
-                    <span className="text-text dark:text-text-dark">SMS notifications</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="mr-3" />
-                    <span className="text-text dark:text-text-dark">Push notifications</span>
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-text dark:text-text-dark">Email Notifications</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Receive notifications via email</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={notificationSettings.emailNotifications}
+                        onChange={(e) => setNotificationSettings({
+                          ...notificationSettings,
+                          emailNotifications: e.target.checked
+                        })}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 dark:peer-focus:ring-primary/25 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-text dark:text-text-dark">Push Notifications</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Receive push notifications</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={notificationSettings.pushNotifications}
+                        onChange={(e) => setNotificationSettings({
+                          ...notificationSettings,
+                          pushNotifications: e.target.checked
+                        })}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 dark:peer-focus:ring-primary/25 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-text dark:text-text-dark">Weekly Reports</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Receive weekly summary reports</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={notificationSettings.weeklyReports}
+                        onChange={(e) => setNotificationSettings({
+                          ...notificationSettings,
+                          weeklyReports: e.target.checked
+                        })}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 dark:peer-focus:ring-primary/25 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  <button
+                    onClick={saveNotifications}
+                    disabled={loading}
+                    className="dubai-button flex items-center"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {loading ? 'Saving...' : t('save')}
+                  </button>
                 </div>
               </div>
             )}
 
-            {activeTab === 'security' && (
+            {activeTab === 'appearance' && (
               <div>
-                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">{t('security')}</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
-                      Current {t('password')}
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
-                      New {t('password')}
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
-                      Confirm New {t('password')}
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'sessions' && (
-              <SessionHistory />
-            )}
-
-            {activeTab === 'preferences' && (
-              <div>
-                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">Preferences</h3>
+                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-6">Appearance</h3>
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
-                      <Globe className="inline h-4 w-4 mr-1" />
-                      {t('language')}
-                    </label>
-                    <select
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark"
-                    >
-                      <option value="en">English</option>
-                      <option value="ar">العربية</option>
-                      <option value="hi">हिंदी</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-2">
-                      <Palette className="inline h-4 w-4 mr-1" />
-                      {t('theme')}
-                    </label>
+                    <h4 className="text-sm font-medium text-text dark:text-text-dark mb-4">{t('theme')}</h4>
                     <div className="flex space-x-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="theme"
-                          value="light"
-                          checked={theme === 'light'}
-                          onChange={(e) => setTheme(e.target.value as any)}
-                          className="mr-2"
-                        />
-                        <span className="text-text dark:text-text-dark">{t('lightMode')}</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="theme"
-                          value="dark"
-                          checked={theme === 'dark'}
-                          onChange={(e) => setTheme(e.target.value as any)}
-                          className="mr-2"
-                        />
-                        <span className="text-text dark:text-text-dark">{t('darkMode')}</span>
-                      </label>
+                      <button
+                        onClick={() => theme !== 'light' && toggleTheme()}
+                        className={`flex items-center p-4 rounded-card border-2 transition-colors ${
+                          theme === 'light'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border dark:border-border-dark hover:border-primary/50'
+                        }`}
+                      >
+                        <Sun className="h-6 w-6 mr-3" />
+                        <div className="text-left">
+                          <div className="font-medium text-text dark:text-text-dark">{t('lightMode')}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">Clean and bright interface</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => theme !== 'dark' && toggleTheme()}
+                        className={`flex items-center p-4 rounded-card border-2 transition-colors ${
+                          theme === 'dark'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border dark:border-border-dark hover:border-primary/50'
+                        }`}
+                      >
+                        <Moon className="h-6 w-6 mr-3" />
+                        <div className="text-left">
+                          <div className="font-medium text-text dark:text-text-dark">{t('darkMode')}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">Easy on the eyes</div>
+                        </div>
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={handleSave}
-                className="dubai-button inline-flex items-center"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {t('save')}
-              </button>
-            </div>
+            {activeTab === 'language' && (
+              <div>
+                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-6">{t('language')}</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => setLanguage('en')}
+                      className={`p-4 rounded-card border-2 text-left transition-colors ${
+                        language === 'en'
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border dark:border-border-dark hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-text dark:text-text-dark">English</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">Default language</div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setLanguage('ar')}
+                      className={`p-4 rounded-card border-2 text-left transition-colors ${
+                        language === 'ar'
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border dark:border-border-dark hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-text dark:text-text-dark">العربية</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">Arabic language</div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setLanguage('hi')}
+                      className={`p-4 rounded-card border-2 text-left transition-colors ${
+                        language === 'hi'
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border dark:border-border-dark hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-text dark:text-text-dark">हिंदी</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">Hindi language</div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'security' && (
+              <div>
+                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-6">{t('security')}</h3>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-text dark:text-text-dark mb-4">Change Password</h4>
+                    <div className="space-y-4 max-w-md">
+                      <input
+                        type="password"
+                        placeholder="Current Password"
+                        className="form-input"
+                      />
+                      <input
+                        type="password"
+                        placeholder="New Password"
+                        className="form-input"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Confirm New Password"
+                        className="form-input"
+                      />
+                      <button className="dubai-button">
+                        Update Password
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
