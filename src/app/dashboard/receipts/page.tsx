@@ -28,7 +28,7 @@ export default function Receipts() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [formData, setFormData] = useState({
     receiptNumber: '',
-    date: '',
+    date: format(new Date(), 'dd-MMM-yyyy'),
     paymentMethod: 'cash' as 'cash' | 'bank' | 'upi' | 'card',
     amount: '',
     description: '',
@@ -107,7 +107,7 @@ export default function Receipts() {
     setEditingReceipt(receipt)
     setFormData({
       receiptNumber: receipt.receiptNumber,
-      date: format(new Date(receipt.date), 'yyyy-MM-dd'),
+      date: format(new Date(receipt.date), 'dd-MMM-yyyy'),
       paymentMethod: receipt.paymentMethod,
       amount: receipt.amount.toString(),
       description: receipt.description
@@ -137,7 +137,7 @@ export default function Receipts() {
   }
 
   const resetForm = () => {
-    setFormData({ receiptNumber: '', date: '', paymentMethod: 'cash', amount: '', description: '' })
+    setFormData({ receiptNumber: '', date: format(new Date(), 'dd-MMM-yyyy'), paymentMethod: 'cash', amount: '', description: '' })
     setEditingReceipt(null)
   }
 
@@ -248,24 +248,24 @@ export default function Receipts() {
                 <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
                   <thead className="table-header">
                     <tr>
-                      <th className="table-cell font-medium uppercase tracking-wider">{t('receiptNumber')}</th>
-                      <th className="table-cell font-medium uppercase tracking-wider">{t('date')}</th>
-                      <th className="table-cell font-medium uppercase tracking-wider">{t('paymentMethod')}</th>
-                      <th className="table-cell font-medium uppercase tracking-wider">{t('amount')}</th>
-                      <th className="table-cell font-medium uppercase tracking-wider">{t('description')}</th>
-                      <th className="table-cell font-medium uppercase tracking-wider">{t('actions')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('receiptNumber')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('date')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('paymentMethod')}</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                     {filteredReceipts.map((receipt) => (
                       <tr key={receipt._id} className="table-row">
-                        <td className="table-cell font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {receipt.receiptNumber}
                         </td>
-                        <td className="table-cell">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           {format(new Date(receipt.date), 'dd-MMM-yyyy')}
                         </td>
-                        <td className="table-cell">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             receipt.paymentMethod === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                             receipt.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
@@ -275,17 +275,17 @@ export default function Receipts() {
                             {receipt.paymentMethod.toUpperCase()}
                           </span>
                         </td>
-                        <td className="table-cell font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-gray-100">
                           AED {receipt.amount.toLocaleString()}
                         </td>
-                        <td className="table-cell">
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                           {receipt.description}
                         </td>
-                        <td className="table-cell">
-                          <div className="flex space-x-2">
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                          <div className="flex justify-center space-x-2">
                             <button
                               onClick={() => handleEdit(receipt)}
-                              className="text-primary hover:text-accent transition-colors"
+                              className="text-primary hover:text-accent transition-colors p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
                               title={t('edit')}
                             >
                               <Edit className="h-4 w-4" />
@@ -295,7 +295,7 @@ export default function Receipts() {
                                 setDeletingReceipt(receipt)
                                 setShowDeleteDialog(true)
                               }}
-                              className="text-danger hover:text-red-700 transition-colors"
+                              className="text-danger hover:text-red-700 transition-colors p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
                               title={t('delete')}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -320,46 +320,62 @@ export default function Receipts() {
               {editingReceipt ? 'Edit Receipt' : t('addReceipt')}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder={t('receiptNumber')}
-                required
-                className="form-input bg-gray-100 dark:bg-gray-600"
-                value={formData.receiptNumber}
-                readOnly
-              />
-              <input
-                type="date"
-                required
-                className="form-input"
-                value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
-              />
-              <select
-                className="form-select"
-                value={formData.paymentMethod}
-                onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
-              >
-                <option value="cash">Cash</option>
-                <option value="bank">Bank Transfer</option>
-                <option value="upi">UPI</option>
-                <option value="card">Card</option>
-              </select>
-              <input
-                type="number"
-                placeholder={t('amount')}
-                required
-                className="form-input"
-                value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
-              />
-              <textarea
-                placeholder={t('description')}
-                required
-                className="form-input"
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('receiptNumber')}</label>
+                <input
+                  type="text"
+                  placeholder={t('receiptNumber')}
+                  required
+                  className="form-input bg-gray-100 dark:bg-gray-600"
+                  value={formData.receiptNumber}
+                  readOnly
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('date')}</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={formData.date}
+                  placeholder="dd-MMM-yyyy"
+                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('paymentMethod')}</label>
+                <select
+                  className="form-select"
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank Transfer</option>
+                  <option value="upi">UPI</option>
+                  <option value="card">Card</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('amount')}</label>
+                <input
+                  type="number"
+                  placeholder={t('amount')}
+                  required
+                  className="form-input"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('description')}</label>
+                <textarea
+                  placeholder={t('description')}
+                  required
+                  className="form-input"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
               <div className="flex justify-end space-x-2">
                 <button
                   type="button"

@@ -29,7 +29,7 @@ export default function Payments() {
   const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null)
   const [formData, setFormData] = useState({
     paymentNumber: '',
-    date: '',
+    date: format(new Date(), 'dd-MMM-yyyy'),
     vendorId: '',
     paymentMethod: 'cash' as 'cash' | 'bank' | 'upi' | 'card',
     bankAccount: '',
@@ -37,14 +37,24 @@ export default function Payments() {
     description: '',
   })
 
-  const vendors = [
-    { _id: '1', name: 'ABC Corp' },
-    { _id: '2', name: 'XYZ Ltd' },
-  ]
+  const [vendors, setVendors] = useState<{_id: string, name: string}[]>([])
 
   useEffect(() => {
     fetchPayments()
+    fetchVendors()
   }, [])
+
+  const fetchVendors = async () => {
+    try {
+      const response = await fetch('/api/users?role=vendor')
+      if (response.ok) {
+        const data = await response.json()
+        setVendors(data.users || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch vendors:', error)
+    }
+  }
 
   const fetchPayments = async () => {
     try {
@@ -111,7 +121,7 @@ export default function Payments() {
     setEditingPayment(payment)
     setFormData({
       paymentNumber: payment.paymentNumber,
-      date: format(new Date(payment.date), 'yyyy-MM-dd'),
+      date: format(new Date(payment.date), 'dd-MMM-yyyy'),
       vendorId: '1',
       paymentMethod: payment.paymentMethod,
       bankAccount: '',
@@ -145,7 +155,7 @@ export default function Payments() {
   const resetForm = () => {
     setFormData({ 
       paymentNumber: '', 
-      date: '', 
+      date: format(new Date(), 'dd-MMM-yyyy'), 
       vendorId: '', 
       paymentMethod: 'cash', 
       bankAccount: '', 
@@ -327,66 +337,88 @@ export default function Payments() {
               {editingPayment ? 'Edit Payment' : t('addPayment')}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder={t('paymentId')}
-                required
-                className="form-input bg-gray-100 dark:bg-gray-600"
-                value={formData.paymentNumber}
-                readOnly
-              />
-              <input
-                type="date"
-                required
-                className="form-input"
-                value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
-              />
-              <select
-                required
-                className="form-select"
-                value={formData.vendorId}
-                onChange={(e) => setFormData({...formData, vendorId: e.target.value})}
-              >
-                <option value="">Select {t('vendor')}</option>
-                {vendors.map(vendor => (
-                  <option key={vendor._id} value={vendor._id}>{vendor.name}</option>
-                ))}
-              </select>
-              <select
-                className="form-select"
-                value={formData.paymentMethod}
-                onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
-              >
-                <option value="cash">Cash</option>
-                <option value="bank">Bank Transfer</option>
-                <option value="upi">UPI</option>
-                <option value="card">Card</option>
-              </select>
-              {formData.paymentMethod === 'bank' && (
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('paymentId')}</label>
                 <input
                   type="text"
-                  placeholder="Bank Account"
-                  className="form-input"
-                  value={formData.bankAccount}
-                  onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
+                  placeholder={t('paymentId')}
+                  required
+                  className="form-input bg-gray-100 dark:bg-gray-600"
+                  value={formData.paymentNumber}
+                  readOnly
                 />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('date')}</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={formData.date}
+                  placeholder="dd-MMM-yyyy"
+                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('vendor')}</label>
+                <select
+                  required
+                  className="form-select"
+                  value={formData.vendorId}
+                  onChange={(e) => setFormData({...formData, vendorId: e.target.value})}
+                >
+                  <option value="">Select {t('vendor')}</option>
+                  {vendors.map(vendor => (
+                    <option key={vendor._id} value={vendor._id}>{vendor.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('paymentMethod')}</label>
+                <select
+                  className="form-select"
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank Transfer</option>
+                  <option value="upi">UPI</option>
+                  <option value="card">Card</option>
+                </select>
+              </div>
+              {formData.paymentMethod === 'bank' && (
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Bank Account</label>
+                  <input
+                    type="text"
+                    placeholder="Bank Account"
+                    className="form-input"
+                    value={formData.bankAccount}
+                    onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
+                  />
+                </div>
               )}
-              <input
-                type="number"
-                placeholder={t('amount')}
-                required
-                className="form-input"
-                value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
-              />
-              <textarea
-                placeholder={t('description')}
-                required
-                className="form-input min-h-[80px]"
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('amount')}</label>
+                <input
+                  type="number"
+                  placeholder={t('amount')}
+                  required
+                  className="form-input"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('description')}</label>
+                <textarea
+                  placeholder={t('description')}
+                  required
+                  className="form-input min-h-[80px]"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
               <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
                 <button
                   type="button"

@@ -153,6 +153,8 @@ const translations = {
     contactInfo: 'Contact',
     dubaiUAE: 'Dubai, UAE',
     uaeLeadingERP: 'UAE\'s leading ERP solution for modern businesses.',
+    confirmDelete: 'Are you sure you want to delete',
+    actionCannotBeUndone: 'This action cannot be undone.',
   },
   ar: {
     signIn: 'تسجيل الدخول',
@@ -256,6 +258,8 @@ const translations = {
     paymentsReport: 'تقرير المدفوعات',
     getStarted: 'ابدأ',
     settlements: 'التسويات',
+    confirmDelete: 'هل أنت متأكد من أنك تريد حذف',
+    actionCannotBeUndone: 'لا يمكن التراجع عن هذا الإجراء.',
   },
   hi: {
     signIn: 'साइन इन',
@@ -359,6 +363,8 @@ const translations = {
     paymentsReport: 'भुगतान रिपोर्ट',
     getStarted: 'शुरू करें',
     settlements: 'सेटलमेंट्स',
+    confirmDelete: 'क्या आप वाकई हटाना चाहते हैं',
+    actionCannotBeUndone: 'यह क्रिया पूर्ववत नहीं की जा सकती।',
   }
 }
 

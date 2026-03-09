@@ -69,9 +69,9 @@ export default function Vendors() {
   }
 
   const filteredVendors = vendors.filter(vendor =>
-    vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.email.toLowerCase().includes(searchTerm.toLowerCase())
+    vendor.email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,8 +135,7 @@ export default function Vendors() {
   }
 
   const handleDelete = async (vendor: Vendor) => {
-    const confirmed = window.confirm(`Are you sure you want to delete ${vendor.name}? This action cannot be undone.`)
-    if (confirmed) {
+    if (window.confirm(`${t('confirmDelete')} ${vendor.name}? ${t('actionCannotBeUndone')}`)) {
       await optimisticDelete(
         vendor._id,
         async () => {
