@@ -179,8 +179,8 @@ export default function AdminUsers() {
         </select>
       </div>
 
-      {/* Users Table */}
-      <div className="mt-8 flex flex-col">
+      {/* Users Table - Desktop */}
+      <div className="mt-8 hidden md:block">
         <div className="overflow-x-auto">
           <div className="inline-block min-w-full py-2 align-middle">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 dark:ring-gray-600 md:rounded-lg">
@@ -247,6 +247,94 @@ export default function AdminUsers() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Users Cards - Mobile */}
+      <div className="mt-8 md:hidden">
+        {filteredUsers.length === 0 ? (
+          <div className="text-center py-12">
+            <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-text dark:text-text-dark mb-2">No users found</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              {searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first user'}
+            </p>
+            {!searchTerm && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="dubai-button"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredUsers.map((user) => (
+              <div key={user._id} className="dubai-card p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-medium text-text dark:text-text-dark">{user.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      user.role === 'agent' 
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                    }`}>
+                      {user.role}
+                    </span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      user.status === 'active' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    }`}>
+                      {t(user.status)}
+                    </span>
+                  </div>
+                </div>
+                
+                {user.companyName && (
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('companyName')}</p>
+                    <p className="text-sm text-text dark:text-text-dark">{user.companyName}</p>
+                  </div>
+                )}
+                
+                <div className="mb-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Phone</p>
+                  <p className="text-sm text-text dark:text-text-dark">{user.phone}</p>
+                </div>
+                
+                <div className="flex justify-between items-center pt-3 border-t border-border dark:border-border-dark">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Created: {new Date(user.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => handleEdit(user)}
+                      className="text-primary hover:text-accent transition-colors p-2" 
+                      title={t('edit')}
+                    >
+                      <Edit className="h-5 w-5" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setDeletingUser(user)
+                        setShowDeleteDialog(true)
+                      }}
+                      className="text-danger hover:text-red-700 transition-colors p-2" 
+                      title={t('delete')}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Add User Modal */}

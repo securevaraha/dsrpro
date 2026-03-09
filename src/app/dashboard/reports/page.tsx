@@ -136,8 +136,8 @@ export default function Reports() {
         )}
       </div>
 
-      {/* Report Content */}
-      <div className="mt-8">
+      {/* Reports Table - Desktop */}
+      <div className="mt-8 hidden md:block">
         {loading ? (
           <div className="space-y-6">
             <ChartSkeleton />
@@ -243,6 +243,96 @@ export default function Reports() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-text dark:text-text-dark mb-2">No Report Data</h3>
+            <p className="text-gray-500 dark:text-gray-400">
+              Select different criteria to generate reports
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Reports Cards - Mobile */}
+      <div className="mt-8 md:hidden">
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="dubai-card p-4 animate-pulse">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded mb-2 w-3/4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : reportData ? (
+          <div className="space-y-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="dubai-card p-4">
+                <div className="flex items-center">
+                  <TrendingUp className="h-6 w-6 text-success mr-3" />
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
+                    <p className="text-lg font-bold text-text dark:text-text-dark">
+                      AED {reportData.totalRevenue?.toLocaleString() || '0'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="dubai-card p-4">
+                <div className="flex items-center">
+                  <Calendar className="h-6 w-6 text-primary mr-3" />
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Transactions</p>
+                    <p className="text-lg font-bold text-text dark:text-text-dark">
+                      {reportData.totalTransactions || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Transaction Cards */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-text dark:text-text-dark">
+                {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Details
+              </h3>
+              {reportData.items?.length > 0 ? (
+                reportData.items.map((item: any, index: number) => (
+                  <div key={index} className="dubai-card p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-text dark:text-text-dark">{item.description}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {format(new Date(item.date), 'dd-MMM-yyyy')}
+                        </p>
+                      </div>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        item.status === 'completed' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-primary">
+                        AED {item.amount?.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400">No data available</p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
