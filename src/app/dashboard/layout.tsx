@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  User
+  User,
+  Calculator
 } from 'lucide-react'
 import { useSessionManager } from '@/hooks/useSessionManager'
 import LanguageDropdown from '@/components/LanguageDropdown'
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'vendors', href: '/dashboard/vendors', icon: Users },
   { name: 'receipts', href: '/dashboard/receipts', icon: Receipt },
   { name: 'payments', href: '/dashboard/payments', icon: CreditCard },
+  { name: 'settlements', href: '/dashboard/settlements', icon: Calculator },
   { name: 'reports', href: '/dashboard/reports', icon: FileText },
   { name: 'settings', href: '/dashboard/settings', icon: Settings },
 ]

@@ -75,13 +75,17 @@ export default function Receipts() {
       const method = editingReceipt ? 'PUT' : 'POST'
       const url = editingReceipt ? `/api/transactions/${editingReceipt._id}` : '/api/transactions'
       
-      const response = await fetch(url, {
-        method,
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'receipt',
-          ...formData,
-          amount: parseFloat(formData.amount)
+          amount: parseFloat(formData.amount),
+          paymentMethod: formData.paymentMethod,
+          description: formData.description,
+          metadata: {
+            receiptNumber: formData.receiptNumber
+          }
         })
       })
       

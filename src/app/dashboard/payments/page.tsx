@@ -78,13 +78,19 @@ export default function Payments() {
       const method = editingPayment ? 'PUT' : 'POST'
       const url = editingPayment ? `/api/transactions/${editingPayment._id}` : '/api/transactions'
       
-      const response = await fetch(url, {
-        method,
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'payment',
-          ...formData,
-          amount: parseFloat(formData.amount)
+          vendorId: formData.vendorId,
+          amount: parseFloat(formData.amount),
+          paymentMethod: formData.paymentMethod,
+          description: formData.description,
+          metadata: {
+            paymentNumber: formData.paymentNumber,
+            bankAccount: formData.bankAccount
+          }
         })
       })
       

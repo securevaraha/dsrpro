@@ -111,6 +111,7 @@ const translations = {
     addFirstPayment: 'Add First Payment',
     paymentsReport: 'Payments Report',
     getStarted: 'Get Started',
+    settlements: 'Settlements',
   },
   ar: {
     signIn: 'تسجيل الدخول',
@@ -213,6 +214,7 @@ const translations = {
     addFirstPayment: 'إضافة أول دفعة',
     paymentsReport: 'تقرير المدفوعات',
     getStarted: 'ابدأ',
+    settlements: 'التسويات',
   },
   hi: {
     signIn: 'साइन इन',
@@ -315,6 +317,7 @@ const translations = {
     addFirstPayment: 'पहला भुगतान जोड़ें',
     paymentsReport: 'भुगतान रिपोर्ट',
     getStarted: 'शुरू करें',
+    settlements: 'सेटलमेंट्स',
   }
 }
 

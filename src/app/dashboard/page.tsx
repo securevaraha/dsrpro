@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText } from 'lucide-react'
+import Link from 'next/link'
 import { useLanguage } from '@/components/LanguageProvider'
 import Chart from '@/components/Chart'
 import { CardSkeleton, ChartSkeleton } from '@/components/ui/skeleton'
@@ -221,6 +222,39 @@ export default function Dashboard() {
               </div>
             </>
           ) : null}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/dashboard/settlements" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
+            <div className="flex items-center">
+              <Calculator className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-text dark:text-text-dark">Merchant Settlements</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Track daily card sales like Excel</p>
+              </div>
+            </div>
+          </Link>
+          
+          <Link href="/dashboard/payments" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
+            <div className="flex items-center">
+              <CreditCard className="h-8 w-8 text-success group-hover:scale-110 transition-transform" />
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-text dark:text-text-dark">Quick Payment</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Record new payment</p>
+              </div>
+            </div>
+          </Link>
+          
+          <Link href="/dashboard/reports" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
+            <div className="flex items-center">
+              <FileText className="h-8 w-8 text-warning group-hover:scale-110 transition-transform" />
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-text dark:text-text-dark">Generate Reports</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Export settlement data</p>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Recent Transactions */}
