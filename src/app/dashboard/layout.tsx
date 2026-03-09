@@ -72,7 +72,7 @@ export default function DashboardLayout({
           <div className="flex-1 h-0 pt-6 pb-4 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center px-6">
               <div className="w-8 h-8 bg-dubai-gradient rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-sm">د</span>
+                <span className="text-white font-bold text-xs">DSR</span>
               </div>
               <h1 className="text-xl font-bold text-white">DSR Pro</h1>
             </div>
@@ -107,7 +107,7 @@ export default function DashboardLayout({
             <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
               <div className="flex items-center flex-shrink-0 px-6">
                 <div className="w-8 h-8 bg-dubai-gradient rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-white font-bold text-sm">د</span>
+                  <span className="text-white font-bold text-xs">DSR</span>
                 </div>
                 <h1 className="text-xl font-bold text-white">DSR Pro</h1>
               </div>

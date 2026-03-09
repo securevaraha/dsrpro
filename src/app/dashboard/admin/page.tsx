@@ -22,6 +22,9 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRole, setSelectedRole] = useState<'all' | 'agent' | 'vendor'>('all')
   const [showModal, setShowModal] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -71,8 +74,11 @@ export default function AdminUsers() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
+      const method = editingUser ? 'PUT' : 'POST'
+      const url = editingUser ? `/api/users/${editingUser._id}` : '/api/users'
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       })
@@ -80,16 +86,56 @@ export default function AdminUsers() {
       const data = await response.json()
       
       if (response.ok) {
-        toast.success(`${formData.role} created successfully. Temp password: ${data.tempPassword}`)
+        toast.success(editingUser ? 'User updated successfully' : `User created successfully. ${data.tempPassword ? `Temp password: ${data.tempPassword}` : ''}`)
         setShowModal(false)
-        setFormData({ name: '', email: '', phone: '', role: 'agent', companyName: '', address: '', bankDetails: '' })
+        resetForm()
         fetchUsers()
       } else {
-        toast.error(data.error || 'Failed to create user')
+        toast.error(data.error || 'Failed to save user')
       }
     } catch (error) {
-      toast.error('Failed to create user')
+      toast.error('Failed to save user')
     }
+  }
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user)
+    setFormData({
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      companyName: user.companyName || '',
+      address: '',
+      bankDetails: ''
+    })
+    setShowModal(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deletingUser) return
+    
+    try {
+      const response = await fetch(`/api/users/${deletingUser._id}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        toast.success('User deleted successfully')
+        setShowDeleteDialog(false)
+        setDeletingUser(null)
+        fetchUsers()
+      } else {
+        throw new Error('Failed to delete user')
+      }
+    } catch (error) {
+      toast.error('Failed to delete user')
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({ name: '', email: '', phone: '', role: 'agent', companyName: '', address: '', bankDetails: '' })
+    setEditingUser(null)
   }
 
   return (
@@ -175,10 +221,21 @@ export default function AdminUsers() {
                       </td>
                       <td className="table-cell">
                         <div className="flex space-x-2">
-                          <button className="text-primary hover:text-accent transition-colors" title={t('edit')}>
+                          <button 
+                            onClick={() => handleEdit(user)}
+                            className="text-primary hover:text-accent transition-colors" 
+                            title={t('edit')}
+                          >
                             <Edit className="h-4 w-4" />
                           </button>
-                          <button className="text-danger hover:text-red-700 transition-colors" title={t('delete')}>
+                          <button 
+                            onClick={() => {
+                              setDeletingUser(user)
+                              setShowDeleteDialog(true)
+                            }}
+                            className="text-danger hover:text-red-700 transition-colors" 
+                            title={t('delete')}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -196,7 +253,9 @@ export default function AdminUsers() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 className="text-lg font-bold text-text dark:text-text-dark mb-4">Add New User</h3>
+            <h3 className="text-lg font-bold text-text dark:text-text-dark mb-4">
+              {editingUser ? 'Edit User' : 'Add New User'}
+            </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
                 type="text"
@@ -242,17 +301,46 @@ export default function AdminUsers() {
                   type="button"
                   onClick={() => {
                     setShowModal(false)
-                    setFormData({ name: '', email: '', phone: '', role: 'agent', companyName: '', address: '', bankDetails: '' })
+                    resetForm()
                   }}
                   className="btn-secondary"
                 >
                   {t('cancel')}
                 </button>
                 <button type="submit" className="dubai-button px-4 py-2 text-sm">
-                  Create User
+                  {editingUser ? 'Update User' : 'Create User'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 className="text-lg font-bold text-text dark:text-text-dark mb-4">Confirm Delete</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete user <strong>{deletingUser?.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setDeletingUser(null)
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-card hover:bg-red-700 transition-colors"
+              >
+                Delete User
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -8,22 +8,22 @@ const transactionSchema = new mongoose.Schema({
   },
   posId: {
     type: String,
-    required: true
+    required: false
   },
   vendorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   agentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   clientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
-    required: true
+    required: false
   },
   amount: {
     type: Number,
@@ -43,7 +43,7 @@ const transactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['sale', 'refund', 'void'],
+    enum: ['sale', 'refund', 'void', 'payment', 'receipt'],
     default: 'sale'
   },
   status: {
