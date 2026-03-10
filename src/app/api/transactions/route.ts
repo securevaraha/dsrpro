@@ -3,30 +3,36 @@ import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import User from '@/models/User'
 import Client from '@/models/Client'
-import jwt from 'jsonwebtoken'
-import { getCurrentUserId, addAuditFields } from '@/lib/audit'
+import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
+import { addAuditFields } from '@/lib/audit'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
     
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100)
     const status = searchParams.get('status')
     const vendorId = searchParams.get('vendorId')
     const agentId = searchParams.get('agentId')
     
     let query: any = {}
     if (status) query.status = status
-    if (vendorId) query.vendorId = vendorId
-    if (agentId) query.agentId = agentId
+
+    // Scope data by role
+    if (auth.role === 'agent') {
+      query.agentId = auth.userId
+    } else if (auth.role === 'vendor') {
+      query.vendorId = auth.userId
+    } else {
+      // Admin can filter by vendorId/agentId
+      if (vendorId) query.vendorId = vendorId
+      if (agentId) query.agentId = agentId
+    }
     
     const transactions = await Transaction.find(query)
       .populate('vendorId', 'name email')
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
+      .limit(limit)
       .skip((page - 1) * limit)
     
     const total = await Transaction.countDocuments(query)
@@ -53,12 +59,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Only admin and agent can create transactions
+    const auth = requireRole(request, ['admin', 'agent'])
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
     
     const {
       type,
@@ -74,21 +79,22 @@ export async function POST(request: NextRequest) {
     
     const transactionId = `${type?.toUpperCase() || 'TXN'}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
     
-    const currentUserId = getCurrentUserId(request)
+    // Agents can only create transactions assigned to themselves
+    const effectiveAgentId = auth.role === 'agent' ? auth.userId : agentId
     
     const transactionData: any = addAuditFields({
       transactionId,
       type: type || 'transaction',
       posId,
       vendorId,
-      agentId,
+      agentId: effectiveAgentId,
       clientId,
       amount: parseFloat(amount),
       paymentMethod,
       description,
       metadata,
       status: 'completed'
-    }, currentUserId)
+    }, auth.userId)
     
     // Calculate commissions only if client exists
     if (clientId) {
@@ -110,9 +116,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Transaction creation error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to create transaction',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
   }
 }

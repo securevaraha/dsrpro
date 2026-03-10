@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText, Briefcase, Store, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { useLanguage } from '@/components/LanguageProvider'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import Chart from '@/components/Chart'
 import { CardSkeleton, ChartSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -34,6 +35,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { t } = useLanguage()
+  const { user } = useCurrentUser()
+  const role = user?.role || 'agent'
 
   useEffect(() => {
     fetchDashboardData()
@@ -109,10 +112,23 @@ export default function Dashboard() {
     <ErrorBoundary>
       <div>
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-text dark:text-text-dark">{t('dashboard')}</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {t('overviewSystem')}
-          </p>
+          <div className="flex items-center gap-3">
+            {role === 'admin' && <ShieldCheck className="h-7 w-7 text-primary" />}
+            {role === 'agent' && <Briefcase className="h-7 w-7 text-blue-600 dark:text-blue-400" />}
+            {role === 'vendor' && <Store className="h-7 w-7 text-purple-600 dark:text-purple-400" />}
+            <div>
+              <h1 className="text-2xl font-semibold text-text dark:text-text-dark">
+                {role === 'admin' ? 'Admin Dashboard' : role === 'agent' ? 'Agent Dashboard' : 'Vendor Dashboard'}
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {role === 'admin' 
+                  ? 'Complete system overview and management'
+                  : role === 'agent'
+                  ? 'Your transactions, receipts, and commission'
+                  : 'Your settlements, payments, and balance'}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -123,6 +139,7 @@ export default function Dashboard() {
             ))
           ) : stats ? (
             <>
+              {/* Card 1: Revenue / Sales Today */}
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -131,7 +148,7 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {t('totalReceiptsToday')}
+                        {role === 'vendor' ? 'Sales Today' : t('totalReceiptsToday')}
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
                         AED {stats.totalReceipts.today.toLocaleString()}
@@ -141,6 +158,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* Card 2: Payments / Pending */}
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -149,16 +167,17 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {t('totalPaymentsToday')}
+                        {role === 'vendor' ? 'Pending Balance' : t('totalPaymentsToday')}
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        AED {stats.totalPayments.today.toLocaleString()}
+                        AED {(role === 'vendor' ? stats.pendingPayments : stats.totalPayments.today).toLocaleString()}
                       </dd>
                     </dl>
                   </div>
                 </div>
               </div>
 
+              {/* Card 3: Commission / Monthly Revenue */}
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -167,28 +186,33 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        Total Commission
+                        {role === 'vendor' ? 'Monthly Revenue' : 'Commission Earned'}
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        AED {stats.totalCommission.toLocaleString()}
+                        AED {(role === 'vendor' ? stats.totalReceipts.month : stats.totalCommission).toLocaleString()}
                       </dd>
                     </dl>
                   </div>
                 </div>
               </div>
 
+              {/* Card 4: Vendors / Transactions */}
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <Users className="h-6 w-6 text-primary" />
+                    {role === 'vendor' ? (
+                      <CreditCard className="h-6 w-6 text-primary" />
+                    ) : (
+                      <Users className="h-6 w-6 text-primary" />
+                    )}
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {t('activeVendors')}
+                        {role === 'admin' ? t('activeVendors') : role === 'agent' ? 'Active Vendors' : 'Transactions'}
                       </dt>
                       <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        {stats.activeVendors}
+                        {role === 'vendor' ? stats.totalTransactions : stats.activeVendors}
                       </dd>
                     </dl>
                   </div>
@@ -224,34 +248,46 @@ export default function Dashboard() {
           ) : null}
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/dashboard/settlements" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
-            <div className="flex items-center">
-              <Calculator className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark">Merchant Settlements</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Track daily card sales like Excel</p>
+        {/* Quick Actions — role-aware */}
+        <div className={`mt-8 grid grid-cols-1 gap-6 ${role === 'vendor' ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
+          {(role === 'admin' || role === 'vendor') && (
+            <Link href="/dashboard/settlements" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
+              <div className="flex items-center">
+                <Calculator className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-text dark:text-text-dark">
+                    {role === 'vendor' ? 'My Settlements' : 'Merchant Settlements'}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {role === 'vendor' ? 'View your settlement records' : 'Track daily card sales like Excel'}
+                  </p>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          )}
           
-          <Link href="/dashboard/payments" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
-            <div className="flex items-center">
-              <CreditCard className="h-8 w-8 text-success group-hover:scale-110 transition-transform" />
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark">Quick Payment</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Record new payment</p>
+          {(role === 'admin' || role === 'agent') && (
+            <Link href="/dashboard/payments" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
+              <div className="flex items-center">
+                <CreditCard className="h-8 w-8 text-success group-hover:scale-110 transition-transform" />
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-text dark:text-text-dark">Quick Payment</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Record new payment</p>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          )}
           
           <Link href="/dashboard/reports" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
             <div className="flex items-center">
               <FileText className="h-8 w-8 text-warning group-hover:scale-110 transition-transform" />
               <div className="ml-4">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark">Generate Reports</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Export settlement data</p>
+                <h3 className="text-lg font-medium text-text dark:text-text-dark">
+                  {role === 'vendor' ? 'My Reports' : 'Generate Reports'}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {role === 'vendor' ? 'Download your settlement data' : 'Export settlement data'}
+                </p>
               </div>
             </div>
           </Link>

@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import { getUserSessions, endSession } from '@/lib/sessionManager'
-import jwt from 'jsonwebtoken'
+import Session from '@/models/Session'
+import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const sessions = await getUserSessions(decoded.userId)
+    const sessions = await getUserSessions(auth.userId)
     
     return NextResponse.json({ sessions })
   } catch (error) {
@@ -23,9 +20,25 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
     
     const { sessionId } = await request.json()
+    if (!sessionId || typeof sessionId !== 'string') {
+      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 })
+    }
+
+    // Verify the session belongs to the requesting user
+    const session = await Session.findOne({ sessionId })
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+    if (session.userId.toString() !== auth.userId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     await endSession(sessionId)
     
     return NextResponse.json({ message: 'Session ended successfully' })

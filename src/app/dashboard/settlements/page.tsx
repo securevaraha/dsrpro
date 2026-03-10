@@ -4,6 +4,7 @@ import { Plus, Calculator, TrendingUp, DollarSign } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
+import { RoleGuard } from '@/components/RoleGuard'
 
 export default function Settlements() {
   const { t } = useLanguage()
@@ -88,6 +89,7 @@ export default function Settlements() {
   }
 
   return (
+    <RoleGuard allowedRoles={['admin', 'vendor']}>
     <div>
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
@@ -251,5 +253,6 @@ export default function Settlements() {
         </div>
       )}
     </div>
+    </RoleGuard>
   )
 }

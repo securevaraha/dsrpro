@@ -13,9 +13,11 @@ import {
   Menu,
   X,
   User,
-  Calculator
+  Calculator,
+  Shield
 } from 'lucide-react'
 import { useSessionManager } from '@/hooks/useSessionManager'
+import { useCurrentUser, UserRole } from '@/hooks/useCurrentUser'
 import LanguageDropdown from '@/components/LanguageDropdown'
 import NotificationDropdown from '@/components/NotificationDropdown'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
@@ -23,14 +25,22 @@ import { useTheme } from '@/components/ThemeProvider'
 import { useLanguage } from '@/components/LanguageProvider'
 import { Moon, Sun } from 'lucide-react'
 
-const navigation = [
-  { name: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'vendors', href: '/dashboard/vendors', icon: Users },
-  { name: 'receipts', href: '/dashboard/receipts', icon: Receipt },
-  { name: 'payments', href: '/dashboard/payments', icon: CreditCard },
-  { name: 'settlements', href: '/dashboard/settlements', icon: Calculator },
-  { name: 'reports', href: '/dashboard/reports', icon: FileText },
-  { name: 'settings', href: '/dashboard/settings', icon: Settings },
+interface NavItem {
+  name: string
+  href: string
+  icon: any
+  roles: UserRole[]  // which roles can see this nav item
+}
+
+const navigation: NavItem[] = [
+  { name: 'dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'agent', 'vendor'] },
+  { name: 'Admin Panel', href: '/dashboard/admin', icon: Shield, roles: ['admin'] },
+  { name: 'vendors', href: '/dashboard/vendors', icon: Users, roles: ['admin'] },
+  { name: 'receipts', href: '/dashboard/receipts', icon: Receipt, roles: ['admin', 'agent'] },
+  { name: 'payments', href: '/dashboard/payments', icon: CreditCard, roles: ['admin', 'agent'] },
+  { name: 'settlements', href: '/dashboard/settlements', icon: Calculator, roles: ['admin', 'vendor'] },
+  { name: 'reports', href: '/dashboard/reports', icon: FileText, roles: ['admin', 'agent', 'vendor'] },
+  { name: 'settings', href: '/dashboard/settings', icon: Settings, roles: ['admin', 'agent', 'vendor'] },
 ]
 
 export default function DashboardLayout({
@@ -43,7 +53,14 @@ export default function DashboardLayout({
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
   const { t } = useLanguage()
+  const { user } = useCurrentUser()
   useSessionManager()
+
+  const userRole: UserRole = user?.role || 'agent'
+  const userName = user?.name || ''
+
+  // Filter navigation items based on user role
+  const filteredNavigation = navigation.filter(item => item.roles.includes(userRole))
 
   const handleLogout = async () => {
     try {
@@ -79,7 +96,7 @@ export default function DashboardLayout({
               <h1 className="text-xl font-bold text-white">DSR Pro</h1>
             </div>
             <nav className="mt-8 px-3 space-y-1">
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link
@@ -114,7 +131,7 @@ export default function DashboardLayout({
                 <h1 className="text-xl font-bold text-white">DSR Pro</h1>
               </div>
               <nav className="mt-8 flex-1 px-3 space-y-1">
-                {navigation.map((item) => {
+                {filteredNavigation.map((item) => {
                   const Icon = item.icon
                   return (
                     <Link
@@ -182,7 +199,7 @@ export default function DashboardLayout({
               <NotificationDropdown />
             </div>
             
-            <UserProfileDropdown userRole="admin" userName={t('superAdmin')} />
+            <UserProfileDropdown userRole={userRole} userName={userName} />
           </div>
         </div>
         

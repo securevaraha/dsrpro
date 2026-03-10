@@ -2,30 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import User from '@/models/User'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import { getCurrentUserId, addAuditFields } from '@/lib/audit'
+import { requireRole, isErrorResponse } from '@/lib/auth'
+import { addAuditFields } from '@/lib/audit'
+import { randomBytes } from 'crypto'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = requireRole(request, ['admin'])
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const currentUser = await User.findById(decoded.userId)
-    
-    if (currentUser.role !== 'admin') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
     
     const { searchParams } = new URL(request.url)
     const role = searchParams.get('role')
+    const includeAdmins = searchParams.get('includeAdmins') === 'true'
     
-    const query = role ? { role } : { role: { $in: ['agent', 'vendor'] } }
-    const users = await User.find(query).select('-password')
+    let query: any
+    if (role) {
+      query = { role }
+    } else if (includeAdmins) {
+      query = {}
+    } else {
+      query = { role: { $in: ['agent', 'vendor'] } }
+    }
+    const users = await User.find(query).sort({ createdAt: -1 })
     
     return NextResponse.json({ users })
   } catch (error) {
@@ -35,50 +35,47 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = requireRole(request, ['admin'])
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const currentUser = await User.findById(decoded.userId)
-    
-    if (currentUser.role !== 'admin') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
     
     const { name, email, phone, role, companyName, address, bankDetails, password } = await request.json()
     
-    const existingUser = await User.findOne({ email })
+    if (!name || !email) {
+      return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    const existingUser = await User.findOne({ email: normalizedEmail })
     if (existingUser) {
       return NextResponse.json({ error: 'User already exists' }, { status: 400 })
     }
     
-    const userPassword = password || Math.random().toString(36).slice(-8)
+    const userPassword = password || randomBytes(8).toString('base64url')
     const hashedPassword = await bcrypt.hash(userPassword, 12)
     
-    const currentUserId = getCurrentUserId(request)
     const userData = addAuditFields({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       phone,
-      role,
+      role: role || 'agent',
       companyName,
       address,
       bankDetails,
       password: hashedPassword,
       status: 'active'
-    }, currentUserId)
+    }, auth.userId)
     
     const user = new User(userData)
-    
     await user.save()
+    
+    const userObj = user.toObject()
+    delete userObj.password
     
     return NextResponse.json({ 
       message: 'User created successfully',
-      user: { ...user.toObject(), password: undefined },
+      user: userObj,
       tempPassword: password ? undefined : userPassword
     })
   } catch (error) {

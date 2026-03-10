@@ -49,6 +49,11 @@ export async function PATCH(request: NextRequest) {
         { isRead: true }
       )
     } else if (notificationId) {
+      // Verify notification belongs to the requesting user
+      const notification = await Notification.findById(notificationId)
+      if (!notification || notification.userId.toString() !== decoded.userId) {
+        return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
+      }
       await Notification.findByIdAndUpdate(notificationId, { isRead: true })
     }
     

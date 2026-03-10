@@ -5,27 +5,45 @@ import dbConnect from '@/lib/mongodb'
 import User from '@/models/User'
 import { createSession } from '@/lib/sessionManager'
 
+const MAX_TOKEN_AGE_SECONDS = 7 * 24 * 60 * 60 // 7 days in seconds
+
 export async function POST(request: NextRequest) {
   try {
-    await dbConnect()
-    const { email, password } = await request.json()
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured')
+      return NextResponse.json({ message: 'Server configuration error' }, { status: 500 })
+    }
 
-    if (!email || !password) {
+    await dbConnect()
+
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ message: 'Invalid request body' }, { status: 400 })
+    }
+
+    const { email, password } = body
+
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return NextResponse.json({ message: 'Email and password are required' }, { status: 400 })
     }
 
-    const user = await User.findOne({ email })
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // Use the same error message for user-not-found and wrong-password to prevent user enumeration
+    const user = await User.findOne({ email: normalizedEmail }).select('+password')
     if (!user) {
-      return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 })
     }
 
     if (user.status === 'inactive') {
-      return NextResponse.json({ message: 'Account is inactive' }, { status: 403 })
+      return NextResponse.json({ message: 'Account is deactivated. Contact your administrator.' }, { status: 403 })
     }
 
     const isValid = await bcrypt.compare(password, user.password)
     if (!isValid) {
-      return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 })
     }
 
     // Create session record
@@ -33,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role, sessionId },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
 
@@ -46,15 +64,13 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: MAX_TOKEN_AGE_SECONDS,
+      path: '/',
     })
 
     return response
   } catch (error: any) {
     console.error('Sign in error:', error)
-    return NextResponse.json({ 
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error?.message : 'Authentication failed'
-    }, { status: 500 })
+    return NextResponse.json({ message: 'Authentication failed' }, { status: 500 })
   }
 }

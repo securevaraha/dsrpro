@@ -24,6 +24,22 @@ const notificationSchema = new mongoose.Schema({
     default: false
   },
   actionUrl: String,
+  actionType: {
+    type: String,
+    enum: ['none', 'account_approval'],
+    default: 'none'
+  },
+  actionData: {
+    targetUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    targetRole: String,
+    targetName: String,
+    targetEmail: String,
+  },
+  actionTaken: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
   metadata: {
     transactionId: String,
     userId: String,

@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
-import User from '@/models/User'
-import jwt from 'jsonwebtoken'
+import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
     
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'sales'
@@ -63,12 +60,19 @@ export async function GET(request: NextRequest) {
         break
     }
     
-    let query = { ...dateFilter }
+    let query: any = { ...dateFilter }
     
     if (type === 'payments') {
       query.type = 'payment'
     } else if (type === 'sales') {
       query.type = 'receipt'
+    }
+
+    // Scope by role — agents and vendors only see their own data
+    if (auth.role === 'agent') {
+      query.agentId = auth.userId
+    } else if (auth.role === 'vendor') {
+      query.vendorId = auth.userId
     }
     
     const transactions = await Transaction.find(query)
@@ -77,11 +81,11 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .limit(100)
     
-    const totalRevenue = transactions.reduce((sum, t) => sum + (t.amount || 0), 0)
-    const totalCommission = transactions.reduce((sum, t) => sum + (t.commission || 0), 0)
+    const totalRevenue = transactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
+    const totalCommission = transactions.reduce((sum: number, t: any) => sum + (t.commission || 0), 0)
     const averageTransaction = transactions.length > 0 ? totalRevenue / transactions.length : 0
     
-    const items = transactions.map(t => ({
+    const items = transactions.map((t: any) => ({
       date: t.createdAt,
       description: t.description || `Transaction ${t.transactionId}`,
       amount: t.amount,

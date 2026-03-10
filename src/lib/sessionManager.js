@@ -1,12 +1,13 @@
+import { randomUUID } from 'crypto'
 import Session from '@/models/Session'
-import { v4 as uuidv4 } from 'uuid'
 
 export const createSession = async (userId, req) => {
-  const sessionId = uuidv4()
-  const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || req.ip || 'unknown'
+  const sessionId = randomUUID()
+  const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                    req.headers.get('x-real-ip') || 
+                    'unknown'
   const userAgent = req.headers.get('user-agent') || 'unknown'
   
-  // Parse device info from user agent
   const deviceInfo = parseUserAgent(userAgent)
   
   const session = new Session({

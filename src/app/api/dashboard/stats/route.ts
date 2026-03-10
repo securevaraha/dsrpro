@@ -2,49 +2,53 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import User from '@/models/User'
-import jwt from 'jsonwebtoken'
+import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
     
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
     const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+    // Scope data by role: agents see their own, vendors see their own, admins see all
+    const roleFilter: any = {}
+    if (auth.role === 'agent') {
+      roleFilter.agentId = auth.userId
+    } else if (auth.role === 'vendor') {
+      roleFilter.vendorId = auth.userId
+    }
     
     // Today's stats
     const todayTransactions = await Transaction.aggregate([
-      { $match: { createdAt: { $gte: today }, status: 'completed' } },
+      { $match: { ...roleFilter, createdAt: { $gte: today }, status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ])
     
     // Monthly stats
     const monthlyTransactions = await Transaction.aggregate([
-      { $match: { createdAt: { $gte: startOfMonth }, status: 'completed' } },
+      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth }, status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 }, commission: { $sum: '$commission' } } }
     ])
     
     // Yearly stats
     const yearlyTransactions = await Transaction.aggregate([
-      { $match: { createdAt: { $gte: startOfYear }, status: 'completed' } },
+      { $match: { ...roleFilter, createdAt: { $gte: startOfYear }, status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ])
     
-    // Active vendors count
-    const activeVendors = await User.countDocuments({ role: 'vendor', status: 'active' })
+    // Active vendors count — only visible to admins/agents
+    const activeVendors = auth.role === 'vendor' ? 0 : await User.countDocuments({ role: 'vendor', status: 'active' })
     
     // Pending payments
     const pendingPayments = await Transaction.aggregate([
-      { $match: { status: 'pending' } },
+      { $match: { ...roleFilter, status: 'pending' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ])
     
