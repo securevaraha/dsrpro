@@ -35,10 +35,7 @@ const clientSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  assignedVendor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
+
   commissionRate: {
     type: Number,
     default: 2.5

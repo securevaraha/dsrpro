@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { useTheme } from '@/components/ThemeProvider'
 import LanguageDropdown from '@/components/LanguageDropdown'
-import { Briefcase, Store, CheckCircle, Moon, Sun, Eye, EyeOff, ArrowRight, ArrowLeft, Users, Receipt, BarChart3, Loader2 } from 'lucide-react'
+import { Briefcase, CheckCircle, Moon, Sun, Eye, EyeOff, ArrowRight, ArrowLeft, Users, Receipt, BarChart3, Loader2 } from 'lucide-react'
 
 const roleInfo = {
   agent: {
@@ -19,17 +19,6 @@ const roleInfo = {
     iconBg: 'bg-blue-100 dark:bg-blue-900/50',
     iconColor: 'text-blue-600 dark:text-blue-400',
     check: 'text-blue-500',
-  },
-  vendor: {
-    icon: Store,
-    title: 'Vendor',
-    subtitle: 'Merchant / Provider',
-    description: 'View your settlements, track balances, and access transaction reports.',
-    color: 'border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-900/20',
-    selectedColor: 'border-purple-500 ring-2 ring-purple-200 dark:ring-purple-800 bg-purple-50 dark:bg-purple-900/30',
-    iconBg: 'bg-purple-100 dark:bg-purple-900/50',
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    check: 'text-purple-500',
   },
 } as const
 
@@ -126,9 +115,9 @@ export default function SignUp() {
           <div className="w-20 h-20 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="h-10 w-10 text-green-500 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-bold text-text dark:text-text-dark mb-2">Account Created</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Account Created</h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">
-            Your <span className="font-semibold text-text dark:text-text-dark">{formData.role}</span> account has been submitted.
+            Your <span className="font-semibold text-gray-900 dark:text-white">{formData.role}</span> account has been submitted.
           </p>
           <p className="text-gray-400 dark:text-gray-500 text-sm mb-8">
             An administrator will review and activate your account. You&apos;ll be able to sign in once approved.
@@ -178,7 +167,7 @@ export default function SignUp() {
               of professionals.
             </h2>
             <p className="text-white/50 text-sm leading-relaxed max-w-xs">
-              Register as an agent or vendor and start managing your operations with powerful tools.
+              Register as an agent and start managing your operations with powerful tools.
             </p>
           </div>
 
@@ -214,7 +203,7 @@ export default function SignUp() {
             <div className="w-8 h-8 bg-dubai-gradient rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">د</span>
             </div>
-            <span className="font-display font-bold text-text dark:text-text-dark">DSR Pro</span>
+            <span className="font-display font-bold text-gray-900 dark:text-white">DSR Pro</span>
           </div>
           <div className="lg:ml-auto flex items-center gap-2">
             <button
@@ -229,61 +218,54 @@ export default function SignUp() {
         </div>
 
         {/* Form area */}
-        <div className="flex-1 flex items-center justify-center px-5 sm:px-8 pb-10">
-          <div className="w-full max-w-[440px]">
-            <div className="mb-7">
-              <h1 className="text-2xl font-bold text-text dark:text-text-dark tracking-tight">
+        <div className="flex-1 flex items-center justify-center px-5 sm:px-8 lg:px-12 pb-10">
+          <div className="w-full max-w-[460px] sm:max-w-[520px]">
+            <div className="mb-7 sm:mb-9">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                 Create your account
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base mt-2 sm:mt-3">
                 Choose your role and fill in your details
               </p>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Role Selection */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Role Indicator */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
-                  I am a
+                <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
+                  Account Type
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(Object.entries(roleInfo) as [keyof typeof roleInfo, typeof roleInfo[keyof typeof roleInfo]][]).map(([key, info]) => {
-                    const Icon = info.icon
-                    const isSelected = formData.role === key
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setFormData({...formData, role: key})}
-                        className={`relative p-4 border-2 rounded-xl text-left transition-all duration-200 ${
-                          isSelected ? info.selectedColor : `${info.color} hover:border-gray-300 dark:hover:border-gray-600`
-                        }`}
-                      >
-                        {isSelected && (
-                          <CheckCircle className={`absolute top-3 right-3 h-4 w-4 ${info.check}`} />
-                        )}
-                        <div className={`w-9 h-9 rounded-lg ${info.iconBg} flex items-center justify-center mb-2.5`}>
-                          <Icon className={`h-4.5 w-4.5 ${info.iconColor}`} />
+                {(() => {
+                  const info = roleInfo.agent
+                  const Icon = info.icon
+                  return (
+                    <div className={`relative p-4 border-2 rounded-xl ${info.selectedColor}`}>
+                      <CheckCircle className={`absolute top-3 right-3 h-4 w-4 ${info.check}`} />
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg ${info.iconBg} flex items-center justify-center`}>
+                          <Icon className={`h-5 w-5 ${info.iconColor}`} />
                         </div>
-                        <p className="font-semibold text-sm text-text dark:text-text-dark">{info.title}</p>
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{info.subtitle}</p>
-                      </button>
-                    )
-                  })}
-                </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900 dark:text-white">{info.title}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{info.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Name + Email in 2 cols */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                     {t('fullName')}
                   </label>
                   <div className={inputClass('name')}>
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-3 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                      className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                       placeholder="John Doe"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
@@ -295,14 +277,14 @@ export default function SignUp() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                     {t('email')}
                   </label>
                   <div className={inputClass('email')}>
                     <input
                       type="email"
                       required
-                      className="w-full px-4 py-3 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                      className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                       placeholder="name@company.com"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -316,14 +298,14 @@ export default function SignUp() {
 
               {/* Password with strength meter */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                   {t('password')}
                 </label>
                 <div className={inputClass('password')}>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    className="w-full px-4 py-3 pr-11 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                    className="w-full px-4 py-3.5 pr-11 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                     placeholder="Min 8 chars, letter + number"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -353,15 +335,15 @@ export default function SignUp() {
               </div>
 
               {/* Phone + Company */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                     {t('phoneNumber')} <span className="normal-case text-gray-400 font-normal">(optional)</span>
                   </label>
                   <div className={inputClass('phone')}>
                     <input
                       type="tel"
-                      className="w-full px-4 py-3 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                      className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                       placeholder="+971-XX-XXX-XXXX"
                       value={formData.phone}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
@@ -373,13 +355,13 @@ export default function SignUp() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                     {t('companyName')} <span className="normal-case text-gray-400 font-normal">(optional)</span>
                   </label>
                   <div className={inputClass('companyName')}>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                      className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                       placeholder="Your company"
                       value={formData.companyName}
                       onChange={(e) => setFormData({...formData, companyName: e.target.value})}
@@ -394,7 +376,7 @@ export default function SignUp() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full relative bg-dubai-gradient text-white font-semibold py-3.5 px-6 rounded-xl shadow-dubai hover:shadow-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-dubai disabled:active:scale-100 flex items-center justify-center gap-2 group"
+                className="w-full relative bg-dubai-gradient text-white font-semibold py-4 px-6 rounded-xl shadow-dubai hover:shadow-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-dubai disabled:active:scale-100 flex items-center justify-center gap-2 group text-sm sm:text-base"
               >
                 {loading ? (
                   <>
@@ -424,7 +406,7 @@ export default function SignUp() {
 
             <Link 
               href="/auth/signin" 
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-text dark:text-text-dark font-medium text-sm hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-all duration-200 group"
+              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white font-medium text-sm hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-all duration-200 group"
             >
               <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
               <span>Sign in to your account</span>

@@ -117,7 +117,7 @@ export const reportColumns = {
   payments: (t: (key: string) => string) => [
     { key: 'paymentNumber', label: t('paymentId'), width: 15 },
     { key: 'date', label: t('date'), width: 12 },
-    { key: 'vendorName', label: t('vendor'), width: 20 },
+    { key: 'agentName', label: t('agent'), width: 20 },
     { key: 'paymentMethod', label: t('paymentMethod'), width: 15 },
     { key: 'amount', label: t('amount'), width: 15 },
     { key: 'description', label: t('description'), width: 25 }
@@ -129,14 +129,6 @@ export const reportColumns = {
     { key: 'clientName', label: t('client'), width: 20 },
     { key: 'amount', label: t('amount'), width: 15 },
     { key: 'commission', label: t('commission'), width: 15 },
-    { key: 'status', label: t('status'), width: 12 }
-  ],
-  
-  vendors: (t: (key: string) => string) => [
-    { key: 'name', label: t('name'), width: 20 },
-    { key: 'email', label: t('email'), width: 25 },
-    { key: 'phone', label: t('phone'), width: 15 },
-    { key: 'businessType', label: t('businessType'), width: 18 },
     { key: 'status', label: t('status'), width: 12 }
   ]
 }

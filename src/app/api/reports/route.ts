@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
         }
         break
       case 'week':
-        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()))
+        const weekStart = new Date(now.getTime())
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+        weekStart.setHours(0, 0, 0, 0)
         dateFilter = { createdAt: { $gte: weekStart } }
         break
       case 'month':
@@ -50,10 +52,15 @@ export async function GET(request: NextRequest) {
         break
       case 'custom':
         if (startDate && endDate) {
+          const parsedStart = new Date(startDate)
+          const parsedEnd = new Date(endDate)
+          if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+            return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
+          }
           dateFilter = {
             createdAt: {
-              $gte: new Date(startDate),
-              $lte: new Date(endDate)
+              $gte: parsedStart,
+              $lte: parsedEnd
             }
           }
         }
@@ -65,18 +72,15 @@ export async function GET(request: NextRequest) {
     if (type === 'payments') {
       query.type = 'payment'
     } else if (type === 'sales') {
-      query.type = 'receipt'
+      query.type = 'sale'
     }
 
-    // Scope by role — agents and vendors only see their own data
+    // Scope by role — agents only see their own data
     if (auth.role === 'agent') {
       query.agentId = auth.userId
-    } else if (auth.role === 'vendor') {
-      query.vendorId = auth.userId
     }
     
     const transactions = await Transaction.find(query)
-      .populate('vendorId', 'name')
       .populate('agentId', 'name')
       .sort({ createdAt: -1 })
       .limit(100)

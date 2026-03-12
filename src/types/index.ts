@@ -2,7 +2,7 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: 'admin' | 'agent' | 'vendor';
+  role: 'admin' | 'agent';
   companyName?: string;
   phone?: string;
   address?: string;
@@ -27,7 +27,7 @@ export interface Payment {
   _id: string;
   paymentNumber: string;
   date: Date;
-  vendorId: string;
+  agentId: string;
   paymentMethod: 'cash' | 'bank' | 'upi' | 'card';
   bankAccount?: string;
   amount: number;
@@ -37,16 +37,18 @@ export interface Payment {
   createdAt: Date;
 }
 
-export interface Vendor {
+export interface POSMachine {
   _id: string;
-  name: string;
-  companyName: string;
-  phone: string;
-  email: string;
-  address: string;
-  bankDetails: string;
-  status: 'active' | 'inactive';
-  marginSetting?: number;
-  bankCharges?: number;
+  terminalId: string;
+  merchantId: string;
+  serialNumber: string;
+  model: string;
+  brand: 'Network' | 'RAKBank' | 'Geidea' | 'AFS' | 'Other';
+  deviceType: 'android_pos' | 'traditional_pos';
+  assignedAgent: string | { _id: string; name: string; email: string; companyName?: string } | null;
+  location: string;
+  status: 'active' | 'inactive' | 'maintenance';
+  notes: string;
   createdAt: Date;
+  updatedAt: Date;
 }

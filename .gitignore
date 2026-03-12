@@ -84,3 +84,5 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+local-data/
+

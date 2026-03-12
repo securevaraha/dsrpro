@@ -21,7 +21,7 @@ export function LoadingButton({
   type = 'button',
   variant = 'primary'
 }: LoadingButtonProps) {
-  const baseClasses = "inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-card transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+  const baseClasses = "inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
   
   const variantClasses = {
     primary: "dubai-button",

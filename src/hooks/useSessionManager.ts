@@ -11,7 +11,12 @@ export function useSessionManager() {
   const timeoutRef = useRef<NodeJS.Timeout>()
   const warningRef = useRef<NodeJS.Timeout>()
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // Best effort — still clear client session
+    }
     document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
     toast.error('Session expired. Please login again.')
     router.push('/auth/signin')

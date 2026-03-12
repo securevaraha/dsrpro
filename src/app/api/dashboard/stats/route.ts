@@ -17,56 +17,120 @@ export async function GET(request: NextRequest) {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
     const startOfYear = new Date(today.getFullYear(), 0, 1)
 
-    // Scope data by role: agents see their own, vendors see their own, admins see all
+    // Scope data by role: agents see their own, admins see all
     const roleFilter: any = {}
     if (auth.role === 'agent') {
       roleFilter.agentId = auth.userId
-    } else if (auth.role === 'vendor') {
-      roleFilter.vendorId = auth.userId
     }
     
-    // Today's stats
-    const todayTransactions = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: today }, status: 'completed' } },
+    // Today's receipt stats (sales/receipts)
+    const todayReceipts = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: today }, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ])
     
-    // Monthly stats
-    const monthlyTransactions = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth }, status: 'completed' } },
+    // Monthly receipt stats
+    const monthlyReceipts = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth }, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 }, commission: { $sum: '$commission' } } }
     ])
     
-    // Yearly stats
-    const yearlyTransactions = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfYear }, status: 'completed' } },
+    // Yearly receipt stats
+    const yearlyReceipts = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: startOfYear }, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ])
+
+    // Today's payment stats
+    const todayPayments = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: today }, status: 'completed', type: 'payment' } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ])
     
-    // Active vendors count — only visible to admins/agents
-    const activeVendors = auth.role === 'vendor' ? 0 : await User.countDocuments({ role: 'vendor', status: 'active' })
+    // Monthly payment stats
+    const monthlyPayments = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth }, status: 'completed', type: 'payment' } },
+      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ])
+    
+    // Yearly payment stats
+    const yearlyPayments = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: startOfYear }, status: 'completed', type: 'payment' } },
+      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ])
+    
+    // Active agents count
+    const activeAgents = await User.countDocuments({ role: 'agent', status: 'active' })
     
     // Pending payments
     const pendingPayments = await Transaction.aggregate([
       { $match: { ...roleFilter, status: 'pending' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ])
+
+    // Monthly revenue trend (last 6 months)
+    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1)
+    const monthlyTrend = await Transaction.aggregate([
+      {
+        $match: {
+          ...roleFilter,
+          createdAt: { $gte: sixMonthsAgo },
+          status: 'completed',
+          type: { $in: ['sale', 'receipt'] }
+        }
+      },
+      {
+        $group: {
+          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ])
+
+    // Build a complete 6-month series (fill gaps with 0)
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const trendLabels: string[] = []
+    const trendData: number[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const y = d.getFullYear()
+      const m = d.getMonth() + 1
+      trendLabels.push(monthNames[m - 1])
+      const found = monthlyTrend.find((r: any) => r._id.year === y && r._id.month === m)
+      trendData.push(found ? found.total : 0)
+    }
+
+    // Transaction status breakdown (current month)
+    const statusBreakdown = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ])
+    const statusMap: Record<string, number> = {}
+    statusBreakdown.forEach((s: any) => { statusMap[s._id] = s.count })
     
     const stats = {
       totalReceipts: {
-        today: todayTransactions[0]?.total || 0,
-        month: monthlyTransactions[0]?.total || 0,
-        year: yearlyTransactions[0]?.total || 0
+        today: todayReceipts[0]?.total || 0,
+        month: monthlyReceipts[0]?.total || 0,
+        year: yearlyReceipts[0]?.total || 0
       },
       totalPayments: {
-        today: todayTransactions[0]?.total || 0,
-        month: monthlyTransactions[0]?.total || 0,
-        year: yearlyTransactions[0]?.total || 0
+        today: todayPayments[0]?.total || 0,
+        month: monthlyPayments[0]?.total || 0,
+        year: yearlyPayments[0]?.total || 0
       },
       pendingPayments: pendingPayments[0]?.total || 0,
-      activeVendors,
-      totalTransactions: monthlyTransactions[0]?.count || 0,
-      totalCommission: monthlyTransactions[0]?.commission || 0
+      activeAgents,
+      totalTransactions: (monthlyReceipts[0]?.count || 0) + (monthlyPayments[0]?.count || 0),
+      totalCommission: monthlyReceipts[0]?.commission || 0,
+      monthlyTrend: { labels: trendLabels, data: trendData },
+      transactionStatus: {
+        completed: statusMap['completed'] || 0,
+        pending: statusMap['pending'] || 0,
+        failed: statusMap['failed'] || 0,
+        cancelled: statusMap['cancelled'] || 0
+      }
     }
     
     return NextResponse.json(stats)

@@ -70,10 +70,10 @@ export default function Reports() {
     <div>
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-text dark:text-text-dark">{t('reports')}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('reports')}</h1>
           <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{t('viewReports')}</p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none space-x-2">
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex flex-col sm:flex-row gap-2">
           <button
             onClick={() => exportReport('excel')}
             className="btn-secondary inline-flex items-center justify-center"
@@ -92,7 +92,7 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <select
           className="form-select"
           value={reportType}
@@ -100,7 +100,7 @@ export default function Reports() {
         >
           <option value="sales">{t('salesReport')}</option>
           <option value="payments">{t('paymentReport')}</option>
-          <option value="vendors">{t('vendorReport')}</option>
+          <option value="agents">Agent Report</option>
           <option value="transactions">Transaction Report</option>
         </select>
         
@@ -146,49 +146,49 @@ export default function Reports() {
         ) : reportData ? (
           <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="dubai-card p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
+              <div className="dubai-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <TrendingUp className="h-8 w-8 text-success" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Revenue</p>
-                    <p className="text-2xl font-bold text-text dark:text-text-dark">
+                  <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-success flex-shrink-0" />
+                  <div className="ml-3 sm:ml-4 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                       AED {reportData.totalRevenue?.toLocaleString() || '0'}
                     </p>
                   </div>
                 </div>
               </div>
               
-              <div className="dubai-card p-6">
+              <div className="dubai-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <Calendar className="h-8 w-8 text-primary" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Transactions</p>
-                    <p className="text-2xl font-bold text-text dark:text-text-dark">
+                  <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+                  <div className="ml-3 sm:ml-4 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Transactions</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                       {reportData.totalTransactions || 0}
                     </p>
                   </div>
                 </div>
               </div>
               
-              <div className="dubai-card p-6">
+              <div className="dubai-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FileText className="h-8 w-8 text-warning" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Average Transaction</p>
-                    <p className="text-2xl font-bold text-text dark:text-text-dark">
+                  <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-warning flex-shrink-0" />
+                  <div className="ml-3 sm:ml-4 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Average Transaction</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                       AED {reportData.averageTransaction?.toLocaleString() || '0'}
                     </p>
                   </div>
                 </div>
               </div>
               
-              <div className="dubai-card p-6">
+              <div className="dubai-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <Filter className="h-8 w-8 text-accent" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Commission Earned</p>
-                    <p className="text-2xl font-bold text-text dark:text-text-dark">
+                  <Filter className="h-6 w-6 sm:h-8 sm:w-8 text-accent flex-shrink-0" />
+                  <div className="ml-3 sm:ml-4 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Commission Earned</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                       AED {reportData.totalCommission?.toLocaleString() || '0'}
                     </p>
                   </div>
@@ -198,8 +198,8 @@ export default function Reports() {
 
             {/* Data Table */}
             <div className="dubai-card">
-              <div className="px-6 py-4 border-b border-border dark:border-border-dark">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Details
                 </h3>
               </div>
@@ -248,7 +248,7 @@ export default function Reports() {
         ) : (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-text dark:text-text-dark mb-2">No Report Data</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Report Data</h3>
             <p className="text-gray-500 dark:text-gray-400">
               Select different criteria to generate reports
             </p>
@@ -277,7 +277,7 @@ export default function Reports() {
                   <TrendingUp className="h-6 w-6 text-success mr-3" />
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
-                    <p className="text-lg font-bold text-text dark:text-text-dark">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
                       AED {reportData.totalRevenue?.toLocaleString() || '0'}
                     </p>
                   </div>
@@ -289,7 +289,7 @@ export default function Reports() {
                   <Calendar className="h-6 w-6 text-primary mr-3" />
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Transactions</p>
-                    <p className="text-lg font-bold text-text dark:text-text-dark">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
                       {reportData.totalTransactions || 0}
                     </p>
                   </div>
@@ -299,7 +299,7 @@ export default function Reports() {
 
             {/* Transaction Cards */}
             <div className="space-y-3">
-              <h3 className="text-lg font-medium text-text dark:text-text-dark">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Details
               </h3>
               {reportData.items?.length > 0 ? (
@@ -307,7 +307,7 @@ export default function Reports() {
                   <div key={index} className="dubai-card p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="font-medium text-text dark:text-text-dark">{item.description}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{item.description}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           {format(new Date(item.date), 'dd-MMM-yyyy')}
                         </p>
@@ -338,7 +338,7 @@ export default function Reports() {
         ) : (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-text dark:text-text-dark mb-2">No Report Data</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Report Data</h3>
             <p className="text-gray-500 dark:text-gray-400">
               Select different criteria to generate reports
             </p>

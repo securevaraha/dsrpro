@@ -22,10 +22,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
 
-    if (notification.userId.toString() !== auth.userId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
-
     if (notification.actionType !== 'account_approval') {
       return NextResponse.json({ error: 'This notification does not support actions' }, { status: 400 })
     }
@@ -46,8 +42,10 @@ export async function POST(request: NextRequest) {
 
     if (action === 'approved') {
       targetUser.status = 'active'
-      await targetUser.save()
+    } else {
+      targetUser.status = 'inactive'
     }
+    await targetUser.save()
 
     // Mark notification as actioned
     notification.actionTaken = action

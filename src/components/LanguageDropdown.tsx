@@ -19,7 +19,7 @@ export default function LanguageDropdown() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 rounded-card bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
       >
         <Globe className="h-4 w-4" />
         <span className="text-sm">{currentLang.flag} {currentLang.name}</span>
@@ -27,7 +27,7 @@ export default function LanguageDropdown() {
       </button>
       
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-card shadow-lg border border-border dark:border-border-dark z-50">
+        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50">
           {languages.map((lang) => (
             <button
               key={lang.code}

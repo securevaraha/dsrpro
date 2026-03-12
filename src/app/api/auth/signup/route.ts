@@ -4,7 +4,7 @@ import dbConnect from '@/lib/mongodb'
 import User from '@/models/User'
 import Notification from '@/models/Notification'
 
-const ALLOWED_SIGNUP_ROLES = ['agent', 'vendor'] as const
+const ALLOWED_SIGNUP_ROLES = ['agent'] as const
 const MIN_PASSWORD_LENGTH = 8
 const MAX_NAME_LENGTH = 100
 const MAX_EMAIL_LENGTH = 254

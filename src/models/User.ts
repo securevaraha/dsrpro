@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema({
     maxlength: 254,
   },
   password: { type: String, required: true, select: false },
-  role: { type: String, enum: ['admin', 'agent', 'vendor'], default: 'agent' },
+  role: { type: String, enum: ['admin', 'agent'], default: 'agent' },
   companyName: { type: String, trim: true, maxlength: 200 },
   phone: { type: String, trim: true, maxlength: 20 },
   address: String,

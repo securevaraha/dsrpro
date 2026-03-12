@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-export type UserRole = 'admin' | 'agent' | 'vendor'
+export type UserRole = 'admin' | 'agent'
 
 interface UserInfo {
   id: string

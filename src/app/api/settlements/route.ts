@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
     const auth = requireAuth(request)
     if (isErrorResponse(auth)) return auth
 
-    // Agents cannot view settlements
-    if (auth.role === 'agent') {
+    // Only admin can view settlements
+    if (auth.role !== 'admin') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
@@ -23,17 +23,19 @@ export async function GET(request: NextRequest) {
     
     let query: any = {}
 
-    // Vendors can only see their own settlements
-    if (auth.role === 'vendor') {
-      query.merchantId = auth.userId
-    } else if (merchantId) {
+    if (merchantId) {
       query.merchantId = merchantId
     }
 
     if (startDate && endDate) {
+      const parsedStart = new Date(startDate)
+      const parsedEnd = new Date(endDate)
+      if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+        return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
+      }
       query.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: parsedStart,
+        $lte: parsedEnd
       }
     }
     
@@ -73,6 +75,24 @@ export async function POST(request: NextRequest) {
     await connectDB()
     
     const data = await request.json()
+
+    // Validate required fields
+    if (!data.merchantId || !data.date) {
+      return NextResponse.json({ error: 'Merchant ID and date are required' }, { status: 400 })
+    }
+
+    // Validate numeric fields are non-negative
+    const numericFields = ['ccSales', 'margin', 'paid', 'balance']
+    for (const field of numericFields) {
+      if (data[field] !== undefined) {
+        const val = parseFloat(data[field])
+        if (isNaN(val) || val < 0) {
+          return NextResponse.json({ error: `${field} must be a non-negative number` }, { status: 400 })
+        }
+        data[field] = val
+      }
+    }
+
     const settlementData = addAuditFields(data, auth.userId)
     
     const settlement = new MerchantSettlement(settlementData)

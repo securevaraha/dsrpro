@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Notification from '@/models/Notification'
-import jwt from 'jsonwebtoken'
+import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '10')
     
-    const notifications = await Notification.find({ userId: decoded.userId })
+    const notifications = await Notification.find({ userId: auth.userId })
       .sort({ createdAt: -1 })
       .limit(limit)
     
     const unreadCount = await Notification.countDocuments({ 
-      userId: decoded.userId, 
+      userId: auth.userId, 
       isRead: false 
     })
     
@@ -33,25 +30,21 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
     await connectDB()
-    
-    const token = request.cookies.get('token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+
     const { notificationId, markAllAsRead } = await request.json()
     
     if (markAllAsRead) {
       await Notification.updateMany(
-        { userId: decoded.userId, isRead: false },
+        { userId: auth.userId, isRead: false },
         { isRead: true }
       )
     } else if (notificationId) {
-      // Verify notification belongs to the requesting user
       const notification = await Notification.findById(notificationId)
-      if (!notification || notification.userId.toString() !== decoded.userId) {
+      if (!notification || notification.userId.toString() !== auth.userId) {
         return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
       }
       await Notification.findByIdAndUpdate(notificationId, { isRead: true })

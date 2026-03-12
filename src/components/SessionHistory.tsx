@@ -55,14 +55,14 @@ export default function SessionHistory() {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="text-text dark:text-text-dark">{t('loading')}</div>
+        <div className="text-gray-900 dark:text-white">{t('loading')}</div>
       </div>
     )
   }
 
   return (
     <div>
-      <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">Session History</h3>
+      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Session History</h3>
       <div className="space-y-4">
         {sessions.map((session) => (
           <div key={session._id} className="dubai-card p-4">
@@ -75,7 +75,7 @@ export default function SessionHistory() {
                 )}
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-medium text-text dark:text-text-dark">
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {session.deviceInfo.browser} on {session.deviceInfo.os}
                     </span>
                     {session.isActive && (

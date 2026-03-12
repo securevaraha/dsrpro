@@ -26,7 +26,7 @@ export function EmptyState({
           {icon}
         </div>
       )}
-      <h3 className="text-lg font-medium text-text dark:text-text-dark mb-2">
+      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
         {title}
       </h3>
       {description && (

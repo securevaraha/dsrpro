@@ -20,15 +20,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (auth.role === 'agent' && transaction.agentId?.toString() !== auth.userId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
-    if (auth.role === 'vendor') {
-      return NextResponse.json({ error: 'Vendors cannot modify transactions' }, { status: 403 })
-    }
     
     const updateData = await request.json()
     // Prevent role escalation via update — strip sensitive fields for non-admin
     if (auth.role !== 'admin') {
       delete updateData.agentId
-      delete updateData.vendorId
     }
 
     const auditedData = addAuditFields(updateData, auth.userId, true)

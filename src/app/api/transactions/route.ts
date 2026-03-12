@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import mongoose from 'mongoose'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import User from '@/models/User'
@@ -17,25 +18,22 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100)
     const status = searchParams.get('status')
-    const vendorId = searchParams.get('vendorId')
+    const type = searchParams.get('type')
     const agentId = searchParams.get('agentId')
     
     let query: any = {}
     if (status) query.status = status
+    if (type) query.type = type
 
     // Scope data by role
     if (auth.role === 'agent') {
       query.agentId = auth.userId
-    } else if (auth.role === 'vendor') {
-      query.vendorId = auth.userId
     } else {
-      // Admin can filter by vendorId/agentId
-      if (vendorId) query.vendorId = vendorId
+      // Admin can filter by agentId
       if (agentId) query.agentId = agentId
     }
     
     const transactions = await Transaction.find(query)
-      .populate('vendorId', 'name email')
       .populate('agentId', 'name email')
       .populate('clientId', 'name businessType')
       .populate('createdBy', 'name')
@@ -68,7 +66,6 @@ export async function POST(request: NextRequest) {
     const {
       type,
       posId,
-      vendorId,
       agentId,
       clientId,
       amount,
@@ -79,6 +76,17 @@ export async function POST(request: NextRequest) {
     
     const transactionId = `${type?.toUpperCase() || 'TXN'}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
     
+    // Validate amount
+    const parsedAmount = parseFloat(amount)
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 })
+    }
+
+    // Validate clientId if provided
+    if (clientId && !mongoose.Types.ObjectId.isValid(clientId)) {
+      return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 })
+    }
+
     // Agents can only create transactions assigned to themselves
     const effectiveAgentId = auth.role === 'agent' ? auth.userId : agentId
     
@@ -86,10 +94,9 @@ export async function POST(request: NextRequest) {
       transactionId,
       type: type || 'transaction',
       posId,
-      vendorId,
       agentId: effectiveAgentId,
       clientId,
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       paymentMethod,
       description,
       metadata,
@@ -100,10 +107,9 @@ export async function POST(request: NextRequest) {
     if (clientId) {
       const client = await Client.findById(clientId)
       if (client) {
-        const commission = (amount * client.commissionRate) / 100
+        const commission = (parsedAmount * client.commissionRate) / 100
         transactionData.commission = commission
-        transactionData.agentCommission = commission * 0.6
-        transactionData.vendorCommission = commission * 0.4
+        transactionData.agentCommission = commission
       }
     }
     

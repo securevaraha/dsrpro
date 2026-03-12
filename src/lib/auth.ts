@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 
-export type UserRole = 'admin' | 'agent' | 'vendor'
+export type UserRole = 'admin' | 'agent'
 
 export interface AuthUser {
   userId: string

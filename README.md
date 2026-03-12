@@ -1,15 +1,15 @@
 # DSR - Receipt & Payment Management System
 
-A comprehensive ERP solution for managing receipts, payments, vendors, and generating detailed financial reports.
+A comprehensive ERP solution for managing receipts, payments, POS machines, and generating detailed financial reports.
 
 ## Features
 
 - **Dashboard**: Overview of business summary with key metrics
-- **Vendor Management**: Complete vendor profiles with payment history
+- **POS Machine Management**: Track and manage POS terminals assigned to agents
 - **Receipt Management**: Digital receipt creation with document attachments
-- **Payment Management**: Payment tracking with vendor association
+- **Payment Management**: Payment tracking with agent association
 - **Reports**: Advanced reporting with filtering and export capabilities
-- **User Management**: Role-based access control (Admin, Agent, Vendor)
+- **User Management**: Role-based access control (Admin, Agent)
 - **Authentication**: Secure login/signup with JWT tokens
 - **Export**: Excel and PDF export functionality
 
@@ -70,10 +70,10 @@ src/
 - Recent activity tracking
 - Monthly/yearly overview
 
-### Vendor Management
-- CRUD operations for vendors
-- Status management (Active/Inactive)
-- Search and filter functionality
+### POS Machine Management
+- CRUD operations for POS terminals
+- Track terminal assignments to agents
+- Status management (Active/Inactive/Maintenance)
 
 ### Receipt & Payment Management
 - Auto-generated receipt/payment numbers
@@ -82,9 +82,9 @@ src/
 - Print and download functionality
 
 ### Reports
-- Multiple report types (Summary, Receipt, Payment, Vendor)
+- Multiple report types (Summary, Receipt, Payment, Agent)
 - Date range filtering
-- Vendor and payment method filtering
+- Agent and payment method filtering
 - Excel and PDF export
 
 ### Authentication
@@ -97,8 +97,8 @@ src/
 
 - `POST /api/auth/signin` - User login
 - `POST /api/auth/signup` - User registration
-- `GET /api/vendors` - Get all vendors
-- `POST /api/vendors` - Create vendor
+- `GET /api/pos-machines` - Get all POS machines
+- `POST /api/pos-machines` - Create POS machine
 - `GET /api/receipts` - Get all receipts
 - `POST /api/receipts` - Create receipt
 - `GET /api/payments` - Get all payments
@@ -107,9 +107,9 @@ src/
 ## Database Models
 
 - **User**: Authentication and user management
-- **Vendor**: Vendor information and settings
+- **POSMachine**: POS terminal tracking and assignment
 - **Receipt**: Receipt entries with payment details
-- **Payment**: Payment entries with vendor association
+- **Payment**: Payment entries with agent association
 
 ## Deployment
 

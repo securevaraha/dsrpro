@@ -17,7 +17,7 @@ interface User {
   name: string
   email: string
   phone: string
-  role: 'admin' | 'agent' | 'vendor'
+  role: 'admin' | 'agent'
   companyName?: string
   status: 'active' | 'inactive'
   createdAt: string
@@ -38,7 +38,6 @@ interface UserStats {
   total: number
   admins: number
   agents: number
-  vendors: number
   active: number
   inactive: number
 }
@@ -53,7 +52,7 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedRole, setSelectedRole] = useState<'all' | 'admin' | 'agent' | 'vendor'>('all')
+  const [selectedRole, setSelectedRole] = useState<'all' | 'admin' | 'agent'>('all')
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [showModal, setShowModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -67,7 +66,7 @@ export default function AdminPanel() {
     name: '',
     email: '',
     phone: '',
-    role: 'agent' as 'admin' | 'agent' | 'vendor',
+    role: 'agent' as 'admin' | 'agent',
     companyName: '',
     password: '',
   })
@@ -80,7 +79,7 @@ export default function AdminPanel() {
   const [loadingSessions, setLoadingSessions] = useState(true)
 
   // Stats
-  const [stats, setStats] = useState<UserStats>({ total: 0, admins: 0, agents: 0, vendors: 0, active: 0, inactive: 0 })
+  const [stats, setStats] = useState<UserStats>({ total: 0, admins: 0, agents: 0, active: 0, inactive: 0 })
 
   useEffect(() => {
     fetchUsers()
@@ -92,11 +91,10 @@ export default function AdminPanel() {
   }, [users, searchTerm, selectedRole, selectedStatus])
 
   useEffect(() => {
-    const s: UserStats = { total: users.length, admins: 0, agents: 0, vendors: 0, active: 0, inactive: 0 }
+    const s: UserStats = { total: users.length, admins: 0, agents: 0, active: 0, inactive: 0 }
     users.forEach(u => {
       if (u.role === 'admin') s.admins++
       else if (u.role === 'agent') s.agents++
-      else if (u.role === 'vendor') s.vendors++
       if (u.status === 'active') s.active++
       else s.inactive++
     })
@@ -291,7 +289,6 @@ export default function AdminPanel() {
     const classes: Record<string, string> = {
       admin: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
       agent: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-      vendor: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
     }
     return classes[role] || 'bg-gray-100 text-gray-800'
   }
@@ -312,14 +309,14 @@ export default function AdminPanel() {
               <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-text dark:text-text-dark">Admin Panel</h1>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Admin Panel</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">System administration & user management</p>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-border dark:border-border-dark mb-6">
+        <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
           <nav className="flex space-x-1 overflow-x-auto -mb-px" aria-label="Tabs">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -355,7 +352,6 @@ export default function AdminPanel() {
                 { label: 'Total Users', value: stats.total, icon: Users, color: 'text-gray-600 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-700' },
                 { label: 'Admins', value: stats.admins, icon: Crown, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
                 { label: 'Agents', value: stats.agents, icon: UserCheck, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                { label: 'Vendors', value: stats.vendors, icon: Users, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' },
                 { label: 'Active', value: stats.active, icon: UserCheck, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
                 { label: 'Sessions', value: activeSessions, icon: Monitor, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
               ].map((stat) => {
@@ -367,7 +363,7 @@ export default function AdminPanel() {
                         <Icon className={`h-4 w-4 ${stat.color}`} />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-text dark:text-text-dark">{loadingUsers ? '-' : stat.value}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{loadingUsers ? '-' : stat.value}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
                       </div>
                     </div>
@@ -388,8 +384,8 @@ export default function AdminPanel() {
                       <UserPlus className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-text dark:text-text-dark">Create User</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Add admin, agent, or vendor</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Create User</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Add admin or agent</p>
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -406,7 +402,7 @@ export default function AdminPanel() {
                       <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-text dark:text-text-dark">Manage Users</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Manage Users</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{stats.total} total users</p>
                     </div>
                   </div>
@@ -424,7 +420,7 @@ export default function AdminPanel() {
                       <Monitor className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-text dark:text-text-dark">Active Sessions</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Active Sessions</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{activeSessions} live now</p>
                     </div>
                   </div>
@@ -438,7 +434,7 @@ export default function AdminPanel() {
               {/* Recent Registrations */}
               <div className="dubai-card p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-medium text-text dark:text-text-dark">Recent Registrations</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Recent Registrations</h3>
                   <button onClick={() => setActiveTab('users')} className="text-xs text-primary hover:underline">
                     View all
                   </button>
@@ -464,7 +460,7 @@ export default function AdminPanel() {
                             {user.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-text dark:text-text-dark">{user.name}</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                           </div>
                         </div>
@@ -485,7 +481,7 @@ export default function AdminPanel() {
               {/* Live Sessions Preview */}
               <div className="dubai-card p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-medium text-text dark:text-text-dark">Live Sessions</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Live Sessions</h3>
                   <button onClick={() => setActiveTab('sessions')} className="text-xs text-primary hover:underline">
                     View all
                   </button>
@@ -516,7 +512,7 @@ export default function AdminPanel() {
                             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-text dark:text-text-dark">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
                               {session.userId?.name || 'Unknown'}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -560,7 +556,6 @@ export default function AdminPanel() {
                   <option value="all">All Roles</option>
                   <option value="admin">Admins</option>
                   <option value="agent">Agents</option>
-                  <option value="vendor">Vendors</option>
                 </select>
                 <select
                   value={selectedStatus}
@@ -598,7 +593,6 @@ export default function AdminPanel() {
               <span className="text-gray-300 dark:text-gray-600">·</span>
               <span className={`px-2 py-0.5 rounded-full ${getRoleBadge('admin')}`}>{stats.admins} admins</span>
               <span className={`px-2 py-0.5 rounded-full ${getRoleBadge('agent')}`}>{stats.agents} agents</span>
-              <span className={`px-2 py-0.5 rounded-full ${getRoleBadge('vendor')}`}>{stats.vendors} vendors</span>
             </div>
 
             {/* Desktop Table */}
@@ -644,7 +638,7 @@ export default function AdminPanel() {
                                 {user.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <p className="font-medium text-text dark:text-text-dark flex items-center gap-1.5">
+                                <p className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
                                   {user.name}
                                   {user.role === 'admin' && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                                 </p>
@@ -725,7 +719,7 @@ export default function AdminPanel() {
               ) : filteredUsers.length === 0 ? (
                 <div className="text-center py-12">
                   <Users className="h-10 w-10 mx-auto mb-3 text-gray-400" />
-                  <p className="font-medium text-text dark:text-text-dark">No users found</p>
+                  <p className="font-medium text-gray-900 dark:text-white">No users found</p>
                   {!searchTerm && (
                     <button onClick={() => setShowModal(true)} className="dubai-button mt-3 text-sm py-2 px-4">
                       <UserPlus className="h-4 w-4 mr-2 inline" /> Add User
@@ -741,7 +735,7 @@ export default function AdminPanel() {
                           {user.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-text dark:text-text-dark flex items-center gap-1.5">
+                          <p className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
                             {user.name}
                             {user.role === 'admin' && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                           </p>
@@ -773,7 +767,7 @@ export default function AdminPanel() {
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-end gap-1 pt-3 border-t border-border dark:border-border-dark">
+                    <div className="flex items-center justify-end gap-1 pt-3 border-t border-gray-200 dark:border-gray-700">
                       <button onClick={() => handleEdit(user)} className="p-2 text-gray-500 hover:text-primary rounded-md" title="Edit">
                         <Edit className="h-4 w-4" />
                       </button>
@@ -796,7 +790,7 @@ export default function AdminPanel() {
           <div>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-medium text-text dark:text-text-dark">Active Sessions</h2>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Active Sessions</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {activeSessions} active {activeSessions === 1 ? 'session' : 'sessions'} across all users
                 </p>
@@ -822,7 +816,7 @@ export default function AdminPanel() {
               ) : sessions.length === 0 ? (
                 <div className="text-center py-16">
                   <Monitor className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p className="font-medium text-text dark:text-text-dark">No active sessions</p>
+                  <p className="font-medium text-gray-900 dark:text-white">No active sessions</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">There are no users currently signed in</p>
                 </div>
               ) : (
@@ -840,7 +834,7 @@ export default function AdminPanel() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-text dark:text-text-dark">
+                            <p className="font-medium text-gray-900 dark:text-white">
                               {session.userId?.name || 'Unknown User'}
                             </p>
                             {session.userId?.role && (
@@ -889,44 +883,46 @@ export default function AdminPanel() {
 
         {/* ────────────────── CREATE/EDIT MODAL ────────────────── */}
         {showModal && (
-          <div className="modal-overlay flex items-start sm:items-center justify-center p-4">
-            <div className="modal-content w-full max-w-lg">
-              <h3 className="text-lg font-bold text-text dark:text-text-dark mb-1">
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">
                 {editingUser ? 'Edit User' : 'Create New User'}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+              <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
                 {editingUser ? 'Update user details' : 'Add a new user to the system'}
               </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    placeholder="Enter full name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">Email</label>
-                  <input
-                    type="email"
-                    required
-                    className="form-input"
-                    placeholder="user@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    disabled={!!editingUser}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">Phone</label>
+                    <label className="form-label">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-input"
+                      placeholder="Enter full name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Email</label>
+                    <input
+                      type="email"
+                      required
+                      className="form-input"
+                      placeholder="user@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      disabled={!!editingUser}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  <div>
+                    <label className="form-label">Phone</label>
                     <input
                       type="tel"
                       className="form-input"
@@ -936,7 +932,7 @@ export default function AdminPanel() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">Role</label>
+                    <label className="form-label">Role</label>
                     <select
                       className="form-select"
                       value={formData.role}
@@ -947,9 +943,18 @@ export default function AdminPanel() {
                       }}
                     >
                       <option value="agent">Agent</option>
-                      <option value="vendor">Vendor</option>
                       <option value="admin">Admin</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Company Name</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Optional"
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                    />
                   </div>
                 </div>
 
@@ -965,20 +970,9 @@ export default function AdminPanel() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">Company Name</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Optional"
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                  />
-                </div>
-
                 {!editingUser && (
                   <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
+                    <label className="form-label">
                       Password <span className="text-gray-400 font-normal">(leave blank to auto-generate)</span>
                     </label>
                     <div className="relative">
@@ -1003,7 +997,7 @@ export default function AdminPanel() {
 
                 {editingUser && (
                   <div>
-                    <label className="block text-sm font-medium text-text dark:text-text-dark mb-1">
+                    <label className="form-label">
                       New Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span>
                     </label>
                     <div className="relative">
@@ -1038,18 +1032,18 @@ export default function AdminPanel() {
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-700 mt-2">
                   <button
                     type="button"
                     onClick={() => { setShowModal(false); resetForm() }}
-                    className="btn-secondary"
+                    className="btn-secondary w-full sm:w-auto"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="dubai-button py-2 px-5 text-sm"
+                    className="dubai-button w-full sm:w-auto"
                   >
                     {submitting ? 'Saving...' : editingUser ? 'Update User' : showAdminConfirm ? 'Confirm & Create' : 'Create User'}
                   </button>
@@ -1067,7 +1061,7 @@ export default function AdminPanel() {
                 <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
                   <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
-                <h3 className="text-lg font-bold text-text dark:text-text-dark">Delete User</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete User</h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                 Are you sure you want to delete <strong>{deletingUser.name}</strong> ({deletingUser.email})?
@@ -1088,7 +1082,7 @@ export default function AdminPanel() {
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-card hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
                 >
                   Delete User
                 </button>
@@ -1105,7 +1099,7 @@ export default function AdminPanel() {
                 <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-full">
                   <Key className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
-                <h3 className="text-lg font-bold text-text dark:text-text-dark">Reset Password</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Reset Password</h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                 Generate a new temporary password for <strong>{resetUser.name}</strong> ({resetUser.email})?

@@ -49,7 +49,7 @@ export default function UserProfileDropdown({ userRole = 'admin', userName = 'Ad
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors p-2 rounded-card hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           <User className="h-4 w-4" />
           <span className="hidden sm:block">{userName}</span>
@@ -57,9 +57,9 @@ export default function UserProfileDropdown({ userRole = 'admin', userName = 'Ad
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-card shadow-lg border border-border dark:border-border-dark z-50">
-            <div className="p-3 border-b border-border dark:border-border-dark">
-              <p className="text-sm font-medium text-text dark:text-text-dark">{userName}</p>
+          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">{userName}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{userRole}</p>
             </div>
             
@@ -70,7 +70,7 @@ export default function UserProfileDropdown({ userRole = 'admin', userName = 'Ad
                     setShowAdminModal(true)
                     setIsOpen(false)
                   }}
-                  className="w-full flex items-center px-4 py-2 text-sm text-text dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="w-full flex items-center px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <Shield className="h-4 w-4 mr-3" />
                   Admin Panel
@@ -82,7 +82,7 @@ export default function UserProfileDropdown({ userRole = 'admin', userName = 'Ad
                   router.push('/dashboard/settings')
                   setIsOpen(false)
                 }}
-                className="w-full flex items-center px-4 py-2 text-sm text-text dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="w-full flex items-center px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <Settings className="h-4 w-4 mr-3" />
                 {t('settings')}
@@ -103,10 +103,10 @@ export default function UserProfileDropdown({ userRole = 'admin', userName = 'Ad
       {/* Admin Modal */}
       {showAdminModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white dark:bg-gray-800 rounded-card shadow-lg w-full max-w-md">
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full max-w-md">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark">Admin Panel</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Admin Panel</h3>
                 <button
                   onClick={() => setShowAdminModal(false)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -125,7 +125,7 @@ export default function UserProfileDropdown({ userRole = 'admin', userName = 'Ad
                         router.push(option.href)
                         setShowAdminModal(false)
                       }}
-                      className="w-full flex items-center px-4 py-3 text-left text-text dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 rounded-card transition-colors"
+                      className="w-full flex items-center px-4 py-3 text-left text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                     >
                       <Icon className="h-5 w-5 mr-3 text-primary" />
                       {option.label}

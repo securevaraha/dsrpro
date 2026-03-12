@@ -6,22 +6,10 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'agent', 'vendor'], default: 'agent' },
+  role: { type: String, enum: ['admin', 'agent'], default: 'agent' },
   companyName: String,
   phone: String,
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-}, { timestamps: true })
-
-const VendorSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  companyName: { type: String, required: true },
-  phone: { type: String, required: true },
-  email: { type: String, required: true },
-  address: { type: String, required: true },
-  bankDetails: { type: String, required: true },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  marginSetting: { type: Number, default: 0 },
-  bankCharges: { type: Number, default: 0 },
 }, { timestamps: true })
 
 const ReceiptSchema = new mongoose.Schema({
@@ -36,7 +24,7 @@ const ReceiptSchema = new mongoose.Schema({
 const PaymentSchema = new mongoose.Schema({
   paymentNumber: { type: String, required: true, unique: true },
   date: { type: Date, required: true },
-  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', required: true },
+  agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   paymentMethod: { type: String, enum: ['cash', 'bank', 'upi', 'card'], required: true },
   amount: { type: Number, required: true },
   description: { type: String, required: true },
@@ -44,7 +32,6 @@ const PaymentSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 const User = mongoose.models.User || mongoose.model('User', UserSchema)
-const Vendor = mongoose.models.Vendor || mongoose.model('Vendor', VendorSchema)
 const Receipt = mongoose.models.Receipt || mongoose.model('Receipt', ReceiptSchema)
 const Payment = mongoose.models.Payment || mongoose.model('Payment', PaymentSchema)
 
@@ -55,7 +42,6 @@ async function seedTestData() {
 
     // Clear existing data
     await User.deleteMany({ role: { $ne: 'admin' } })
-    await Vendor.deleteMany({})
     await Receipt.deleteMany({})
     await Payment.deleteMany({})
 
@@ -69,7 +55,7 @@ async function seedTestData() {
     // Create test users
     const testUsers = [
       { name: 'Ahmed Al Mansouri', email: 'ahmed@emirates.ae', role: 'agent', companyName: 'Emirates Trading', phone: '+971-4-123-4567' },
-      { name: 'Fatima Hassan', email: 'fatima@dubai.ae', role: 'vendor', companyName: 'Dubai Gold LLC', phone: '+971-4-234-5678' },
+      { name: 'Fatima Hassan', email: 'fatima@dubai.ae', role: 'agent', companyName: 'Dubai Gold LLC', phone: '+971-4-234-5678' },
       { name: 'Mohammed Khalil', email: 'mohammed@gulf.ae', role: 'agent', companyName: 'Gulf Electronics', phone: '+971-4-345-6789' }
     ]
 
@@ -83,19 +69,6 @@ async function seedTestData() {
         status: 'active'
       })
       createdUsers.push(user)
-    }
-
-    // Create test vendors
-    const testVendors = [
-      { name: 'Al Mansouri Trading', companyName: 'Al Mansouri Group', phone: '+971-4-111-2222', email: 'contact@almansouri.ae', address: 'Dubai Mall, Dubai', bankDetails: 'Emirates NBD - 1234567890', marginSetting: 5, bankCharges: 2 },
-      { name: 'Desert Rose Trading', companyName: 'Desert Rose LLC', phone: '+971-4-333-4444', email: 'info@desertrose.ae', address: 'Gold Souk, Dubai', bankDetails: 'ADCB - 0987654321', marginSetting: 3, bankCharges: 1.5 },
-      { name: 'Burj Commerce', companyName: 'Burj Trading Co', phone: '+971-4-555-6666', email: 'sales@burj.ae', address: 'Business Bay, Dubai', bankDetails: 'FAB - 1122334455', marginSetting: 4, bankCharges: 2.5 }
-    ]
-
-    const createdVendors = []
-    for (const vendorData of testVendors) {
-      const vendor = await Vendor.create(vendorData)
-      createdVendors.push(vendor)
     }
 
     // Create test receipts
@@ -118,7 +91,7 @@ async function seedTestData() {
       await Payment.create({
         paymentNumber: `P${String(i).padStart(3, '0')}`,
         date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-        vendorId: createdVendors[Math.floor(Math.random() * createdVendors.length)]._id,
+        agentId: createdUsers[Math.floor(Math.random() * createdUsers.length)]._id,
         paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
         amount: Math.floor(Math.random() * 8000) + 500,
         description: descriptions[Math.floor(Math.random() * descriptions.length)],
@@ -128,7 +101,6 @@ async function seedTestData() {
 
     console.log('✅ Test data seeded successfully!')
     console.log('👥 Users:', testUsers.length)
-    console.log('🏢 Vendors:', testVendors.length)
     console.log('📄 Receipts: 10')
     console.log('💳 Payments: 8')
 

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText, Briefcase, Store, ShieldCheck } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText, Briefcase, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { useLanguage } from '@/components/LanguageProvider'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
@@ -13,7 +13,7 @@ interface DashboardStats {
   totalReceipts: { today: number; month: number; year: number }
   totalPayments: { today: number; month: number; year: number }
   pendingPayments: number
-  activeVendors: number
+  activeAgents: number
   totalTransactions: number
   totalCommission: number
 }
@@ -23,7 +23,7 @@ interface RecentTransaction {
   transactionId: string
   amount: number
   status: string
-  vendorId: { name: string }
+  agentId: { name: string }
   clientId: { name: string }
   createdAt: string
 }
@@ -56,13 +56,13 @@ export default function Dashboard() {
         const statsData = await statsRes.json()
         setStats(statsData)
         
-        // Prepare chart data
+        // Prepare chart data from real API data
         setChartData({
           line: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            labels: statsData.monthlyTrend?.labels || [],
             datasets: [{
               label: 'Revenue',
-              data: [65000, 59000, 80000, 81000, 56000, statsData.totalReceipts.month],
+              data: statsData.monthlyTrend?.data || [],
               borderColor: '#D4AF37',
               backgroundColor: 'rgba(212, 175, 55, 0.1)',
               borderWidth: 2
@@ -71,7 +71,11 @@ export default function Dashboard() {
           doughnut: {
             labels: ['Completed', 'Pending', 'Failed'],
             datasets: [{
-              data: [statsData.totalTransactions, 5, 2],
+              data: [
+                statsData.transactionStatus?.completed || 0,
+                statsData.transactionStatus?.pending || 0,
+                statsData.transactionStatus?.failed || 0
+              ],
               backgroundColor: ['#10B981', '#F59E0B', '#EF4444']
             }]
           }
@@ -111,28 +115,25 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <div>
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="flex items-center gap-3">
-            {role === 'admin' && <ShieldCheck className="h-7 w-7 text-primary" />}
-            {role === 'agent' && <Briefcase className="h-7 w-7 text-blue-600 dark:text-blue-400" />}
-            {role === 'vendor' && <Store className="h-7 w-7 text-purple-600 dark:text-purple-400" />}
+            {role === 'admin' && <ShieldCheck className="h-6 w-6 text-primary" />}
+            {role === 'agent' && <Briefcase className="h-6 w-6 text-blue-600 dark:text-blue-400" />}
             <div>
-              <h1 className="text-2xl font-semibold text-text dark:text-text-dark">
-                {role === 'admin' ? 'Admin Dashboard' : role === 'agent' ? 'Agent Dashboard' : 'Vendor Dashboard'}
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+                {role === 'admin' ? 'Admin Dashboard' : 'Agent Dashboard'}
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {role === 'admin' 
                   ? 'Complete system overview and management'
-                  : role === 'agent'
-                  ? 'Your transactions, receipts, and commission'
-                  : 'Your settlements, payments, and balance'}
+                  : 'Your transactions, receipts, and commission'}
               </p>
             </div>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <CardSkeleton key={i} />
@@ -148,9 +149,9 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {role === 'vendor' ? 'Sales Today' : t('totalReceiptsToday')}
+                        {t('totalReceiptsToday')}
                       </dt>
-                      <dd className="text-lg font-medium text-text dark:text-text-dark">
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
                         AED {stats.totalReceipts.today.toLocaleString()}
                       </dd>
                     </dl>
@@ -167,10 +168,10 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {role === 'vendor' ? 'Pending Balance' : t('totalPaymentsToday')}
+                        {t('totalPaymentsToday')}
                       </dt>
-                      <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        AED {(role === 'vendor' ? stats.pendingPayments : stats.totalPayments.today).toLocaleString()}
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                        AED {stats.totalPayments.today.toLocaleString()}
                       </dd>
                     </dl>
                   </div>
@@ -186,33 +187,29 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {role === 'vendor' ? 'Monthly Revenue' : 'Commission Earned'}
+                        Commission Earned
                       </dt>
-                      <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        AED {(role === 'vendor' ? stats.totalReceipts.month : stats.totalCommission).toLocaleString()}
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                        AED {stats.totalCommission.toLocaleString()}
                       </dd>
                     </dl>
                   </div>
                 </div>
               </div>
 
-              {/* Card 4: Vendors / Transactions */}
+              {/* Card 4: Agents / Transactions */}
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    {role === 'vendor' ? (
-                      <CreditCard className="h-6 w-6 text-primary" />
-                    ) : (
-                      <Users className="h-6 w-6 text-primary" />
-                    )}
+                    <Users className="h-6 w-6 text-primary" />
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {role === 'admin' ? t('activeVendors') : role === 'agent' ? 'Active Vendors' : 'Transactions'}
+                        {role === 'admin' ? 'Active Agents' : 'Transactions'}
                       </dt>
-                      <dd className="text-lg font-medium text-text dark:text-text-dark">
-                        {role === 'vendor' ? stats.totalTransactions : stats.activeVendors}
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                        {role === 'admin' ? stats.activeAgents : stats.totalTransactions}
                       </dd>
                     </dl>
                   </div>
@@ -232,14 +229,14 @@ export default function Dashboard() {
           ) : chartData ? (
             <>
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">Revenue Trend</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Revenue Trend</h3>
                 <div className="h-64">
                   <Chart type="line" data={chartData.line} />
                 </div>
               </div>
               
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">Transaction Status</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Transaction Status</h3>
                 <div className="h-64">
                   <Chart type="doughnut" data={chartData.doughnut} />
                 </div>
@@ -249,17 +246,17 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Actions — role-aware */}
-        <div className={`mt-8 grid grid-cols-1 gap-6 ${role === 'vendor' ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
-          {(role === 'admin' || role === 'vendor') && (
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {role === 'admin' && (
             <Link href="/dashboard/settlements" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
               <div className="flex items-center">
                 <Calculator className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
                 <div className="ml-4">
-                  <h3 className="text-lg font-medium text-text dark:text-text-dark">
-                    {role === 'vendor' ? 'My Settlements' : 'Merchant Settlements'}
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Merchant Settlements
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {role === 'vendor' ? 'View your settlement records' : 'Track daily card sales like Excel'}
+                    Track daily card sales like Excel
                   </p>
                 </div>
               </div>
@@ -271,7 +268,7 @@ export default function Dashboard() {
               <div className="flex items-center">
                 <CreditCard className="h-8 w-8 text-success group-hover:scale-110 transition-transform" />
                 <div className="ml-4">
-                  <h3 className="text-lg font-medium text-text dark:text-text-dark">Quick Payment</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Quick Payment</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Record new payment</p>
                 </div>
               </div>
@@ -282,11 +279,11 @@ export default function Dashboard() {
             <div className="flex items-center">
               <FileText className="h-8 w-8 text-warning group-hover:scale-110 transition-transform" />
               <div className="ml-4">
-                <h3 className="text-lg font-medium text-text dark:text-text-dark">
-                  {role === 'vendor' ? 'My Reports' : 'Generate Reports'}
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Generate Reports
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {role === 'vendor' ? 'Download your settlement data' : 'Export settlement data'}
+                  Export settlement data
                 </p>
               </div>
             </div>
@@ -296,7 +293,7 @@ export default function Dashboard() {
         {/* Recent Transactions */}
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-            <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">{t('recentActivity')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{t('recentActivity')}</h3>
             <div className="space-y-3">
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
@@ -314,11 +311,11 @@ export default function Dashboard() {
                 recentTransactions.map((transaction) => (
                   <div key={transaction._id} className="flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
                     <div>
-                      <p className="text-sm font-medium text-text dark:text-text-dark">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {transaction.transactionId}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {transaction.vendorId?.name} → {transaction.clientId?.name}
+                        {transaction.agentId?.name} → {transaction.clientId?.name}
                       </p>
                     </div>
                     <div className="text-right">
@@ -346,7 +343,7 @@ export default function Dashboard() {
           </div>
 
           <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-            <h3 className="text-lg font-medium text-text dark:text-text-dark mb-4">{t('monthlyOverview')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{t('monthlyOverview')}</h3>
             <div className="space-y-4">
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
@@ -369,8 +366,8 @@ export default function Dashboard() {
                       AED {stats.totalReceipts.month.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between border-t border-border dark:border-border-dark pt-4">
-                    <span className="text-sm font-medium text-text dark:text-text-dark">Net Commission</span>
+                  <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">Net Commission</span>
                     <span className="text-sm font-medium text-primary">
                       AED {stats.totalCommission.toLocaleString()}
                     </span>

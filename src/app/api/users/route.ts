@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     } else if (includeAdmins) {
       query = {}
     } else {
-      query = { role: { $in: ['agent', 'vendor'] } }
+      query = { role: 'agent' }
     }
     const users = await User.find(query).sort({ createdAt: -1 })
     
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim()
     const existingUser = await User.findOne({ email: normalizedEmail })
     if (existingUser) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 })
+      return NextResponse.json({ error: 'User already exists' }, { status: 409 })
     }
     
     const userPassword = password || randomBytes(8).toString('base64url')

@@ -36,47 +36,76 @@
 
 @layer components {
   .dubai-card {
-    @apply bg-white dark:bg-gray-800 rounded-card shadow-elegant border border-border dark:border-border-dark transition-all duration-300 hover:shadow-lg;
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200/80 dark:border-gray-700/60 transition-all duration-300 hover:shadow-md;
   }
   
   .dubai-button {
-    @apply bg-dubai-gradient text-white font-semibold py-3 px-6 rounded-card shadow-dubai hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+    @apply bg-dubai-gradient text-white font-semibold py-3 px-6 rounded-xl shadow-sm hover:shadow-md transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base;
   }
   
   .pos-grid {
-    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5;
   }
   
   .table-header {
-    @apply bg-gray-50 dark:bg-gray-700 text-text dark:text-text-dark;
+    @apply bg-gray-50 dark:bg-gray-700/60;
   }
   
   .table-row {
-    @apply bg-white dark:bg-gray-800 text-text dark:text-text-dark border-b border-border dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors;
+    @apply bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50/80 dark:hover:bg-gray-700/40 transition-colors;
   }
   
   .table-cell {
-    @apply px-6 py-4 text-sm text-text dark:text-text-dark;
+    @apply px-4 py-3.5 text-sm text-gray-700 dark:text-gray-300;
+  }
+
+  .form-group {
+    @apply space-y-2;
+  }
+
+  .form-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5;
   }
   
   .form-input {
-    @apply w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+    @apply w-full px-4 py-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200 outline-none;
   }
   
   .form-select {
-    @apply w-full px-3 py-2 border border-border dark:border-border-dark rounded-card bg-white dark:bg-gray-700 text-text dark:text-text-dark focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+    @apply w-full px-4 py-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200 outline-none appearance-none cursor-pointer;
+  }
+  
+  .form-label {
+    @apply block text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 mb-2;
   }
   
   .modal-overlay {
-    @apply fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50 backdrop-blur-sm;
+    @apply fixed inset-0 bg-black/40 dark:bg-black/60 overflow-y-auto h-full w-full z-50 backdrop-blur-sm flex items-stretch sm:items-center justify-center p-0 sm:p-6;
   }
-  
+
   .modal-content {
-    @apply relative top-4 sm:top-20 mx-auto p-4 sm:p-6 border w-full max-w-md shadow-xl rounded-card dubai-card animate-in fade-in-0 zoom-in-95 duration-300;
+    @apply relative w-full sm:max-w-4xl lg:max-w-5xl bg-white dark:bg-gray-800 border-0 sm:border border-gray-200 dark:border-gray-700 shadow-2xl rounded-none sm:rounded-2xl p-5 sm:p-8 lg:p-10 min-h-screen sm:min-h-0 sm:max-h-[92vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200;
   }
   
   .btn-secondary {
-    @apply px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-card hover:bg-gray-300 dark:hover:bg-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply px-5 py-3 text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Mobile card for table rows */
+  .mobile-card {
+    @apply dubai-card p-4 space-y-3;
+  }
+
+  .mobile-card-row {
+    @apply flex items-center justify-between text-sm;
+  }
+
+  .mobile-card-label {
+    @apply text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider;
+  }
+
+  .mobile-card-value {
+    @apply font-medium text-gray-900 dark:text-gray-100;
   }
   
   .animate-in {
@@ -93,6 +122,10 @@
   
   .duration-300 {
     animation-duration: 300ms;
+  }
+
+  .duration-200 {
+    animation-duration: 200ms;
   }
 }
 

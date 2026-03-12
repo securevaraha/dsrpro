@@ -48,7 +48,7 @@ export function DialogHeader({ children }: DialogHeaderProps) {
 }
 
 export function DialogTitle({ children }: DialogTitleProps) {
-  return <h3 className="text-lg font-bold text-text dark:text-text-dark">{children}</h3>
+  return <h3 className="text-lg font-bold text-gray-900 dark:text-white">{children}</h3>
 }
 
 export function DialogDescription({ children }: DialogDescriptionProps) {

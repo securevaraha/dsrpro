@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
           <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-          <h3 className="text-lg font-medium text-text dark:text-text-dark mb-2">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             Something went wrong
           </h3>
           <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm">

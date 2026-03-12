@@ -2,7 +2,7 @@ export const generateTestData = () => {
   const names = ['Ahmed Al Mansouri', 'Fatima Hassan', 'Mohammed Khalil', 'Sarah Abdullah', 'Omar Al Zahra', 'Layla Al Rashid']
   const companies = ['Emirates Trading Co', 'Dubai Gold LLC', 'Al Mansouri Group', 'Gulf Electronics', 'Desert Rose Trading', 'Burj Commerce']
   const domains = ['gmail.com', 'outlook.com', 'dsrpro.ae', 'emirates.ae', 'dubai.ae']
-  const roles = ['agent', 'vendor']
+  const roles = ['agent']
   
   const randomName = names[Math.floor(Math.random() * names.length)]
   const randomCompany = companies[Math.floor(Math.random() * companies.length)]

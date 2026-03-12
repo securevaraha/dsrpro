@@ -10,11 +10,6 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     required: false
   },
-  vendorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false
-  },
   agentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -34,10 +29,6 @@ const transactionSchema = new mongoose.Schema({
     default: 0
   },
   agentCommission: {
-    type: Number,
-    default: 0
-  },
-  vendorCommission: {
     type: Number,
     default: 0
   },
@@ -74,5 +65,9 @@ const transactionSchema = new mongoose.Schema({
 }, {
   timestamps: true
 })
+
+transactionSchema.index({ agentId: 1, createdAt: -1 })
+transactionSchema.index({ status: 1, type: 1, createdAt: -1 })
+transactionSchema.index({ createdAt: -1 })
 
 export default mongoose.models.Transaction || mongoose.model('Transaction', transactionSchema)

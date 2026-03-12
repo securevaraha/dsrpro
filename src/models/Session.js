@@ -40,4 +40,7 @@ const sessionSchema = new mongoose.Schema({
   timestamps: true
 })
 
+sessionSchema.index({ userId: 1, isActive: 1 })
+sessionSchema.index({ loginTime: -1 })
+
 export default mongoose.models.Session || mongoose.model('Session', sessionSchema)

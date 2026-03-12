@@ -128,7 +128,7 @@ export default function SignIn() {
             <div className="w-8 h-8 bg-dubai-gradient rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">د</span>
             </div>
-            <span className="font-display font-bold text-text dark:text-text-dark">DSR Pro</span>
+            <span className="font-display font-bold text-gray-900 dark:text-white">DSR Pro</span>
           </div>
           <div className="lg:ml-auto flex items-center gap-2">
             <button
@@ -143,21 +143,21 @@ export default function SignIn() {
         </div>
 
         {/* Form area */}
-        <div className="flex-1 flex items-center justify-center px-5 sm:px-8 pb-10">
-          <div className="w-full max-w-[380px]">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-text dark:text-text-dark tracking-tight">
+        <div className="flex-1 flex items-center justify-center px-5 sm:px-8 lg:px-12 pb-10">
+          <div className="w-full max-w-[420px] sm:max-w-[460px]">
+            <div className="mb-8 sm:mb-10">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                 {t('signInTitle') || 'Welcome back'}
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base mt-2 sm:mt-3">
                 Sign in to your account to continue
               </p>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                   {t('email')}
                 </label>
                 <div className={`relative rounded-xl border-2 transition-all duration-200 ${
@@ -170,7 +170,7 @@ export default function SignIn() {
                   <input
                     type="email"
                     required
-                    className="w-full px-4 py-3 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                    className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                     placeholder="name@company.com"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -188,7 +188,7 @@ export default function SignIn() {
               
               {/* Password */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
                   {t('password')}
                 </label>
                 <div className={`relative rounded-xl border-2 transition-all duration-200 ${
@@ -201,7 +201,7 @@ export default function SignIn() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    className="w-full px-4 py-3 pr-11 bg-transparent text-text dark:text-text-dark placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm rounded-xl"
+                    className="w-full px-4 py-3.5 pr-11 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -229,7 +229,7 @@ export default function SignIn() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full relative bg-dubai-gradient text-white font-semibold py-3.5 px-6 rounded-xl shadow-dubai hover:shadow-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-dubai disabled:active:scale-100 flex items-center justify-center gap-2 group"
+                className="w-full relative bg-dubai-gradient text-white font-semibold py-4 px-6 rounded-xl shadow-dubai hover:shadow-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-dubai disabled:active:scale-100 flex items-center justify-center gap-2 group text-sm sm:text-base"
               >
                 {loading ? (
                   <>
@@ -259,7 +259,7 @@ export default function SignIn() {
 
             <Link 
               href="/auth/signup" 
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-text dark:text-text-dark font-medium text-sm hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-all duration-200 group"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white font-medium text-sm sm:text-base hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-all duration-200 group"
             >
               <span>{t('signUp') || 'Create an account'}</span>
               <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
