@@ -20,8 +20,8 @@ export default function HomePage() {
                 <span className="text-white font-bold text-base sm:text-xl">DSR</span>
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-lg sm:text-xl font-display font-bold bg-dubai-gradient bg-clip-text text-transparent">{t('dsrPro')}</h1>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{t('dubaiPremierPOS')}</span>
+                <h1 className="text-lg sm:text-xl font-display font-bold bg-dubai-gradient bg-clip-text text-transparent">DSR Info</h1>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Dubai Premier POS</span>
               </div>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3">
@@ -197,8 +197,8 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
             <div>
-              <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4 text-white">{t('dsrPro')}</h3>
-              <p className="text-xs sm:text-base text-gray-300 dark:text-gray-400">{t('uaeLeadingERP')}</p>
+              <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4 text-white">DSR Info</h3>
+              <p className="text-xs sm:text-base text-gray-300 dark:text-gray-400">UAE Leading ERP</p>
             </div>
             <div>
               <h4 className="text-xs sm:text-base font-semibold mb-3 sm:mb-4 text-white">{t('product')}</h4>
@@ -221,7 +221,7 @@ export default function HomePage() {
               <ul className="space-y-1 sm:space-y-2 text-xs sm:text-sm text-gray-300 dark:text-gray-400">
                 <li>{t('dubaiUAE')}</li>
                 <li>+971 4 123 4567</li>
-                <li>hello@dsrpro.ae</li>
+                <li>hello@dsrinfo.ae</li>
               </ul>
             </div>
           </div>

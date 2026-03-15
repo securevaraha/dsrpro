@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
     const body = await request.json()
-    const { terminalId, merchantId, serialNumber, model, brand, deviceType, assignedAgent, location, status, notes } = body
+    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, commissionPercentage, status, notes } = body
 
     const existing = await POSMachine.findById(id)
     if (!existing) {
@@ -31,14 +31,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const updateData = addAuditFields({
+      ...(typeof segment === 'string' && { segment: segment.trim() }),
+      ...(brand && { brand }),
       ...(typeof terminalId === 'string' && { terminalId: terminalId.trim() }),
       ...(typeof merchantId === 'string' && { merchantId: merchantId.trim() }),
       ...(typeof serialNumber === 'string' && { serialNumber: serialNumber.trim() }),
       ...(typeof model === 'string' && { model: model.trim() }),
-      ...(brand && { brand }),
       ...(deviceType && { deviceType }),
       ...(assignedAgent !== undefined && { assignedAgent: assignedAgent || null }),
       ...(typeof location === 'string' && { location: location.trim() }),
+      ...(typeof bankCharges !== 'undefined' && { bankCharges: parseFloat(bankCharges) || 0 }),
+      ...(typeof commissionPercentage !== 'undefined' && { commissionPercentage: parseFloat(commissionPercentage) || 0 }),
       ...(status && { status }),
       ...(typeof notes === 'string' && { notes: notes.trim() }),
     }, auth.userId, true)

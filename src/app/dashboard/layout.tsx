@@ -94,7 +94,7 @@ export default function DashboardLayout({
               <div className="w-9 h-9 bg-dubai-gradient rounded-xl flex items-center justify-center mr-3">
                 <span className="text-white font-bold text-sm">DSR</span>
               </div>
-              <h1 className="text-lg font-bold text-white tracking-tight">DSR Pro</h1>
+              <h1 className="text-lg font-bold text-white tracking-tight">DSR Info</h1>
             </div>
             <nav className="mt-8 px-3 space-y-1">
               {filteredNavigation.map((item) => {
@@ -130,7 +130,7 @@ export default function DashboardLayout({
                 <div className="w-9 h-9 bg-dubai-gradient rounded-xl flex items-center justify-center mr-3">
                   <span className="text-white font-bold text-sm">DSR</span>
                 </div>
-                <h1 className="text-lg font-bold text-white tracking-tight">DSR Pro</h1>
+                <h1 className="text-lg font-bold text-white tracking-tight">DSR Info</h1>
               </div>
               <nav className="mt-8 flex-1 px-3 space-y-1">
                 {filteredNavigation.map((item) => {
@@ -177,7 +177,7 @@ export default function DashboardLayout({
               <Menu className="h-5 w-5" />
             </button>
             <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white ml-2 md:ml-0 truncate">
-              DSR Pro
+              DSR Info
             </h1>
           </div>
           

@@ -20,14 +20,17 @@ interface Agent {
 
 interface POSMachine {
   _id: string
+  segment: string
+  brand: 'Network' | 'RAKBank' | 'Geidea' | 'AFS' | 'Other'
   terminalId: string
   merchantId: string
   serialNumber: string
   model: string
-  brand: 'Network' | 'RAKBank' | 'Geidea' | 'AFS' | 'Other'
   deviceType: 'android_pos' | 'traditional_pos'
   assignedAgent: Agent | null
   location: string
+  bankCharges: number
+  commissionPercentage: number
   status: 'active' | 'inactive' | 'maintenance'
   notes: string
   createdAt: string
@@ -67,14 +70,17 @@ export default function POSMachines() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 })
   const [formData, setFormData] = useState({
+    segment: '',
+    brand: 'Network' as string,
     terminalId: '',
     merchantId: '',
     serialNumber: '',
     model: '',
-    brand: 'Network' as string,
     deviceType: 'traditional_pos' as string,
     assignedAgent: '',
     location: '',
+    bankCharges: '',
+    commissionPercentage: '',
     status: 'active' as string,
     notes: '',
   })
@@ -142,6 +148,28 @@ export default function POSMachines() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Validate bank charges
+    const bankCharges = parseFloat(formData.bankCharges) || 0
+    if (bankCharges < 0) {
+      toast.error('Bank charges cannot be negative')
+      return
+    }
+
+    // Validate commission percentage
+    const commissionPercentage = parseFloat(formData.commissionPercentage) || 0
+    if (commissionPercentage < 0 || commissionPercentage > 100) {
+      toast.error('Commission percentage must be between 0 and 100')
+      return
+    }
+
+    const submitData = {
+      ...formData,
+      bankCharges,
+      commissionPercentage
+    }
+
+    console.log('Submitting data:', submitData) // Debug log
+
     if (editingMachine) {
       await optimisticUpdate(
         editingMachine._id,
@@ -150,7 +178,7 @@ export default function POSMachines() {
           const response = await fetch(`/api/pos-machines/${editingMachine._id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
+            body: JSON.stringify(submitData)
           })
           if (!response.ok) {
             const err = await response.json()
@@ -164,7 +192,10 @@ export default function POSMachines() {
       const tempMachine: POSMachine = {
         _id: `temp-${Date.now()}`,
         ...formData,
+        segment: formData.segment,
         brand: formData.brand as POSMachine['brand'],
+        bankCharges,
+        commissionPercentage,
         deviceType: formData.deviceType as POSMachine['deviceType'],
         status: formData.status as POSMachine['status'],
         assignedAgent: agents.find(a => a._id === formData.assignedAgent) || null,
@@ -177,7 +208,7 @@ export default function POSMachines() {
           const response = await fetch('/api/pos-machines', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
+            body: JSON.stringify(submitData)
           })
           if (!response.ok) {
             const err = await response.json()
@@ -198,14 +229,17 @@ export default function POSMachines() {
   const handleEdit = (machine: POSMachine) => {
     setEditingMachine(machine)
     setFormData({
+      segment: machine.segment || '',
+      brand: machine.brand,
       terminalId: machine.terminalId,
       merchantId: machine.merchantId,
       serialNumber: machine.serialNumber,
       model: machine.model || '',
-      brand: machine.brand,
       deviceType: machine.deviceType,
       assignedAgent: machine.assignedAgent?._id || '',
       location: machine.location || '',
+      bankCharges: machine.bankCharges?.toString() || '',
+      commissionPercentage: machine.commissionPercentage?.toString() || '',
       status: machine.status,
       notes: machine.notes || '',
     })
@@ -227,9 +261,9 @@ export default function POSMachines() {
 
   const resetForm = () => {
     setFormData({
-      terminalId: '', merchantId: '', serialNumber: '', model: '',
-      brand: 'Network', deviceType: 'traditional_pos', assignedAgent: '',
-      location: '', status: 'active', notes: '',
+      segment: '', brand: 'Network', terminalId: '', merchantId: '', serialNumber: '', model: '',
+      deviceType: 'traditional_pos', assignedAgent: '', location: '', bankCharges: '', commissionPercentage: '',
+      status: 'active', notes: '',
     })
   }
 
@@ -347,9 +381,10 @@ export default function POSMachines() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800/50">
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Segment / Brand</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Terminal / Merchant</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Device</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Brand</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Charges / Commission</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Agent</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
@@ -358,6 +393,16 @@ export default function POSMachines() {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
                     {filteredMachines.map((machine) => (
                       <tr key={machine._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                              {machine.segment || '—'}
+                            </div>
+                            <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full ${brandColors[machine.brand]}`}>
+                              {machine.brand}
+                            </span>
+                          </div>
+                        </td>
                         <td className="px-5 py-3.5">
                           <div>
                             <div className="flex items-center gap-1.5">
@@ -387,9 +432,14 @@ export default function POSMachines() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full ${brandColors[machine.brand]}`}>
-                            {machine.brand}
-                          </span>
+                          <div>
+                            <div className="text-sm text-gray-900 dark:text-gray-100">
+                              AED {machine.bankCharges?.toFixed(2) || '0.00'}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {machine.commissionPercentage?.toFixed(2) || '0.00'}% commission
+                            </div>
+                          </div>
                         </td>
                         <td className="px-5 py-3.5">
                           {machine.assignedAgent ? (
@@ -465,6 +515,10 @@ export default function POSMachines() {
 
                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
                       <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Segment</span>
+                        <span className="text-xs">{machine.segment || '—'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">Serial</span>
                         <span className="font-mono text-xs">{machine.serialNumber}</span>
                       </div>
@@ -477,6 +531,14 @@ export default function POSMachines() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">Type</span>
                         <span className="text-xs">{deviceTypeLabel(machine.deviceType)}{machine.model ? ` · ${machine.model}` : ''}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Bank Charges</span>
+                        <span className="text-xs font-medium">AED {machine.bankCharges?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Commission</span>
+                        <span className="text-xs font-medium">{machine.commissionPercentage?.toFixed(2) || '0.00'}%</span>
                       </div>
                       {machine.assignedAgent && (
                         <div className="flex items-center justify-between">
@@ -518,54 +580,29 @@ export default function POSMachines() {
         {/* Add/Edit Modal */}
         {showModal && (
           <div className="modal-overlay">
-            <div className="modal-content">
-              <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+            <div className="modal-content max-w-4xl">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                 {editingMachine ? 'Edit POS Machine' : 'Add New POS Machine'}
               </h3>
-              <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                 {editingMachine ? 'Update machine details' : 'Register a new POS machine and assign it to an agent'}
               </p>
               {optimisticLoading ? (
                 <FormSkeleton fields={7} />
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">Terminal ID (TID) *</label>
+                      <label className="form-label">Segment *</label>
                       <input
                         type="text"
                         required
-                        className="form-input font-mono"
-                        placeholder="e.g. 14100615"
-                        value={formData.terminalId}
-                        onChange={(e) => setFormData({...formData, terminalId: e.target.value})}
+                        className="form-input"
+                        placeholder="e.g. Retail, Restaurant, Gas Station"
+                        value={formData.segment}
+                        onChange={(e) => setFormData({...formData, segment: e.target.value})}
                       />
                     </div>
-                    <div>
-                      <label className="form-label">Merchant ID (MID) *</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-input font-mono"
-                        placeholder="e.g. 200602374829"
-                        value={formData.merchantId}
-                        onChange={(e) => setFormData({...formData, merchantId: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label">Device Serial Number *</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-input font-mono"
-                        placeholder="e.g. N960WC46335"
-                        value={formData.serialNumber}
-                        onChange={(e) => setFormData({...formData, serialNumber: e.target.value})}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                     <div>
                       <label className="form-label">Brand *</label>
                       <select
@@ -581,35 +618,109 @@ export default function POSMachines() {
                         <option value="Other">Other</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="form-label">Device Type *</label>
-                      <select
-                        required
-                        className="form-select"
-                        value={formData.deviceType}
-                        onChange={(e) => setFormData({...formData, deviceType: e.target.value})}
-                      >
-                        <option value="traditional_pos">Traditional POS</option>
-                        <option value="android_pos">Android POS</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="form-label">Machine Model</label>
+                      <label className="form-label">Terminal ID (TID) *</label>
                       <input
                         type="text"
-                        className="form-input"
-                        placeholder="e.g. N960, A920"
-                        value={formData.model}
-                        onChange={(e) => setFormData({...formData, model: e.target.value})}
+                        required
+                        className="form-input font-mono text-sm"
+                        placeholder="e.g. 14100615"
+                        value={formData.terminalId}
+                        onChange={(e) => setFormData({...formData, terminalId: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Merchant ID (MID) *</label>
+                      <input
+                        type="text"
+                        required
+                        className="form-input font-mono text-sm"
+                        placeholder="e.g. 200602374829"
+                        value={formData.merchantId}
+                        onChange={(e) => setFormData({...formData, merchantId: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Serial Number *</label>
+                      <input
+                        type="text"
+                        required
+                        className="form-input font-mono text-sm"
+                        placeholder="e.g. N960WC46335"
+                        value={formData.serialNumber}
+                        onChange={(e) => setFormData({...formData, serialNumber: e.target.value})}
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                      <label className="form-label">Model</label>
+                      <input
+                        type="text"
+                        className="form-input text-sm"
+                        placeholder="N960, A920"
+                        value={formData.model}
+                        onChange={(e) => setFormData({...formData, model: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Device Type *</label>
+                      <select
+                        required
+                        className="form-select text-sm"
+                        value={formData.deviceType}
+                        onChange={(e) => setFormData({...formData, deviceType: e.target.value})}
+                      >
+                        <option value="traditional_pos">Traditional</option>
+                        <option value="android_pos">Android</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Bank Charges (AED)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="form-input text-sm"
+                        placeholder="0.00"
+                        value={formData.bankCharges}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                            setFormData({...formData, bankCharges: value})
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Commission (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        className="form-input text-sm"
+                        placeholder="0.00"
+                        value={formData.commissionPercentage}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
+                            setFormData({...formData, commissionPercentage: value})
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="form-label">Assign to Agent</label>
                       <select
-                        className="form-select"
+                        className="form-select text-sm"
                         value={formData.assignedAgent}
                         onChange={(e) => setFormData({...formData, assignedAgent: e.target.value})}
                       >
@@ -625,8 +736,8 @@ export default function POSMachines() {
                       <label className="form-label">Location</label>
                       <input
                         type="text"
-                        className="form-input"
-                        placeholder="e.g. Ras Al Khor, Dubai"
+                        className="form-input text-sm"
+                        placeholder="Ras Al Khor, Dubai"
                         value={formData.location}
                         onChange={(e) => setFormData({...formData, location: e.target.value})}
                       />
@@ -634,7 +745,7 @@ export default function POSMachines() {
                     <div>
                       <label className="form-label">Status</label>
                       <select
-                        className="form-select"
+                        className="form-select text-sm"
                         value={formData.status}
                         onChange={(e) => setFormData({...formData, status: e.target.value})}
                       >
@@ -648,7 +759,7 @@ export default function POSMachines() {
                   <div>
                     <label className="form-label">Notes</label>
                     <textarea
-                      className="form-input"
+                      className="form-input text-sm"
                       rows={2}
                       placeholder="Any additional notes..."
                       value={formData.notes}
@@ -656,7 +767,7 @@ export default function POSMachines() {
                     />
                   </div>
 
-                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-700 mt-2">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <LoadingButton
                       type="button"
                       onClick={() => { setShowModal(false); setEditingMachine(null); resetForm() }}

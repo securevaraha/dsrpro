@@ -11,6 +11,7 @@
     "seed-test": "node scripts/seedTestData.js"
   },
   "dependencies": {
+    "@vercel/blob": "^2.3.1",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",

@@ -54,7 +54,8 @@ export default function SignIn() {
 
       if (res.ok) {
         toast.success('Signed in successfully!')
-        router.push('/dashboard')
+        // Use window.location.href for full page reload to ensure cookie is processed
+        window.location.href = '/dashboard'
       } else {
         toast.error(data.message || 'Sign in failed')
       }
@@ -79,7 +80,7 @@ export default function SignIn() {
             <div className="w-10 h-10 bg-dubai-gradient rounded-xl flex items-center justify-center shadow-dubai">
               <span className="text-white font-bold text-lg">د</span>
             </div>
-            <span className="text-white/90 font-display text-xl font-bold tracking-tight">DSR Pro</span>
+            <span className="text-white/90 font-display text-xl font-bold tracking-tight">DSR Info</span>
           </div>
           <p className="text-white/40 text-sm mt-1">Dubai&apos;s Premier POS System</p>
         </div>
@@ -116,7 +117,7 @@ export default function SignIn() {
         </div>
 
         <div className="relative z-10">
-          <p className="text-white/25 text-xs">&copy; 2026 DSR Pro. All rights reserved.</p>
+          <p className="text-white/25 text-xs">&copy; 2026 DSR Info. All rights reserved.</p>
         </div>
       </div>
 
@@ -128,7 +129,7 @@ export default function SignIn() {
             <div className="w-8 h-8 bg-dubai-gradient rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">د</span>
             </div>
-            <span className="font-display font-bold text-gray-900 dark:text-white">DSR Pro</span>
+            <span className="font-display font-bold text-gray-900 dark:text-white">DSR Info</span>
           </div>
           <div className="lg:ml-auto flex items-center gap-2">
             <button

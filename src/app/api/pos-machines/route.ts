@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
     await connectDB()
 
     const body = await request.json()
-    const { terminalId, merchantId, serialNumber, model, brand, deviceType, assignedAgent, location, status, notes } = body
+    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, commissionPercentage, status, notes } = body
 
-    if (!terminalId || !merchantId || !serialNumber || !brand || !deviceType) {
-      return NextResponse.json({ error: 'Terminal ID, Merchant ID, Serial Number, Brand, and Device Type are required' }, { status: 400 })
+    if (!segment || !terminalId || !merchantId || !serialNumber || !brand || !deviceType) {
+      return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Serial Number, Brand, and Device Type are required' }, { status: 400 })
     }
 
     const existingTID = await POSMachine.findOne({ terminalId: terminalId.trim() })
@@ -75,14 +75,17 @@ export async function POST(request: NextRequest) {
     }
 
     const machineData = addAuditFields({
+      segment: segment.trim(),
+      brand,
       terminalId: terminalId.trim(),
       merchantId: merchantId.trim(),
       serialNumber: serialNumber.trim(),
       model: model?.trim() || '',
-      brand,
       deviceType,
       assignedAgent: assignedAgent || null,
       location: location?.trim() || '',
+      bankCharges: parseFloat(bankCharges) || 0,
+      commissionPercentage: parseFloat(commissionPercentage) || 0,
       status: status || 'active',
       notes: notes?.trim() || '',
     }, auth.userId)

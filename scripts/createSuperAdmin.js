@@ -13,7 +13,12 @@ if (fs.existsSync(envPath)) {
     if (trimmed && !trimmed.startsWith('#')) {
       const [key, ...valueParts] = trimmed.split('=')
       if (key && valueParts.length) {
-        process.env[key.trim()] = valueParts.join('=').trim()
+        let value = valueParts.join('=').trim()
+        // Remove quotes if present
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1)
+        }
+        process.env[key.trim()] = value
       }
     }
   })
@@ -48,11 +53,13 @@ async function createSuperAdmin() {
     const existingAdmin = await User.findOne({ email: 'admin@dsrpro.ae' })
     if (existingAdmin) {
       console.log('Super admin already exists!')
+      console.log('📧 Email: admin@dsrpro.ae')
+      console.log('🔑 Password: admin123')
       return
     }
 
-    // Generate a random password if not provided via env
-    const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url')
+    // Use the specified password
+    const adminPassword = 'admin123'
     const hashedPassword = await bcrypt.hash(adminPassword, 12)
     
     const superAdmin = await User.create({
@@ -67,8 +74,7 @@ async function createSuperAdmin() {
 
     console.log('✅ Super Admin created successfully!')
     console.log('📧 Email: admin@dsrpro.ae')
-    console.log('🔑 Password:', adminPassword)
-    console.log('⚠️  Save this password securely — it will not be shown again.')
+    console.log('🔑 Password: admin123')
     console.log('👤 Role: admin')
     
   } catch (error) {

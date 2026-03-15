@@ -8,21 +8,26 @@ const PUBLIC_API_ROUTES = ['/api/auth/signin', '/api/auth/signup']
 export async function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl
+    console.log('Middleware - pathname:', pathname)
 
     // Allow public API routes without auth
     if (PUBLIC_API_ROUTES.some(route => pathname.startsWith(route))) {
+      console.log('Middleware - allowing public API route')
       return NextResponse.next()
     }
 
     if (PUBLIC_ROUTES.includes(pathname)) {
       // If user is already authenticated and visiting auth pages, redirect to dashboard
       const token = request.cookies.get('token')?.value
+      console.log('Middleware - public route, token exists:', !!token)
       if (token && (pathname === '/auth/signin' || pathname === '/auth/signup')) {
         try {
           const secret = new TextEncoder().encode(process.env.JWT_SECRET)
           await jwtVerify(token, secret)
+          console.log('Middleware - token valid, redirecting to dashboard')
           return NextResponse.redirect(new URL('/dashboard', request.url))
         } catch {
+          console.log('Middleware - token invalid on auth page')
           // Token invalid — let them visit the auth page
         }
       }
@@ -32,8 +37,10 @@ export async function middleware(request: NextRequest) {
     // Protected routes — verify the JWT
     const token = request.cookies.get('token')?.value
     const isApiRoute = pathname.startsWith('/api/')
+    console.log('Middleware - protected route, token exists:', !!token, 'isApiRoute:', isApiRoute)
 
     if (!token) {
+      console.log('Middleware - no token, redirecting to signin')
       if (isApiRoute) {
         return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
       }
@@ -42,6 +49,7 @@ export async function middleware(request: NextRequest) {
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
+    console.log('Middleware - token verified for user:', payload.email)
 
     // Attach user info to headers for downstream API routes
     const response = NextResponse.next()
@@ -50,6 +58,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-user-email', String(payload.email))
     return response
   } catch (error) {
+    console.log('Middleware - error:', error)
     const { pathname } = request.nextUrl
     const isApiRoute = pathname.startsWith('/api/')
 
@@ -58,6 +67,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Token expired or invalid — clear it and redirect to signin
+    console.log('Middleware - clearing token and redirecting to signin')
     const response = NextResponse.redirect(new URL('/auth/signin', request.url))
     response.cookies.set('token', '', {
       httpOnly: true,

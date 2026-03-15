@@ -197,7 +197,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Card 4: Agents / Transactions */}
+              {/* Card 4: Agents / POS Machines */}
               <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -206,10 +206,10 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {role === 'admin' ? 'Active Agents' : 'Transactions'}
+                        {role === 'admin' ? 'Active Agents' : 'POS Machines'}
                       </dt>
                       <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                        {role === 'admin' ? stats.activeAgents : stats.totalTransactions}
+                        {role === 'admin' ? stats.activeAgents : stats.totalPOSMachines || 0}
                       </dd>
                     </dl>
                   </div>

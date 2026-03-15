@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { Plus, Download, Eye, Edit, Trash2, Receipt, Search, Filter } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Download, Eye, Edit, Trash2, Receipt, Search, Filter, Upload, File, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
@@ -14,18 +14,22 @@ interface Receipt {
   paymentMethod: 'cash' | 'bank' | 'upi' | 'card'
   amount: number
   description: string
+  attachments?: string[]
 }
 
 export default function Receipts() {
   const { t } = useLanguage()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null)
   const [deletingReceipt, setDeletingReceipt] = useState<Receipt | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [formData, setFormData] = useState({
     receiptNumber: '',
     date: format(new Date(), 'dd-MMM-yyyy'),
@@ -50,7 +54,8 @@ export default function Receipts() {
           date: t.createdAt,
           paymentMethod: t.paymentMethod,
           amount: t.amount,
-          description: t.description || 'Transaction'
+          description: t.description || 'Transaction',
+          attachments: t.attachments || []
         }))
         setReceipts(formattedReceipts)
       }
@@ -62,6 +67,59 @@ export default function Receipts() {
     }
   }
 
+  const handleFileUpload = async (files: FileList) => {
+    if (!files || files.length === 0) return
+    
+    // Only allow one file at a time
+    if (uploadedFiles.length > 0) {
+      toast.error('Please remove the existing file before uploading a new one')
+      return
+    }
+    
+    setUploading(true)
+    const file = files[0] // Only take the first file
+    
+    try {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`File ${file.name} is not supported. Please upload images or PDF files.`)
+        return
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`File ${file.name} is too large. Maximum size is 5MB.`)
+        return
+      }
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUploadedFiles([result.url]) // Replace existing file
+        toast.success('File uploaded successfully')
+      } else {
+        const error = await response.json()
+        toast.error(`Failed to upload ${file.name}: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error('Failed to upload file')
+    } finally {
+      setUploading(false)
+    }
+  }
+  
+  const removeUploadedFile = (url: string) => {
+    setUploadedFiles(prev => prev.filter(f => f !== url))
+  }
   const filteredReceipts = receipts.filter(receipt => {
     const matchesSearch = receipt.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -83,6 +141,7 @@ export default function Receipts() {
           amount: parseFloat(formData.amount),
           paymentMethod: formData.paymentMethod,
           description: formData.description,
+          attachments: uploadedFiles,
           metadata: {
             receiptNumber: formData.receiptNumber
           }
@@ -112,6 +171,7 @@ export default function Receipts() {
       amount: receipt.amount.toString(),
       description: receipt.description
     })
+    setUploadedFiles(receipt.attachments || [])
     setShowModal(true)
   }
 
@@ -138,6 +198,7 @@ export default function Receipts() {
 
   const resetForm = () => {
     setFormData({ receiptNumber: '', date: format(new Date(), 'dd-MMM-yyyy'), paymentMethod: 'cash', amount: '', description: '' })
+    setUploadedFiles([])
     setEditingReceipt(null)
   }
 
@@ -166,7 +227,7 @@ export default function Receipts() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('receipts')}</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">TechRover - {t('receipts')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('manageReceipts')}</p>
         </div>
         <div className="flex gap-2">
@@ -259,13 +320,54 @@ export default function Receipts() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{receipt.description}</p>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-2">
                     <div>
                       <span className="text-xs text-gray-400">{format(new Date(receipt.date), 'dd-MMM-yyyy')}</span>
                     </div>
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">AED {receipt.amount.toLocaleString()}</span>
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
+                  {/* Preview section for mobile */}
+                  {receipt.attachments && receipt.attachments.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 mb-2">Attachment:</p>
+                      <div className="flex gap-2">
+                        {receipt.attachments.map((url, index) => {
+                          const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                          return (
+                            <div key={index} className="relative">
+                              {isImage ? (
+                                <img 
+                                  src={url} 
+                                  alt={`Receipt ${receipt.receiptNumber}`}
+                                  className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                              ) : (
+                                <button
+                                  onClick={() => window.open(url, '_blank')}
+                                  className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center"
+                                >
+                                  <File className="h-6 w-6 text-red-500" />
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
+                    {receipt.attachments && receipt.attachments.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const firstAttachment = receipt.attachments![0]
+                          window.open(firstAttachment, '_blank')
+                        }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEdit(receipt)}
                       className="p-1.5 rounded-lg text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -296,6 +398,7 @@ export default function Receipts() {
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('paymentMethod')}</th>
                     <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
+                    <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preview</th>
                     <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('actions')}</th>
                   </tr>
                 </thead>
@@ -319,13 +422,57 @@ export default function Receipts() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-gray-100">
-                        AED {receipt.amount.toLocaleString()}
+                        AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">
                         {receipt.description}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-center text-sm">
+                        {receipt.attachments && receipt.attachments.length > 0 ? (
+                          <div className="flex justify-center gap-1">
+                            {receipt.attachments.map((url, index) => {
+                              const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                              return (
+                                <div key={index} className="relative group">
+                                  {isImage ? (
+                                    <img 
+                                      src={url} 
+                                      alt={`Receipt ${receipt.receiptNumber}`}
+                                      className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:scale-110 transition-transform" 
+                                      onClick={() => window.open(url, '_blank')}
+                                      title="Click to view full image"
+                                    />
+                                  ) : (
+                                    <button
+                                      onClick={() => window.open(url, '_blank')}
+                                      className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                                      title="Click to view PDF"
+                                    >
+                                      <File className="h-4 w-4 text-red-500" />
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">No attachment</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap text-center text-sm">
                         <div className="flex justify-center gap-1">
+                          {receipt.attachments && receipt.attachments.length > 0 && (
+                            <button
+                              onClick={() => {
+                                const firstAttachment = receipt.attachments![0]
+                                window.open(firstAttachment, '_blank')
+                              }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title="View attachment"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEdit(receipt)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -357,42 +504,40 @@ export default function Receipts() {
       {/* Add/Edit Receipt Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+          <div className="modal-content max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
               {editingReceipt ? 'Edit Receipt' : t('addReceipt')}
             </h3>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               {editingReceipt ? 'Update receipt details below' : 'Fill in the receipt details below'}
             </p>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">{t('receiptNumber')}</label>
+                  <label className="form-label text-sm">{t('receiptNumber')}</label>
                   <input
                     type="text"
                     required
-                    className="form-input bg-gray-50 dark:bg-gray-600"
+                    className="form-input bg-gray-50 dark:bg-gray-600 h-10"
                     value={formData.receiptNumber}
                     readOnly
                   />
                 </div>
                 <div>
-                  <label className="form-label">{t('date')}</label>
+                  <label className="form-label text-sm">{t('date')}</label>
                   <input
                     type="text"
                     required
-                    className="form-input"
+                    className="form-input h-10"
                     value={formData.date}
                     placeholder="dd-MMM-yyyy"
                     onChange={(e) => setFormData({...formData, date: e.target.value})}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 <div>
-                  <label className="form-label">{t('paymentMethod')}</label>
+                  <label className="form-label text-sm">{t('paymentMethod')}</label>
                   <select
-                    className="form-select"
+                    className="form-select h-10"
                     value={formData.paymentMethod}
                     onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
                   >
@@ -402,30 +547,125 @@ export default function Receipts() {
                     <option value="card">Card</option>
                   </select>
                 </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">{t('amount')}</label>
+                  <label className="form-label text-sm">{t('amount')}</label>
                   <input
                     type="number"
                     placeholder="0.00"
                     required
-                    className="form-input"
+                    className="form-input h-10"
                     value={formData.amount}
                     onChange={(e) => setFormData({...formData, amount: e.target.value})}
                   />
                 </div>
+                <div>
+                  <label className="form-label text-sm">{t('description')}</label>
+                  <input
+                    type="text"
+                    placeholder={t('description')}
+                    required
+                    className="form-input h-10"
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  />
+                </div>
               </div>
+              
+              {/* File Upload Section */}
               <div>
-                <label className="form-label">{t('description')}</label>
-                <textarea
-                  placeholder={t('description')}
-                  required
-                  rows={4}
-                  className="form-input resize-none"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                />
+                <label className="form-label text-sm">Attachments</label>
+                <div className="space-y-3">
+                  {/* Upload Area */}
+                  <div 
+                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-primary transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.add('border-primary', 'bg-primary/5')
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
+                      const files = e.dataTransfer.files
+                      if (files) handleFileUpload(files)
+                    }}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) handleFileUpload(e.target.files)
+                      }}
+                    />
+                    <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      {uploading ? 'Uploading file...' : 'Click to upload or drag and drop'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      One image (JPG, PNG, GIF) or PDF file, max 5MB
+                    </p>
+                  </div>
+                  
+                  {/* Uploaded File */}
+                  {uploadedFiles.length > 0 && (
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                      {uploadedFiles.map((url, index) => {
+                        const fileName = url.split('/').pop() || `File ${index + 1}`
+                        const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                        return (
+                          <div key={url} className="flex items-center gap-3">
+                            {isImage ? (
+                              <div className="flex-shrink-0">
+                                <img 
+                                  src={url} 
+                                  alt={fileName} 
+                                  className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600" 
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
+                                <File className="h-6 w-6 text-red-500" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {fileName}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <a 
+                                  href={url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  View File
+                                </a>
+                                <span className="text-xs text-gray-400">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeUploadedFile(url)}
+                                  className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-700 mt-2">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => {

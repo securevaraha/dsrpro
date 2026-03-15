@@ -55,19 +55,28 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' }
     )
 
+    // Debug: Log cookie setting
+    console.log('Setting cookie with token:', token.substring(0, 20) + '...')
+    
     const response = NextResponse.json({ 
       message: 'Sign in successful',
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     })
 
-    response.cookies.set('token', token, {
+    // Set cookie with explicit options
+    response.cookies.set({
+      name: 'token',
+      value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: false, // Set to false for localhost
+      sameSite: 'lax', // Changed from 'strict' to 'lax'
       maxAge: MAX_TOKEN_AGE_SECONDS,
       path: '/',
     })
 
+    // Debug: Log response headers
+    console.log('Response cookies:', response.cookies.getAll())
+    
     return response
   } catch (error: any) {
     console.error('Sign in error:', error)

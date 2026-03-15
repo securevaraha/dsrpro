@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import User from '@/models/User'
+import POSMachine from '@/models/POSMachine'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -61,6 +62,11 @@ export async function GET(request: NextRequest) {
     
     // Active agents count
     const activeAgents = await User.countDocuments({ role: 'agent', status: 'active' })
+    
+    // POS machines count
+    const posMachinesFilter = auth.role === 'agent' ? { assignedAgent: auth.userId } : {}
+    const totalPOSMachines = await POSMachine.countDocuments(posMachinesFilter)
+    const activePOSMachines = await POSMachine.countDocuments({ ...posMachinesFilter, status: 'active' })
     
     // Pending payments
     const pendingPayments = await Transaction.aggregate([
@@ -122,6 +128,8 @@ export async function GET(request: NextRequest) {
       },
       pendingPayments: pendingPayments[0]?.total || 0,
       activeAgents,
+      totalPOSMachines,
+      activePOSMachines,
       totalTransactions: (monthlyReceipts[0]?.count || 0) + (monthlyPayments[0]?.count || 0),
       totalCommission: monthlyReceipts[0]?.commission || 0,
       monthlyTrend: { labels: trendLabels, data: trendData },
