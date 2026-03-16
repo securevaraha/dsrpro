@@ -19,6 +19,10 @@ const sessionSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  lastActivity: {
+    type: Date,
+    default: Date.now
+  },
   ipAddress: {
     type: String,
     required: true
@@ -35,6 +39,11 @@ const sessionSchema = new mongoose.Schema({
     browser: String,
     os: String,
     device: String
+  },
+  expiresAt: {
+    type: Date,
+    default: () => new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+    expires: 0 // MongoDB TTL index
   }
 }, {
   timestamps: true
@@ -42,5 +51,7 @@ const sessionSchema = new mongoose.Schema({
 
 sessionSchema.index({ userId: 1, isActive: 1 })
 sessionSchema.index({ loginTime: -1 })
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+sessionSchema.index({ lastActivity: 1 })
 
 export default mongoose.models.Session || mongoose.model('Session', sessionSchema)

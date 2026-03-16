@@ -9,7 +9,7 @@ import { ChartSkeleton, TableSkeleton } from '@/components/ui/skeleton'
 export default function Reports() {
   const { t } = useLanguage()
   const [loading, setLoading] = useState(true)
-  const [reportType, setReportType] = useState('sales')
+  const [reportType, setReportType] = useState('summary')
   const [dateRange, setDateRange] = useState('month')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -98,10 +98,14 @@ export default function Reports() {
           value={reportType}
           onChange={(e) => setReportType(e.target.value)}
         >
-          <option value="sales">{t('salesReport')}</option>
-          <option value="payments">{t('paymentReport')}</option>
-          <option value="agents">Agent Report</option>
-          <option value="transactions">Transaction Report</option>
+          <option value="transactions">All Transactions</option>
+          <option value="receipts">Receipts Report</option>
+          <option value="payments">Payments Report</option>
+          <option value="settlements">Settlements Report</option>
+          <option value="agents">Agent Performance</option>
+          <option value="clients">Client Report</option>
+          <option value="commission">Commission Report</option>
+          <option value="summary">Summary Report</option>
         </select>
         
         <select

@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { TableSkeleton } from '@/components/ui/skeleton'
+import { ImagePreviewModal } from '@/components/ImagePreviewModal'
 
 interface Receipt {
   _id: string
@@ -30,6 +31,8 @@ export default function Receipts() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
+  const [showImagePreview, setShowImagePreview] = useState(false)
+  const [previewImage, setPreviewImage] = useState({ url: '', fileName: '' })
   const [formData, setFormData] = useState({
     receiptNumber: '',
     date: format(new Date(), 'dd-MMM-yyyy'),
@@ -117,9 +120,20 @@ export default function Receipts() {
     }
   }
   
+  const handleImagePreview = (url: string, fileName: string) => {
+    const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+    if (isImage) {
+      setPreviewImage({ url, fileName })
+      setShowImagePreview(true)
+    } else {
+      // For PDFs, still open in new tab
+      window.open(url, '_blank')
+    }
+  }
   const removeUploadedFile = (url: string) => {
     setUploadedFiles(prev => prev.filter(f => f !== url))
   }
+  
   const filteredReceipts = receipts.filter(receipt => {
     const matchesSearch = receipt.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -340,6 +354,7 @@ export default function Receipts() {
                       <div className="flex gap-2">
                         {receipt.attachments.map((url, index) => {
                           const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                          const fileName = url.split('/').pop() || `File ${index + 1}`
                           return (
                             <div key={index} className="relative">
                               {isImage ? (
@@ -347,7 +362,7 @@ export default function Receipts() {
                                   src={url} 
                                   alt={`Receipt ${receipt.receiptNumber}`}
                                   className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
-                                  onClick={() => window.open(url, '_blank')}
+                                  onClick={() => handleImagePreview(url, fileName)}
                                 />
                               ) : (
                                 <button
@@ -368,7 +383,8 @@ export default function Receipts() {
                       <button
                         onClick={() => {
                           const firstAttachment = receipt.attachments![0]
-                          window.open(firstAttachment, '_blank')
+                          const fileName = firstAttachment.split('/').pop() || 'Attachment'
+                          handleImagePreview(firstAttachment, fileName)
                         }}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
@@ -439,6 +455,7 @@ export default function Receipts() {
                           <div className="flex justify-center gap-1">
                             {receipt.attachments.map((url, index) => {
                               const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                              const fileName = url.split('/').pop() || `File ${index + 1}`
                               return (
                                 <div key={index} className="relative group">
                                   {isImage ? (
@@ -446,8 +463,8 @@ export default function Receipts() {
                                       src={url} 
                                       alt={`Receipt ${receipt.receiptNumber}`}
                                       className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:scale-110 transition-transform" 
-                                      onClick={() => window.open(url, '_blank')}
-                                      title="Click to view full image"
+                                      onClick={() => handleImagePreview(url, fileName)}
+                                      title="Click to preview image"
                                     />
                                   ) : (
                                     <button
@@ -472,7 +489,8 @@ export default function Receipts() {
                             <button
                               onClick={() => {
                                 const firstAttachment = receipt.attachments![0]
-                                window.open(firstAttachment, '_blank')
+                                const fileName = firstAttachment.split('/').pop() || 'Attachment'
+                                handleImagePreview(firstAttachment, fileName)
                               }}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                               title="View attachment"
@@ -723,6 +741,14 @@ export default function Receipts() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Image Preview Modal */}
+      <ImagePreviewModal
+        isOpen={showImagePreview}
+        onClose={() => setShowImagePreview(false)}
+        imageUrl={previewImage.url}
+        fileName={previewImage.fileName}
+      />
     </div>
   )
 }

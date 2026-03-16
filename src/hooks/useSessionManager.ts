@@ -20,6 +20,9 @@ export function useSessionManager() {
     lastActivityRef.current = Date.now()
     setShowWarning(false)
 
+    // Update session activity on server
+    updateServerActivity()
+
     // Set warning timer (9 minutes)
     warningTimerRef.current = setTimeout(() => {
       setShowWarning(true)
@@ -29,6 +32,17 @@ export function useSessionManager() {
     idleTimerRef.current = setTimeout(() => {
       handleAutoLogout()
     }, IDLE_TIME)
+  }
+
+  const updateServerActivity = async () => {
+    try {
+      await fetch('/api/sessions/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+    } catch (error) {
+      console.error('Failed to update session activity:', error)
+    }
   }
 
   const handleAutoLogout = async () => {
