@@ -16,6 +16,7 @@ interface DashboardStats {
   activeAgents: number
   totalTransactions: number
   totalCommission: number
+  totalPOSMachines?: number
 }
 
 interface RecentTransaction {
