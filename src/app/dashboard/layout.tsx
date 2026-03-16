@@ -18,6 +18,7 @@ import {
   Wifi
 } from 'lucide-react'
 import { useSessionManager } from '@/hooks/useSessionManager'
+import { SessionWarningModal } from '@/components/SessionWarningModal'
 import { useCurrentUser, UserRole } from '@/hooks/useCurrentUser'
 import LanguageDropdown from '@/components/LanguageDropdown'
 import NotificationDropdown from '@/components/NotificationDropdown'
@@ -55,7 +56,7 @@ export default function DashboardLayout({
   const { theme, toggleTheme } = useTheme()
   const { t } = useLanguage()
   const { user } = useCurrentUser()
-  useSessionManager()
+  const { showWarning, extendSession, logout } = useSessionManager()
 
   const userRole: UserRole = user?.role || 'agent'
   const userName = user?.name || ''
@@ -217,6 +218,13 @@ export default function DashboardLayout({
           </footer>
         </main>
       </div>
+      
+      {/* Session Warning Modal */}
+      <SessionWarningModal
+        isOpen={showWarning}
+        onExtend={extendSession}
+        onLogout={logout}
+      />
     </div>
   )
 }

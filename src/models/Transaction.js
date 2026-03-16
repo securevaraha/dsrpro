@@ -48,6 +48,10 @@ const transactionSchema = new mongoose.Schema({
     required: true
   },
   description: String,
+  attachments: [{
+    type: String,
+    required: false
+  }],
   metadata: {
     cardType: String,
     bankName: String,

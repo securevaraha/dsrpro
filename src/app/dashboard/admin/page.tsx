@@ -11,6 +11,7 @@ import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
 import { format } from 'date-fns'
+import { ConfirmationModal } from '@/components/ConfirmationModal'
 
 interface User {
   _id: string
@@ -77,6 +78,8 @@ export default function AdminPanel() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [activeSessions, setActiveSessions] = useState(0)
   const [loadingSessions, setLoadingSessions] = useState(true)
+  const [showTerminateDialog, setShowTerminateDialog] = useState(false)
+  const [terminatingSession, setTerminatingSession] = useState<SessionInfo | null>(null)
 
   // Stats
   const [stats, setStats] = useState<UserStats>({ total: 0, admins: 0, agents: 0, active: 0, inactive: 0 })
@@ -260,15 +263,18 @@ export default function AdminPanel() {
     }
   }
 
-  const handleTerminateSession = async (sessionId: string) => {
+  const handleTerminateSession = async () => {
+    if (!terminatingSession) return
     try {
       const response = await fetch('/api/admin/sessions', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId })
+        body: JSON.stringify({ sessionId: terminatingSession.sessionId })
       })
       if (response.ok) {
         toast.success('Session terminated')
+        setShowTerminateDialog(false)
+        setTerminatingSession(null)
         fetchSessions()
       } else {
         toast.error('Failed to terminate session')
@@ -868,7 +874,10 @@ export default function AdminPanel() {
                       </div>
 
                       <button
-                        onClick={() => handleTerminateSession(session.sessionId)}
+                        onClick={() => {
+                          setTerminatingSession(session)
+                          setShowTerminateDialog(true)
+                        }}
                         className="self-end sm:self-auto px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-md transition-colors"
                       >
                         Terminate
@@ -1122,6 +1131,20 @@ export default function AdminPanel() {
             </div>
           </div>
         )}
+
+        {/* ────────────────── TERMINATE SESSION DIALOG ────────────────── */}
+        <ConfirmationModal
+          isOpen={showTerminateDialog}
+          onClose={() => {
+            setShowTerminateDialog(false)
+            setTerminatingSession(null)
+          }}
+          onConfirm={handleTerminateSession}
+          title="Terminate Session"
+          message={`Are you sure you want to terminate the session for ${terminatingSession?.userId?.name || 'this user'}? They will be logged out immediately.`}
+          confirmText="Terminate Session"
+          type="terminate"
+        />
       </div>
     </RoleGuard>
   )

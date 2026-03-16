@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       amount,
       paymentMethod,
       description,
+      attachments,
       metadata
     } = await request.json()
     
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
       amount: parsedAmount,
       paymentMethod,
       description,
+      attachments: attachments || [],
       metadata,
       status: 'completed'
     }, auth.userId)

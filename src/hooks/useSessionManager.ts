@@ -1,61 +1,84 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-const IDLE_TIME = 30 * 60 * 1000 // 30 minutes
-const WARNING_TIME = 5 * 60 * 1000 // 5 minutes before logout
+const IDLE_TIME = 10 * 60 * 1000 // 10 minutes in milliseconds
+const WARNING_TIME = 9 * 60 * 1000 // 9 minutes - show warning 1 minute before logout
 
 export function useSessionManager() {
   const router = useRouter()
-  const timeoutRef = useRef<NodeJS.Timeout>()
-  const warningRef = useRef<NodeJS.Timeout>()
+  const [showWarning, setShowWarning] = useState(false)
+  const idleTimerRef = useRef<NodeJS.Timeout>()
+  const warningTimerRef = useRef<NodeJS.Timeout>()
+  const lastActivityRef = useRef<number>(Date.now())
 
-  const logout = async () => {
+  const resetTimers = () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
+    
+    lastActivityRef.current = Date.now()
+    setShowWarning(false)
+
+    // Set warning timer (9 minutes)
+    warningTimerRef.current = setTimeout(() => {
+      setShowWarning(true)
+    }, WARNING_TIME)
+
+    // Set logout timer (10 minutes)
+    idleTimerRef.current = setTimeout(() => {
+      handleAutoLogout()
+    }, IDLE_TIME)
+  }
+
+  const handleAutoLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-    } catch {
-      // Best effort — still clear client session
+      toast.error('Session expired due to inactivity')
+      router.push('/auth/signin')
+    } catch (error) {
+      console.error('Logout error:', error)
+      router.push('/auth/signin')
     }
-    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    toast.error('Session expired. Please login again.')
-    router.push('/auth/signin')
   }
 
-  const showWarning = () => {
-    toast('Session will expire in 5 minutes', {
-      duration: 5000,
-      icon: '⚠️'
-    })
+  const extendSession = () => {
+    resetTimers()
+    toast.success('Session extended')
   }
 
-  const resetTimer = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    if (warningRef.current) clearTimeout(warningRef.current)
-    
-    warningRef.current = setTimeout(showWarning, IDLE_TIME - WARNING_TIME)
-    timeoutRef.current = setTimeout(logout, IDLE_TIME)
+  const logout = () => {
+    handleAutoLogout()
   }
 
   useEffect(() => {
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart']
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
     
-    const resetTimerHandler = () => resetTimer()
-    
+    const resetActivity = () => {
+      resetTimers()
+    }
+
+    // Add event listeners
     events.forEach(event => {
-      document.addEventListener(event, resetTimerHandler, true)
+      document.addEventListener(event, resetActivity, true)
     })
 
-    resetTimer()
+    // Initialize timers
+    resetTimers()
 
     return () => {
+      // Cleanup
       events.forEach(event => {
-        document.removeEventListener(event, resetTimerHandler, true)
+        document.removeEventListener(event, resetActivity, true)
       })
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      if (warningRef.current) clearTimeout(warningRef.current)
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
     }
   }, [])
 
-  return { resetTimer }
+  return {
+    showWarning,
+    extendSession,
+    logout
+  }
 }

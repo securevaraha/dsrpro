@@ -129,6 +129,13 @@ export default function Receipts() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate that at least one file is uploaded
+    if (uploadedFiles.length === 0) {
+      toast.error('Please upload at least one attachment before submitting the receipt')
+      return
+    }
+    
     try {
       const isEditing = !!editingReceipt
       const url = isEditing ? `/api/transactions/${editingReceipt._id}` : '/api/transactions'
