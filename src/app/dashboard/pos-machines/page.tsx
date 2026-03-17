@@ -99,18 +99,31 @@ export default function POSMachines() {
   })
 
   useEffect(() => {
+    console.log('Current user:', user)
+    console.log('Is admin:', isAdmin)
     fetchMachines()
     if (isAdmin) fetchAgents()
-  }, [isAdmin])
+  }, [isAdmin, user])
 
   const fetchMachines = async () => {
     try {
       setLoading(true)
+      console.log('Fetching POS machines...')
       const response = await fetch('/api/pos-machines')
+      console.log('Response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('API Response:', data)
+        console.log('Machines received:', data.machines?.length || 0)
+        console.log('Stats received:', data.stats)
+        
         setMachines(data.machines || [])
         setStats(data.stats || { total: 0, active: 0, inactive: 0, maintenance: 0 })
+      } else {
+        const errorData = await response.json()
+        console.error('API Error:', errorData)
+        toast.error(`Failed to load POS machines: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Failed to fetch POS machines:', error)
@@ -620,11 +633,17 @@ export default function POSMachines() {
                       <input
                         type="text"
                         required
-                        className="form-input font-mono text-sm"
+                        className="form-input font-mono text-sm uppercase"
                         placeholder="e.g. 14100615"
                         value={formData.terminalId}
-                        onChange={(e) => setFormData({...formData, terminalId: e.target.value})}
+                        onChange={(e) => {
+                          // Only allow alphanumeric characters and convert to uppercase
+                          const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+                          setFormData({...formData, terminalId: value})
+                        }}
+                        maxLength={20}
                       />
+                      <p className="text-xs text-gray-500 mt-1">Only letters and numbers allowed</p>
                     </div>
                     <div>
                       <label className="form-label">Merchant ID (MID) *</label>

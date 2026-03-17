@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const query: any = {}
 
     // Agents can only see their own machines
-    if (auth.role === 'agent') {
+    if (auth.role.toLowerCase() === 'agent') {
       query.assignedAgent = auth.userId
       console.log('Agent query:', query)
     } else if (agentId) {
@@ -50,10 +50,10 @@ export async function GET(request: NextRequest) {
     console.log('Found machines:', machines.length)
 
     const stats = {
-      total: await POSMachine.countDocuments(auth.role === 'agent' ? { assignedAgent: auth.userId } : {}),
-      active: await POSMachine.countDocuments({ ...(auth.role === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'active' }),
-      inactive: await POSMachine.countDocuments({ ...(auth.role === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'inactive' }),
-      maintenance: await POSMachine.countDocuments({ ...(auth.role === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'maintenance' }),
+      total: await POSMachine.countDocuments(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}),
+      active: await POSMachine.countDocuments({ ...(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'active' }),
+      inactive: await POSMachine.countDocuments({ ...(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'inactive' }),
+      maintenance: await POSMachine.countDocuments({ ...(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'maintenance' }),
     }
 
     console.log('Stats:', stats)
@@ -86,11 +86,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Brand, and Device Type are required' }, { status: 400 })
     }
 
-    console.log('Checking for existing Terminal ID:', terminalId)
-    const existingTID = await POSMachine.findOne({ terminalId: terminalId.trim() })
+    // Normalize terminal ID (trim and uppercase)
+    const normalizedTerminalId = terminalId.trim().toUpperCase()
+    
+    // Validate terminal ID format
+    if (!/^[A-Z0-9]+$/.test(normalizedTerminalId)) {
+      return NextResponse.json({ 
+        error: 'Terminal ID must contain only alphanumeric characters' 
+      }, { status: 400 })
+    }
+
+    console.log('Checking for existing Terminal ID:', normalizedTerminalId)
+    // Check for existing terminal ID (case-insensitive)
+    const existingTID = await POSMachine.findOne({ 
+      terminalId: { $regex: new RegExp(`^${normalizedTerminalId}$`, 'i') } 
+    })
     if (existingTID) {
-      console.log('Terminal ID already exists:', existingTID._id)
-      return NextResponse.json({ error: 'A machine with this Terminal ID already exists' }, { status: 400 })
+      console.log('Terminal ID already exists:', existingTID._id, 'Existing TID:', existingTID.terminalId)
+      return NextResponse.json({ 
+        error: `Terminal ID '${normalizedTerminalId}' already exists (found as '${existingTID.terminalId}')` 
+      }, { status: 400 })
     }
 
     // Validate assignedAgent if provided
@@ -103,7 +118,7 @@ export async function POST(request: NextRequest) {
     const machineData = addAuditFields({
       segment: segment.trim(),
       brand,
-      terminalId: terminalId.trim(),
+      terminalId: normalizedTerminalId, // Use normalized terminal ID
       merchantId: merchantId.trim(),
       serialNumber: serialNumber?.trim() || '',
       model: model?.trim() || '',

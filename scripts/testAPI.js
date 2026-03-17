@@ -1,104 +1,12 @@
-#!/usr/bin/env node
-
 const https = require('https');
 
-async function testAPI() {
-  console.log('🚀 Starting API Test...\n');
-
-  // Step 1: Login to get auth token
-  console.log('Step 1: Logging in...');
+// Test the API endpoint directly
+async function testPOSMachinesAPI() {
+  console.log('=== TESTING POS MACHINES API ===\\n');
   
-  const loginData = JSON.stringify({
-    email: 'admin@dsrpro.ae',
-    password: 'admin123'
-  });
-
-  const loginOptions = {
-    hostname: 'dsrpro.vercel.app',
-    port: 443,
-    path: '/api/auth/signin',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(loginData)
-    }
-  };
-
-  try {
-    const loginResponse = await makeRequest(loginOptions, loginData);
-    console.log('✅ Login successful');
-    
-    // Extract cookies from login response
-    const cookies = loginResponse.headers['set-cookie'];
-    const cookieHeader = cookies ? cookies.join('; ') : '';
-    
-    // Step 2: Test the API with auth
-    console.log('\nStep 2: Testing API endpoints...');
-    
-    const testOptions = {
-      hostname: 'dsrpro.vercel.app',
-      port: 443,
-      path: '/api/test',
-      method: 'GET',
-      headers: {
-        'Cookie': cookieHeader,
-        'Content-Type': 'application/json'
-      }
-    };
-
-    const testResponse = await makeRequest(testOptions);
-    console.log('✅ API Test completed');
-    console.log('\n📊 Test Results:');
-    console.log(JSON.stringify(testResponse.data, null, 2));
-    
-  } catch (error) {
-    console.error('❌ Test failed:', error.message);
-    if (error.data) {
-      console.error('Error details:', JSON.stringify(error.data, null, 2));
-    }
-  }
-}
-
-function makeRequest(options, data = null) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let body = '';
-      
-      res.on('data', (chunk) => {
-        body += chunk;
-      });
-      
-      res.on('end', () => {
-        try {
-          const responseData = JSON.parse(body);
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve({
-              statusCode: res.statusCode,
-              headers: res.headers,
-              data: responseData
-            });
-          } else {
-            const error = new Error(`HTTP ${res.statusCode}: ${responseData.error || 'Request failed'}`);
-            error.data = responseData;
-            reject(error);
-          }
-        } catch (parseError) {
-          reject(new Error(`Failed to parse response: ${body}`));
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    if (data) {
-      req.write(data);
-    }
-    
-    req.end();
-  });
-}
-
-// Run the test
-testAPI();
+  // You'll need to get a valid JWT token from your browser's cookies
+  // Go to https://dsrpro.vercel.app/dashboard/pos-machines
+  // Open browser dev tools > Application > Cookies > find 'token' value
+  const token = 'YOUR_JWT_TOKEN_HERE'; // Replace with actual token
+  
+  if (token === 'YOUR_JWT_TOKEN_HERE') {\n    console.log('❌ Please update the token variable with your actual JWT token from browser cookies');\n    console.log('\\n📝 How to get your token:');\n    console.log('1. Go to https://dsrpro.vercel.app/dashboard/pos-machines');\n    console.log('2. Open browser dev tools (F12)');\n    console.log('3. Go to Application tab > Cookies');\n    console.log('4. Find the \"token\" cookie and copy its value');\n    console.log('5. Replace YOUR_JWT_TOKEN_HERE in this script with that value');\n    return;\n  }\n  \n  const options = {\n    hostname: 'dsrpro.vercel.app',\n    port: 443,\n    path: '/api/pos-machines',\n    method: 'GET',\n    headers: {\n      'Cookie': `token=${token}`,\n      'Content-Type': 'application/json'\n    }\n  };\n  \n  const req = https.request(options, (res) => {\n    console.log(`Status Code: ${res.statusCode}`);\n    console.log(`Headers:`, res.headers);\n    \n    let data = '';\n    \n    res.on('data', (chunk) => {\n      data += chunk;\n    });\n    \n    res.on('end', () => {\n      try {\n        const jsonData = JSON.parse(data);\n        console.log('\\n=== API RESPONSE ===');\n        console.log(JSON.stringify(jsonData, null, 2));\n        \n        if (jsonData.machines) {\n          console.log(`\\n=== SUMMARY ===`);\n          console.log(`Total machines returned: ${jsonData.machines.length}`);\n          console.log(`Stats:`, jsonData.stats);\n          \n          if (jsonData.machines.length > 0) {\n            console.log('\\n=== FIRST MACHINE ===');\n            console.log(JSON.stringify(jsonData.machines[0], null, 2));\n          }\n        }\n      } catch (error) {\n        console.log('\\n=== RAW RESPONSE ===');\n        console.log(data);\n        console.log('\\n❌ Failed to parse JSON:', error.message);\n      }\n    });\n  });\n  \n  req.on('error', (error) => {\n    console.error('❌ Request failed:', error.message);\n  });\n  \n  req.end();\n}\n\n// Alternative: Test with curl command\nfunction showCurlCommand() {\n  console.log('\\n=== ALTERNATIVE: TEST WITH CURL ===');\n  console.log('Replace YOUR_JWT_TOKEN with your actual token:');\n  console.log('');\n  console.log('curl -H \"Cookie: token=YOUR_JWT_TOKEN\" https://dsrpro.vercel.app/api/pos-machines');\n  console.log('');\n}\n\ntestPOSMachinesAPI();\nshowCurlCommand();

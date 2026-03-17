@@ -23,7 +23,7 @@ export function getAuthUser(request: NextRequest): AuthUser | null {
     return {
       userId: decoded.userId,
       email: decoded.email,
-      role: decoded.role,
+      role: decoded.role.toLowerCase(), // Normalize role to lowercase
       sessionId: decoded.sessionId,
     }
   } catch {

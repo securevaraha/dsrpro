@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: user.role.toLowerCase(), // Normalize role to lowercase
       }
     })
   } catch {

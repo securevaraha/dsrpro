@@ -12,7 +12,18 @@ const POSMachineSchema = new mongoose.Schema({
     required: true,
     enum: ['Network', 'RAKBank', 'Geidea', 'AFS', 'Other']
   },
-  terminalId: { type: String, required: true, trim: true },
+  terminalId: { 
+    type: String, 
+    required: true, 
+    trim: true,
+    uppercase: true, // Convert to uppercase for consistency
+    validate: {
+      validator: function(v: string) {
+        return /^[A-Z0-9]+$/.test(v); // Only alphanumeric characters
+      },
+      message: 'Terminal ID must contain only alphanumeric characters'
+    }
+  },
   merchantId: { type: String, required: true, trim: true },
   serialNumber: { type: String, required: false, default: '', trim: true },
   model: { type: String, required: false, default: '', trim: true },
