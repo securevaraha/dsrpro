@@ -59,22 +59,29 @@ export async function POST(request: NextRequest) {
     await connectDB()
 
     const body = await request.json()
+    console.log('Received POS machine data:', JSON.stringify(body, null, 2))
+    
     const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
 
     if (!segment || !terminalId || !merchantId || !brand || !deviceType) {
+      console.log('Validation failed: Missing required fields')
       return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Brand, and Device Type are required' }, { status: 400 })
     }
 
+    console.log('Checking for existing Terminal ID:', terminalId)
     const existingTID = await POSMachine.findOne({ terminalId: terminalId.trim() })
     if (existingTID) {
+      console.log('Terminal ID already exists:', existingTID._id)
       return NextResponse.json({ error: 'A machine with this Terminal ID already exists' }, { status: 400 })
     }
 
     // Validate assignedAgent if provided
     if (assignedAgent && !mongoose.Types.ObjectId.isValid(assignedAgent)) {
+      console.log('Invalid agent ID:', assignedAgent)
       return NextResponse.json({ error: 'Invalid agent ID' }, { status: 400 })
     }
 
+    console.log('Creating machine data...')
     const machineData = addAuditFields({
       segment: segment.trim(),
       brand,
@@ -92,32 +99,41 @@ export async function POST(request: NextRequest) {
       notes: notes?.trim() || '',
     }, auth.userId)
 
+    console.log('Machine data to save:', JSON.stringify(machineData, null, 2))
+
     const machine = new POSMachine(machineData)
+    console.log('Created POSMachine instance, attempting to save...')
+    
     await machine.save()
+    console.log('Machine saved successfully with ID:', machine._id)
 
     const populated = await POSMachine.findById(machine._id).populate('assignedAgent', 'name email companyName')
+    console.log('Populated machine data:', populated)
 
     return NextResponse.json({ message: 'POS Machine added successfully', machine: populated })
   } catch (error: any) {
-    console.error('POS Machine creation error:', error);
+    console.error('POS Machine creation error:', error)
+    console.error('Error stack:', error.stack)
     
     if (error.code === 11000) {
-      // Handle duplicate key errors - should only be terminalId now
-      return NextResponse.json({ error: 'Terminal ID already exists' }, { status: 400 });
+      console.log('Duplicate key error:', error.keyPattern)
+      return NextResponse.json({ error: 'Terminal ID already exists' }, { status: 400 })
     }
     
     if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
-      return NextResponse.json({ error: `Validation error: ${validationErrors.join(', ')}` }, { status: 400 });
+      console.log('Validation error details:', error.errors)
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message)
+      return NextResponse.json({ error: `Validation error: ${validationErrors.join(', ')}` }, { status: 400 })
     }
     
     if (error.name === 'CastError') {
-      return NextResponse.json({ error: `Invalid data format: ${error.message}` }, { status: 400 });
+      console.log('Cast error:', error.message)
+      return NextResponse.json({ error: `Invalid data format: ${error.message}` }, { status: 400 })
     }
     
     return NextResponse.json({ 
       error: 'Failed to add POS machine', 
       details: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    }, { status: 500 });
+    }, { status: 500 })
   }
 }
