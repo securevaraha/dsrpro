@@ -10,7 +10,9 @@
     "seed": "node scripts/createSuperAdmin.js",
     "seed-test": "node scripts/seedTestData.js",
     "migrate-pos": "node scripts/migratePOSMachines.js",
-    "migrate-pos-vat": "node scripts/migratePOSMachinesVAT.js"
+    "migrate-pos-vat": "node scripts/migratePOSMachinesVAT.js",
+    "test-api": "node scripts/testAPI.js",
+    "test-specific": "node scripts/testSpecificAPIs.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.3.1",
