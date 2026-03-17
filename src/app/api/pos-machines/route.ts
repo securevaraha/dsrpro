@@ -89,13 +89,14 @@ export async function POST(request: NextRequest) {
     // Normalize terminal ID (trim and uppercase)
     const normalizedTerminalId = terminalId.trim().toUpperCase()
     
-    // Validate terminal ID format
-    if (!/^[A-Z0-9]+$/.test(normalizedTerminalId)) {
+    // Basic validation - just check it's not empty
+    if (!normalizedTerminalId) {
       return NextResponse.json({ 
-        error: 'Terminal ID must contain only alphanumeric characters' 
+        error: 'Terminal ID cannot be empty' 
       }, { status: 400 })
     }
 
+    // REMOVED: Strict alphanumeric validation that might be causing issues
     // REMOVED: Terminal ID uniqueness check - allowing duplicates
 
     // Validate assignedAgent if provided

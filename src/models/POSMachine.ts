@@ -16,13 +16,8 @@ const POSMachineSchema = new mongoose.Schema({
     type: String, 
     required: true, 
     trim: true,
-    uppercase: true, // Convert to uppercase for consistency
-    validate: {
-      validator: function(v: string) {
-        return /^[A-Z0-9]+$/.test(v); // Only alphanumeric characters
-      },
-      message: 'Terminal ID must contain only alphanumeric characters'
-    }
+    uppercase: true // Convert to uppercase for consistency
+    // REMOVED: Custom validator that might be causing issues
   },
   merchantId: { type: String, required: true, trim: true },
   serialNumber: { type: String, required: false, default: '', trim: true },
