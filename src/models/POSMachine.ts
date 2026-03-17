@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
 
+// First, delete the existing model if it exists to force schema recreation
+if (mongoose.models.POSMachine) {
+  delete mongoose.models.POSMachine;
+}
+
 const POSMachineSchema = new mongoose.Schema({
   segment: { type: String, required: true, trim: true },
   brand: { 
@@ -9,8 +14,8 @@ const POSMachineSchema = new mongoose.Schema({
   },
   terminalId: { type: String, required: true, unique: true, trim: true },
   merchantId: { type: String, required: true, trim: true },
-  serialNumber: { type: String, required: true, unique: true, trim: true },
-  model: { type: String, default: '' },
+  serialNumber: { type: String, required: false, default: '', trim: true },
+  model: { type: String, required: false, default: '', trim: true },
   deviceType: { 
     type: String, 
     required: true,
@@ -23,6 +28,7 @@ const POSMachineSchema = new mongoose.Schema({
   },
   location: { type: String, default: '' },
   bankCharges: { type: Number, default: 0, min: 0 },
+  vatPercentage: { type: Number, default: 5, min: 0, max: 100 }, // VAT percentage, default 5%
   commissionPercentage: { type: Number, default: 0, min: 0, max: 100 },
   status: { 
     type: String, 
@@ -34,9 +40,13 @@ const POSMachineSchema = new mongoose.Schema({
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
+// Create indexes
+POSMachineSchema.index({ terminalId: 1 }, { unique: true });
 POSMachineSchema.index({ assignedAgent: 1 });
 POSMachineSchema.index({ brand: 1 });
 POSMachineSchema.index({ segment: 1 });
 POSMachineSchema.index({ status: 1 });
 
-export default mongoose.models.POSMachine || mongoose.model('POSMachine', POSMachineSchema);
+const POSMachine = mongoose.model('POSMachine', POSMachineSchema);
+
+export default POSMachine;

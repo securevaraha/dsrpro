@@ -34,6 +34,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       auditedData,
       { new: true }
     )
+    .populate('agentId', 'name email')
+    .populate('clientId', 'name businessType')
+    .populate('posMachine', 'segment brand terminalId')
     
     return NextResponse.json({ 
       message: 'Transaction updated successfully',

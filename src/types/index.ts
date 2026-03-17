@@ -39,6 +39,7 @@ export interface Payment {
 
 export interface POSMachine {
   _id: string;
+  segment: string;
   terminalId: string;
   merchantId: string;
   serialNumber: string;
@@ -47,6 +48,9 @@ export interface POSMachine {
   deviceType: 'android_pos' | 'traditional_pos';
   assignedAgent: string | { _id: string; name: string; email: string; companyName?: string } | null;
   location: string;
+  bankCharges: number;
+  vatPercentage: number;
+  commissionPercentage: number;
   status: 'active' | 'inactive' | 'maintenance';
   notes: string;
   createdAt: Date;

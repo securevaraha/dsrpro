@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
     const body = await request.json()
-    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, commissionPercentage, status, notes } = body
+    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
 
     const existing = await POSMachine.findById(id)
     if (!existing) {
@@ -25,22 +25,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (dup) return NextResponse.json({ error: 'Terminal ID already in use' }, { status: 400 })
     }
 
-    if (serialNumber && serialNumber.trim() !== existing.serialNumber) {
-      const dup = await POSMachine.findOne({ serialNumber: serialNumber.trim(), _id: { $ne: id } })
-      if (dup) return NextResponse.json({ error: 'Serial Number already in use' }, { status: 400 })
-    }
-
     const updateData = addAuditFields({
       ...(typeof segment === 'string' && { segment: segment.trim() }),
       ...(brand && { brand }),
       ...(typeof terminalId === 'string' && { terminalId: terminalId.trim() }),
       ...(typeof merchantId === 'string' && { merchantId: merchantId.trim() }),
-      ...(typeof serialNumber === 'string' && { serialNumber: serialNumber.trim() }),
-      ...(typeof model === 'string' && { model: model.trim() }),
+      ...(typeof serialNumber === 'string' && { serialNumber: serialNumber?.trim() || '' }),
+      ...(typeof model === 'string' && { model: model?.trim() || '' }),
       ...(deviceType && { deviceType }),
       ...(assignedAgent !== undefined && { assignedAgent: assignedAgent || null }),
       ...(typeof location === 'string' && { location: location.trim() }),
       ...(typeof bankCharges !== 'undefined' && { bankCharges: parseFloat(bankCharges) || 0 }),
+      ...(typeof vatPercentage !== 'undefined' && { vatPercentage: parseFloat(vatPercentage) || 5 }),
       ...(typeof commissionPercentage !== 'undefined' && { commissionPercentage: parseFloat(commissionPercentage) || 0 }),
       ...(status && { status }),
       ...(typeof notes === 'string' && { notes: notes.trim() }),

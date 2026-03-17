@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     const transactions = await Transaction.find(query)
       .populate('agentId', 'name email')
       .populate('clientId', 'name businessType')
+      .populate('posMachine', 'segment brand terminalId')
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
       .sort({ createdAt: -1 })
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
     const {
       type,
       posId,
+      posMachine,
       agentId,
       clientId,
       amount,
@@ -75,7 +77,9 @@ export async function POST(request: NextRequest) {
       metadata
     } = await request.json()
     
-    const transactionId = `${type?.toUpperCase() || 'TXN'}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
+    // Use custom transaction ID from metadata if provided (for receipts)
+    const transactionId = metadata?.receiptNumber || 
+      `${type?.toUpperCase() || 'TXN'}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
     
     // Validate amount
     const parsedAmount = parseFloat(amount)
@@ -95,6 +99,7 @@ export async function POST(request: NextRequest) {
       transactionId,
       type: type || 'transaction',
       posId,
+      posMachine: posMachine || null,
       agentId: effectiveAgentId,
       clientId,
       amount: parsedAmount,
@@ -122,8 +127,21 @@ export async function POST(request: NextRequest) {
       message: 'Transaction created successfully',
       transaction
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Transaction creation error:', error)
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
+    
+    if (error.code === 11000) {
+      return NextResponse.json({ error: 'Transaction ID already exists' }, { status: 400 })
+    }
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message)
+      return NextResponse.json({ error: `Validation error: ${validationErrors.join(', ')}` }, { status: 400 })
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to create transaction',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }

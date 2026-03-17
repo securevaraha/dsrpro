@@ -30,6 +30,7 @@ interface POSMachine {
   assignedAgent: Agent | null
   location: string
   bankCharges: number
+  vatPercentage: number
   commissionPercentage: number
   status: 'active' | 'inactive' | 'maintenance'
   notes: string
@@ -74,12 +75,11 @@ export default function POSMachines() {
     brand: 'Network' as string,
     terminalId: '',
     merchantId: '',
-    serialNumber: '',
-    model: '',
     deviceType: 'traditional_pos' as string,
     assignedAgent: '',
     location: '',
     bankCharges: '',
+    vatPercentage: '5',
     commissionPercentage: '',
     status: 'active' as string,
     notes: '',
@@ -136,8 +136,6 @@ export default function POSMachines() {
     const matchesSearch =
       machine.terminalId?.toLowerCase().includes(search) ||
       machine.merchantId?.toLowerCase().includes(search) ||
-      machine.serialNumber?.toLowerCase().includes(search) ||
-      machine.model?.toLowerCase().includes(search) ||
       machine.location?.toLowerCase().includes(search) ||
       machine.assignedAgent?.name?.toLowerCase().includes(search)
     const matchesStatus = statusFilter === 'all' || machine.status === statusFilter
@@ -155,6 +153,13 @@ export default function POSMachines() {
       return
     }
 
+    // Validate VAT percentage
+    const vatPercentage = parseFloat(formData.vatPercentage) || 5
+    if (vatPercentage < 0 || vatPercentage > 100) {
+      toast.error('VAT percentage must be between 0 and 100')
+      return
+    }
+
     // Validate commission percentage
     const commissionPercentage = parseFloat(formData.commissionPercentage) || 0
     if (commissionPercentage < 0 || commissionPercentage > 100) {
@@ -165,6 +170,7 @@ export default function POSMachines() {
     const submitData = {
       ...formData,
       bankCharges,
+      vatPercentage,
       commissionPercentage
     }
 
@@ -178,7 +184,12 @@ export default function POSMachines() {
           const response = await fetch(`/api/pos-machines/${editingMachine._id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(submitData)
+            body: JSON.stringify({
+              ...submitData,
+              serialNumber: '', // Send empty string for compatibility
+              model: '', // Send empty string for compatibility
+              vatPercentage: submitData.vatPercentage || 5
+            })
           })
           if (!response.ok) {
             const err = await response.json()
@@ -195,10 +206,13 @@ export default function POSMachines() {
         segment: formData.segment,
         brand: formData.brand as POSMachine['brand'],
         bankCharges,
+        vatPercentage,
         commissionPercentage,
         deviceType: formData.deviceType as POSMachine['deviceType'],
         status: formData.status as POSMachine['status'],
         assignedAgent: agents.find(a => a._id === formData.assignedAgent) || null,
+        serialNumber: '', // Keep for compatibility but empty
+        model: '', // Keep for compatibility but empty
         createdAt: new Date().toISOString(),
       }
 
@@ -208,7 +222,12 @@ export default function POSMachines() {
           const response = await fetch('/api/pos-machines', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(submitData)
+            body: JSON.stringify({
+              ...submitData,
+              serialNumber: '', // Send empty string for compatibility
+              model: '', // Send empty string for compatibility
+              vatPercentage: submitData.vatPercentage || 5
+            })
           })
           if (!response.ok) {
             const err = await response.json()
@@ -233,12 +252,11 @@ export default function POSMachines() {
       brand: machine.brand,
       terminalId: machine.terminalId,
       merchantId: machine.merchantId,
-      serialNumber: machine.serialNumber,
-      model: machine.model || '',
       deviceType: machine.deviceType,
       assignedAgent: machine.assignedAgent?._id || '',
       location: machine.location || '',
       bankCharges: machine.bankCharges?.toString() || '',
+      vatPercentage: machine.vatPercentage?.toString() || '5',
       commissionPercentage: machine.commissionPercentage?.toString() || '',
       status: machine.status,
       notes: machine.notes || '',
@@ -261,8 +279,8 @@ export default function POSMachines() {
 
   const resetForm = () => {
     setFormData({
-      segment: '', brand: 'Network', terminalId: '', merchantId: '', serialNumber: '', model: '',
-      deviceType: 'traditional_pos', assignedAgent: '', location: '', bankCharges: '', commissionPercentage: '',
+      segment: '', brand: 'Network', terminalId: '', merchantId: '',
+      deviceType: 'traditional_pos', assignedAgent: '', location: '', bankCharges: '', vatPercentage: '5', commissionPercentage: '',
       status: 'active', notes: '',
     })
   }
@@ -326,7 +344,7 @@ export default function POSMachines() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by TID, MID, serial, location, agent..."
+              placeholder="Search by TID, MID, location, agent..."
               className="form-input pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -384,7 +402,7 @@ export default function POSMachines() {
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Segment / Brand</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Terminal / Merchant</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Device</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Charges / Commission</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bank Charges (%) / Margin (%)</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Agent</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
@@ -412,9 +430,6 @@ export default function POSMachines() {
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 ml-[18px]">
                               MID: {machine.merchantId}
                             </div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 ml-[18px]">
-                              S/N: {machine.serialNumber}
-                            </div>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
@@ -425,19 +440,16 @@ export default function POSMachines() {
                             }
                             <div>
                               <span className="text-sm">{deviceTypeLabel(machine.deviceType)}</span>
-                              {machine.model && (
-                                <p className="text-xs text-gray-400 dark:text-gray-500">{machine.model}</p>
-                              )}
                             </div>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
                           <div>
                             <div className="text-sm text-gray-900 dark:text-gray-100">
-                              AED {machine.bankCharges?.toFixed(2) || '0.00'}
+                              {machine.bankCharges?.toFixed(2) || '0.00'}% + VAT {machine.vatPercentage || 5}%
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {machine.commissionPercentage?.toFixed(2) || '0.00'}% commission
+                              {machine.commissionPercentage?.toFixed(2) || '0.00'}% margin
                             </div>
                           </div>
                         </td>
@@ -519,10 +531,6 @@ export default function POSMachines() {
                         <span className="text-xs">{machine.segment || '—'}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Serial</span>
-                        <span className="font-mono text-xs">{machine.serialNumber}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">Brand</span>
                         <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${brandColors[machine.brand]}`}>
                           {machine.brand}
@@ -530,14 +538,14 @@ export default function POSMachines() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">Type</span>
-                        <span className="text-xs">{deviceTypeLabel(machine.deviceType)}{machine.model ? ` · ${machine.model}` : ''}</span>
+                        <span className="text-xs">{deviceTypeLabel(machine.deviceType)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-400">Bank Charges</span>
-                        <span className="text-xs font-medium">AED {machine.bankCharges?.toFixed(2) || '0.00'}</span>
+                        <span className="text-xs font-medium">{machine.bankCharges?.toFixed(2) || '0.00'}% + VAT {machine.vatPercentage || 5}%</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Commission</span>
+                        <span className="text-xs text-gray-400">Margin</span>
                         <span className="text-xs font-medium">{machine.commissionPercentage?.toFixed(2) || '0.00'}%</span>
                       </div>
                       {machine.assignedAgent && (
@@ -620,7 +628,7 @@ export default function POSMachines() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="form-label">Terminal ID (TID) *</label>
                       <input
@@ -643,30 +651,9 @@ export default function POSMachines() {
                         onChange={(e) => setFormData({...formData, merchantId: e.target.value})}
                       />
                     </div>
-                    <div>
-                      <label className="form-label">Serial Number *</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-input font-mono text-sm"
-                        placeholder="e.g. N960WC46335"
-                        value={formData.serialNumber}
-                        onChange={(e) => setFormData({...formData, serialNumber: e.target.value})}
-                      />
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div>
-                      <label className="form-label">Model</label>
-                      <input
-                        type="text"
-                        className="form-input text-sm"
-                        placeholder="N960, A920"
-                        value={formData.model}
-                        onChange={(e) => setFormData({...formData, model: e.target.value})}
-                      />
-                    </div>
                     <div>
                       <label className="form-label">Device Type *</label>
                       <select
@@ -680,7 +667,7 @@ export default function POSMachines() {
                       </select>
                     </div>
                     <div>
-                      <label className="form-label">Bank Charges (AED)</label>
+                      <label className="form-label">Bank Charges (%)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -697,7 +684,25 @@ export default function POSMachines() {
                       />
                     </div>
                     <div>
-                      <label className="form-label">Commission (%)</label>
+                      <label className="form-label">VAT (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        className="form-input text-sm"
+                        placeholder="5.00"
+                        value={formData.vatPercentage}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
+                            setFormData({...formData, vatPercentage: value})
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Margin (%)</label>
                       <input
                         type="number"
                         step="0.01"

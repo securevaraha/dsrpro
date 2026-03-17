@@ -12,7 +12,12 @@ interface Receipt {
   _id: string
   receiptNumber: string
   date: string
-  paymentMethod: 'cash' | 'bank' | 'upi' | 'card'
+  posMachine: {
+    _id: string
+    segment: string
+    brand: string
+    terminalId: string
+  } | null
   amount: number
   description: string
   attachments?: string[]
@@ -22,6 +27,7 @@ export default function Receipts() {
   const { t } = useLanguage()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [posMachines, setPosMachines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -36,13 +42,14 @@ export default function Receipts() {
   const [formData, setFormData] = useState({
     receiptNumber: '',
     date: format(new Date(), 'dd-MMM-yyyy'),
-    paymentMethod: 'cash' as 'cash' | 'bank' | 'upi' | 'card',
+    posMachine: '',
     amount: '',
     description: '',
   })
 
   useEffect(() => {
     fetchReceipts()
+    fetchPosMachines()
   }, [])
 
   const fetchReceipts = async () => {
@@ -55,7 +62,7 @@ export default function Receipts() {
           _id: t._id,
           receiptNumber: t.transactionId,
           date: t.createdAt,
-          paymentMethod: t.paymentMethod,
+          posMachine: t.posMachine || null,
           amount: t.amount,
           description: t.description || 'Transaction',
           attachments: t.attachments || []
@@ -67,6 +74,18 @@ export default function Receipts() {
       toast.error('Failed to load receipts')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPosMachines = async () => {
+    try {
+      const response = await fetch('/api/pos-machines')
+      if (response.ok) {
+        const data = await response.json()
+        setPosMachines(data.machines || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch POS machines:', error)
     }
   }
 
@@ -137,7 +156,8 @@ export default function Receipts() {
   const filteredReceipts = receipts.filter(receipt => {
     const matchesSearch = receipt.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || receipt.paymentMethod === statusFilter
+    const matchesStatus = statusFilter === 'all' || 
+                         (receipt.posMachine && `${receipt.posMachine.segment}/${receipt.posMachine.brand}` === statusFilter)
     return matchesSearch && matchesStatus
   })
 
@@ -160,7 +180,7 @@ export default function Receipts() {
         body: JSON.stringify({
           type: 'receipt',
           amount: parseFloat(formData.amount),
-          paymentMethod: formData.paymentMethod,
+          posMachine: formData.posMachine || null,
           description: formData.description,
           attachments: uploadedFiles,
           metadata: {
@@ -188,7 +208,7 @@ export default function Receipts() {
     setFormData({
       receiptNumber: receipt.receiptNumber,
       date: format(new Date(receipt.date), 'dd-MMM-yyyy'),
-      paymentMethod: receipt.paymentMethod,
+      posMachine: receipt.posMachine?._id || '',
       amount: receipt.amount.toString(),
       description: receipt.description
     })
@@ -218,14 +238,14 @@ export default function Receipts() {
   }
 
   const resetForm = () => {
-    setFormData({ receiptNumber: '', date: format(new Date(), 'dd-MMM-yyyy'), paymentMethod: 'cash', amount: '', description: '' })
+    setFormData({ receiptNumber: '', date: format(new Date(), 'dd-MMM-yyyy'), posMachine: '', amount: '', description: '' })
     setUploadedFiles([])
     setEditingReceipt(null)
   }
 
   const generateReceiptNumber = () => {
-    const nextNumber = `R${String(receipts.length + 1).padStart(3, '0')}`
-    setFormData({...formData, receiptNumber: nextNumber})
+    // Remove auto-generation, let user input manually
+    setFormData({...formData, receiptNumber: ''})
   }
 
   const exportReceipts = () => {
@@ -248,7 +268,7 @@ export default function Receipts() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">TechRover - {t('receipts')}</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('receipts')}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('manageReceipts')}</p>
         </div>
         <div className="flex gap-2">
@@ -261,7 +281,7 @@ export default function Receipts() {
           </button>
           <button
             onClick={() => {
-              generateReceiptNumber()
+              resetForm()
               setShowModal(true)
             }}
             className="dubai-button inline-flex items-center justify-center"
@@ -289,11 +309,12 @@ export default function Receipts() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
-          <option value="all">All Payment Methods</option>
-          <option value="cash">Cash</option>
-          <option value="bank">Bank</option>
-          <option value="upi">UPI</option>
-          <option value="card">Card</option>
+          <option value="all">All POS Machines</option>
+          {posMachines.map(machine => (
+            <option key={machine._id} value={`${machine.segment}/${machine.brand}`}>
+              {machine.segment} / {machine.brand}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -313,7 +334,7 @@ export default function Receipts() {
             {!searchTerm && (
               <button
                 onClick={() => {
-                  generateReceiptNumber()
+                  resetForm()
                   setShowModal(true)
                 }}
                 className="dubai-button"
@@ -331,13 +352,8 @@ export default function Receipts() {
                 <div key={receipt._id} className="dubai-card p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{receipt.receiptNumber}</span>
-                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                      receipt.paymentMethod === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                      receipt.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                      receipt.paymentMethod === 'upi' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
-                    }`}>
-                      {receipt.paymentMethod.toUpperCase()}
+                    <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                      {receipt.posMachine ? `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{receipt.description}</p>
@@ -416,9 +432,9 @@ export default function Receipts() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800/50">
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('receiptNumber')}</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Transaction Number</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('date')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('paymentMethod')}</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">POS Machine</th>
                     <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
                     <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preview</th>
@@ -435,13 +451,8 @@ export default function Receipts() {
                         {format(new Date(receipt.date), 'dd-MMM-yyyy')}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          receipt.paymentMethod === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                          receipt.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                          receipt.paymentMethod === 'upi' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
-                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
-                        }`}>
-                          {receipt.paymentMethod.toUpperCase()}
+                        <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                          {receipt.posMachine ? `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-gray-100">
@@ -538,17 +549,19 @@ export default function Receipts() {
             </p>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="form-label text-sm">{t('receiptNumber')}</label>
+                <div className="flex flex-col">
+                  <label className="form-label text-sm">Transaction Number *</label>
                   <input
                     type="text"
                     required
-                    className="form-input bg-gray-50 dark:bg-gray-600 h-10"
+                    className="form-input h-10 uppercase"
+                    placeholder="Enter transaction number"
                     value={formData.receiptNumber}
-                    readOnly
+                    onChange={(e) => setFormData({...formData, receiptNumber: e.target.value.toUpperCase()})}
+                    style={{ textTransform: 'uppercase' }}
                   />
                 </div>
-                <div>
+                <div className="flex flex-col">
                   <label className="form-label text-sm">{t('date')}</label>
                   <input
                     type="text"
@@ -559,17 +572,19 @@ export default function Receipts() {
                     onChange={(e) => setFormData({...formData, date: e.target.value})}
                   />
                 </div>
-                <div>
-                  <label className="form-label text-sm">{t('paymentMethod')}</label>
+                <div className="flex flex-col">
+                  <label className="form-label text-sm">POS Machine</label>
                   <select
-                    className="form-select h-10"
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
+                    className="form-select h-10 min-w-0"
+                    value={formData.posMachine}
+                    onChange={(e) => setFormData({...formData, posMachine: e.target.value})}
                   >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="upi">UPI</option>
-                    <option value="card">Card</option>
+                    <option value="">Select POS Machine</option>
+                    {posMachines.map(machine => (
+                      <option key={machine._id} value={machine._id}>
+                        {machine.segment} / {machine.brand} - {machine.terminalId}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

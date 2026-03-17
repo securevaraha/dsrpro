@@ -42,10 +42,15 @@ const transactionSchema = new mongoose.Schema({
     enum: ['pending', 'completed', 'failed', 'cancelled'],
     default: 'pending'
   },
+  posMachine: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'POSMachine',
+    required: false
+  },
   paymentMethod: {
     type: String,
     enum: ['cash', 'card', 'upi', 'bank'],
-    required: true
+    required: false
   },
   description: String,
   attachments: [{

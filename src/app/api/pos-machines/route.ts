@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
     await connectDB()
 
     const body = await request.json()
-    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, commissionPercentage, status, notes } = body
+    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
 
-    if (!segment || !terminalId || !merchantId || !serialNumber || !brand || !deviceType) {
-      return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Serial Number, Brand, and Device Type are required' }, { status: 400 })
+    if (!segment || !terminalId || !merchantId || !brand || !deviceType) {
+      return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Brand, and Device Type are required' }, { status: 400 })
     }
 
     const existingTID = await POSMachine.findOne({ terminalId: terminalId.trim() })
@@ -69,22 +69,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A machine with this Terminal ID already exists' }, { status: 400 })
     }
 
-    const existingSerial = await POSMachine.findOne({ serialNumber: serialNumber.trim() })
-    if (existingSerial) {
-      return NextResponse.json({ error: 'A machine with this Serial Number already exists' }, { status: 400 })
-    }
-
     const machineData = addAuditFields({
       segment: segment.trim(),
       brand,
       terminalId: terminalId.trim(),
       merchantId: merchantId.trim(),
-      serialNumber: serialNumber.trim(),
+      serialNumber: serialNumber?.trim() || '',
       model: model?.trim() || '',
       deviceType,
       assignedAgent: assignedAgent || null,
       location: location?.trim() || '',
       bankCharges: parseFloat(bankCharges) || 0,
+      vatPercentage: parseFloat(vatPercentage) || 5,
       commissionPercentage: parseFloat(commissionPercentage) || 0,
       status: status || 'active',
       notes: notes?.trim() || '',
@@ -97,9 +93,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: 'POS Machine added successfully', machine: populated })
   } catch (error: any) {
+    console.error('POS Machine creation error:', error);
+    
     if (error.code === 11000) {
-      return NextResponse.json({ error: 'Duplicate Terminal ID or Serial Number' }, { status: 400 })
+      // Handle duplicate key errors - should only be terminalId now
+      return NextResponse.json({ error: 'Terminal ID already exists' }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to add POS machine' }, { status: 500 })
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      return NextResponse.json({ error: `Validation error: ${validationErrors.join(', ')}` }, { status: 400 });
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to add POS machine', 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    }, { status: 500 });
   }
 }
