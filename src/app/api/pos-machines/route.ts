@@ -96,17 +96,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log('Checking for existing Terminal ID:', normalizedTerminalId)
-    // Check for existing terminal ID (case-insensitive)
-    const existingTID = await POSMachine.findOne({ 
-      terminalId: { $regex: new RegExp(`^${normalizedTerminalId}$`, 'i') } 
-    })
-    if (existingTID) {
-      console.log('Terminal ID already exists:', existingTID._id, 'Existing TID:', existingTID.terminalId)
-      return NextResponse.json({ 
-        error: `Terminal ID '${normalizedTerminalId}' already exists (found as '${existingTID.terminalId}')` 
-      }, { status: 400 })
-    }
+    // REMOVED: Terminal ID uniqueness check - allowing duplicates
 
     // Validate assignedAgent if provided
     if (assignedAgent && !mongoose.Types.ObjectId.isValid(assignedAgent)) {
@@ -147,11 +137,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('POS Machine creation error:', error)
     console.error('Error stack:', error.stack)
-    
-    if (error.code === 11000) {
-      console.log('Duplicate key error:', error.keyPattern)
-      return NextResponse.json({ error: 'Terminal ID already exists' }, { status: 400 })
-    }
     
     if (error.name === 'ValidationError') {
       console.log('Validation error details:', error.errors)

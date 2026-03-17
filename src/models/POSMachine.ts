@@ -54,8 +54,8 @@ const POSMachineSchema = new mongoose.Schema({
   strict: false // Allow additional fields for backward compatibility
 });
 
-// Create indexes - only create unique index on terminalId
-POSMachineSchema.index({ terminalId: 1 }, { unique: true });
+// Create indexes - removed unique constraint on terminalId to allow duplicates
+POSMachineSchema.index({ terminalId: 1 }); // Non-unique index for performance
 POSMachineSchema.index({ assignedAgent: 1 });
 POSMachineSchema.index({ brand: 1 });
 POSMachineSchema.index({ segment: 1 });
