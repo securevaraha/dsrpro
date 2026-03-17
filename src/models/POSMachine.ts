@@ -12,7 +12,7 @@ const POSMachineSchema = new mongoose.Schema({
     required: true,
     enum: ['Network', 'RAKBank', 'Geidea', 'AFS', 'Other']
   },
-  terminalId: { type: String, required: true, unique: true, trim: true },
+  terminalId: { type: String, required: true, trim: true },
   merchantId: { type: String, required: true, trim: true },
   serialNumber: { type: String, required: false, default: '', trim: true },
   model: { type: String, required: false, default: '', trim: true },
@@ -28,7 +28,7 @@ const POSMachineSchema = new mongoose.Schema({
   },
   location: { type: String, default: '' },
   bankCharges: { type: Number, default: 0, min: 0 },
-  vatPercentage: { type: Number, default: 5, min: 0, max: 100 }, // VAT percentage, default 5%
+  vatPercentage: { type: Number, default: 5, min: 0, max: 100 },
   commissionPercentage: { type: Number, default: 0, min: 0, max: 100 },
   status: { 
     type: String, 
@@ -40,7 +40,7 @@ const POSMachineSchema = new mongoose.Schema({
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
-// Create indexes
+// Create indexes - only create unique index on terminalId
 POSMachineSchema.index({ terminalId: 1 }, { unique: true });
 POSMachineSchema.index({ assignedAgent: 1 });
 POSMachineSchema.index({ brand: 1 });

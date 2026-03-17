@@ -9,7 +9,8 @@
     "lint": "next lint",
     "seed": "node scripts/createSuperAdmin.js",
     "seed-test": "node scripts/seedTestData.js",
-    "migrate-pos": "node scripts/migratePOSMachines.js"
+    "migrate-pos": "node scripts/migratePOSMachines.js",
+    "migrate-pos-vat": "node scripts/migratePOSMachinesVAT.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.3.1",

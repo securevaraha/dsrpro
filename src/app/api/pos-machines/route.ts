@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import mongoose from 'mongoose'
 import connectDB from '@/lib/mongodb'
 import POSMachine from '@/models/POSMachine'
 import { requireRole, requireAuth, isErrorResponse } from '@/lib/auth'
@@ -69,6 +70,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A machine with this Terminal ID already exists' }, { status: 400 })
     }
 
+    // Validate assignedAgent if provided
+    if (assignedAgent && !mongoose.Types.ObjectId.isValid(assignedAgent)) {
+      return NextResponse.json({ error: 'Invalid agent ID' }, { status: 400 })
+    }
+
     const machineData = addAuditFields({
       segment: segment.trim(),
       brand,
@@ -103,6 +109,10 @@ export async function POST(request: NextRequest) {
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map((err: any) => err.message);
       return NextResponse.json({ error: `Validation error: ${validationErrors.join(', ')}` }, { status: 400 });
+    }
+    
+    if (error.name === 'CastError') {
+      return NextResponse.json({ error: `Invalid data format: ${error.message}` }, { status: 400 });
     }
     
     return NextResponse.json({ 
