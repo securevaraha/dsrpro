@@ -7,6 +7,7 @@ import { useLanguage } from '@/components/LanguageProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { ImagePreviewModal } from '@/components/ImagePreviewModal'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 interface Receipt {
   _id: string
@@ -25,6 +26,7 @@ interface Receipt {
 
 export default function Receipts() {
   const { t } = useLanguage()
+  const { user } = useCurrentUser()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
@@ -48,9 +50,11 @@ export default function Receipts() {
   })
 
   useEffect(() => {
+    console.log('Receipts page mounted, fetching data...')
+    console.log('Current user:', user)
     fetchReceipts()
     fetchPosMachines()
-  }, [])
+  }, [user])
 
   const fetchReceipts = async () => {
     try {
@@ -79,10 +83,23 @@ export default function Receipts() {
 
   const fetchPosMachines = async () => {
     try {
+      console.log('Fetching POS machines for receipts dropdown...')
       const response = await fetch('/api/pos-machines')
+      console.log('POS machines response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('POS machines data received:', data)
+        console.log('Number of machines:', data.machines?.length || 0)
+        
+        if (data.machines && data.machines.length > 0) {
+          console.log('First machine sample:', data.machines[0])
+        }
+        
         setPosMachines(data.machines || [])
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to fetch POS machines:', errorData)
       }
     } catch (error) {
       console.error('Failed to fetch POS machines:', error)
@@ -577,15 +594,25 @@ export default function Receipts() {
                   <select
                     className="form-select h-10 min-w-0"
                     value={formData.posMachine}
-                    onChange={(e) => setFormData({...formData, posMachine: e.target.value})}
+                    onChange={(e) => {
+                      console.log('POS machine selected:', e.target.value)
+                      setFormData({...formData, posMachine: e.target.value})
+                    }}
                   >
                     <option value="">Select POS Machine</option>
-                    {posMachines.map(machine => (
-                      <option key={machine._id} value={machine._id}>
-                        {machine.segment} / {machine.brand} - {machine.terminalId}
-                      </option>
-                    ))}
+                    {posMachines.map(machine => {
+                      console.log('Rendering POS machine option:', machine)
+                      return (
+                        <option key={machine._id} value={machine._id}>
+                          {machine.segment} / {machine.brand} - {machine.terminalId}
+                        </option>
+                      )
+                    })}
                   </select>
+                  {posMachines.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">No POS machines available</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Available machines: {posMachines.length}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
