@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
     const auth = requireAuth(request)
     if (isErrorResponse(auth)) return auth
 
+    console.log('GET /api/pos-machines - Auth user:', auth.userId, 'Role:', auth.role)
+
     await connectDB()
+    console.log('Connected to database')
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
@@ -24,19 +27,27 @@ export async function GET(request: NextRequest) {
     // Agents can only see their own machines
     if (auth.role === 'agent') {
       query.assignedAgent = auth.userId
+      console.log('Agent query:', query)
     } else if (agentId) {
       query.assignedAgent = agentId
+      console.log('Admin query with agentId:', query)
     }
 
     if (status && status !== 'all') query.status = status
     if (brand && brand !== 'all') query.brand = brand
 
+    console.log('Final query:', query)
+
     const total = await POSMachine.countDocuments(query)
+    console.log('Total count:', total)
+
     const machines = await POSMachine.find(query)
       .populate('assignedAgent', 'name email companyName')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
+
+    console.log('Found machines:', machines.length)
 
     const stats = {
       total: await POSMachine.countDocuments(auth.role === 'agent' ? { assignedAgent: auth.userId } : {}),
@@ -45,9 +56,16 @@ export async function GET(request: NextRequest) {
       maintenance: await POSMachine.countDocuments({ ...(auth.role === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'maintenance' }),
     }
 
+    console.log('Stats:', stats)
+
     return NextResponse.json({ machines, stats, total, page, limit })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch POS machines' }, { status: 500 })
+  } catch (error: any) {
+    console.error('GET /api/pos-machines error:', error)
+    console.error('Error stack:', error.stack)
+    return NextResponse.json({ 
+      error: 'Failed to fetch POS machines',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }
 

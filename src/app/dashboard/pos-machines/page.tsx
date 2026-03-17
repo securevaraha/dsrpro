@@ -68,6 +68,7 @@ export default function POSMachines() {
   const [showModal, setShowModal] = useState(false)
   const [editingMachine, setEditingMachine] = useState<POSMachine | null>(null)
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 })
   const [formData, setFormData] = useState({
@@ -176,89 +177,57 @@ export default function POSMachines() {
 
     console.log('Submitting data:', submitData) // Debug log
 
-    if (editingMachine) {
-      try {
-        await optimisticUpdate(
-          editingMachine._id,
-          {} as any,
-          async () => {
-            const response = await fetch(`/api/pos-machines/${editingMachine._id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...submitData,
-                serialNumber: '', // Send empty string for compatibility
-                model: '', // Send empty string for compatibility
-                vatPercentage: submitData.vatPercentage || 5
-              })
-            })
-            if (!response.ok) {
-              const err = await response.json()
-              throw new Error(err.error || 'Update failed')
-            }
-            const data = await response.json()
-            return data.machine
-          }
-        )
-        
-        // Only close modal and reset form on success
-        toast.success('POS Machine updated successfully')
-        setShowModal(false)
-        setEditingMachine(null)
-        resetForm()
-        fetchMachines()
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to update POS machine')
-      }
-    } else {
-      const tempMachine: POSMachine = {
-        _id: `temp-${Date.now()}`,
-        ...formData,
-        segment: formData.segment,
-        brand: formData.brand as POSMachine['brand'],
-        bankCharges,
-        vatPercentage,
-        commissionPercentage,
-        deviceType: formData.deviceType as POSMachine['deviceType'],
-        status: formData.status as POSMachine['status'],
-        assignedAgent: agents.find(a => a._id === formData.assignedAgent) || null,
-        serialNumber: '', // Keep for compatibility but empty
-        model: '', // Keep for compatibility but empty
-        createdAt: new Date().toISOString(),
-      }
+    setSubmitting(true)
 
-      try {
-        await optimisticAdd(
-          tempMachine,
-          async () => {
-            const response = await fetch('/api/pos-machines', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...submitData,
-                serialNumber: '', // Send empty string for compatibility
-                model: '', // Send empty string for compatibility
-                vatPercentage: submitData.vatPercentage || 5
-              })
-            })
-            if (!response.ok) {
-              const err = await response.json()
-              throw new Error(err.error || 'Creation failed')
-            }
-            const data = await response.json()
-            return data.machine
-          }
-        )
+    try {
+      if (editingMachine) {
+        const response = await fetch(`/api/pos-machines/${editingMachine._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...submitData,
+            serialNumber: '', // Send empty string for compatibility
+            model: '', // Send empty string for compatibility
+            vatPercentage: submitData.vatPercentage || 5
+          })
+        })
         
-        // Only close modal and reset form on success
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || 'Update failed')
+        }
+        
+        toast.success('POS Machine updated successfully')
+      } else {
+        const response = await fetch('/api/pos-machines', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...submitData,
+            serialNumber: '', // Send empty string for compatibility
+            model: '', // Send empty string for compatibility
+            vatPercentage: submitData.vatPercentage || 5
+          })
+        })
+        
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || 'Creation failed')
+        }
+        
         toast.success('POS Machine added successfully')
-        setShowModal(false)
-        setEditingMachine(null)
-        resetForm()
-        fetchMachines()
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to add POS machine')
       }
+      
+      // Only close modal and reset form on success
+      setShowModal(false)
+      setEditingMachine(null)
+      resetForm()
+      fetchMachines()
+      
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save POS machine')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -797,7 +766,7 @@ export default function POSMachines() {
                     >
                       {t('cancel')}
                     </LoadingButton>
-                    <LoadingButton type="submit" loading={optimisticLoading} variant="primary">
+                    <LoadingButton type="submit" loading={submitting} variant="primary">
                       {editingMachine ? 'Update Machine' : 'Add Machine'}
                     </LoadingButton>
                   </div>

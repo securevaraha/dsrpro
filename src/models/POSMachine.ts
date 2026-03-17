@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-// First, delete the existing model if it exists to force schema recreation
+// Clear any existing model to prevent conflicts
 if (mongoose.models.POSMachine) {
   delete mongoose.models.POSMachine;
 }
@@ -38,7 +38,10 @@ const POSMachineSchema = new mongoose.Schema({
   notes: { type: String, default: '' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  strict: false // Allow additional fields for backward compatibility
+});
 
 // Create indexes - only create unique index on terminalId
 POSMachineSchema.index({ terminalId: 1 }, { unique: true });
@@ -47,6 +50,6 @@ POSMachineSchema.index({ brand: 1 });
 POSMachineSchema.index({ segment: 1 });
 POSMachineSchema.index({ status: 1 });
 
-const POSMachine = mongoose.model('POSMachine', POSMachineSchema);
+const POSMachine = mongoose.models.POSMachine || mongoose.model('POSMachine', POSMachineSchema);
 
 export default POSMachine;
