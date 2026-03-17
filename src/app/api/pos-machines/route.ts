@@ -137,16 +137,35 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('POS Machine creation error:', error)
     console.error('Error stack:', error.stack)
+    console.error('Error name:', error.name)
+    console.error('Error code:', error.code)
+    
+    // Log the full error object for debugging
+    console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
+    
+    if (error.code === 11000) {
+      console.log('Duplicate key error details:', error.keyPattern, error.keyValue)
+      return NextResponse.json({ 
+        error: `Duplicate key error: ${JSON.stringify(error.keyValue)}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, { status: 400 })
+    }
     
     if (error.name === 'ValidationError') {
       console.log('Validation error details:', error.errors)
       const validationErrors = Object.values(error.errors).map((err: any) => err.message)
-      return NextResponse.json({ error: `Validation error: ${validationErrors.join(', ')}` }, { status: 400 })
+      return NextResponse.json({ 
+        error: `Validation error: ${validationErrors.join(', ')}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, { status: 400 })
     }
     
     if (error.name === 'CastError') {
       console.log('Cast error:', error.message)
-      return NextResponse.json({ error: `Invalid data format: ${error.message}` }, { status: 400 })
+      return NextResponse.json({ 
+        error: `Invalid data format: ${error.message}`,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, { status: 400 })
     }
     
     return NextResponse.json({ 
