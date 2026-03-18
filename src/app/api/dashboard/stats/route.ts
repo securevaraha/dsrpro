@@ -115,6 +115,29 @@ export async function GET(request: NextRequest) {
     const statusMap: Record<string, number> = {}
     statusBreakdown.forEach((s: any) => { statusMap[s._id] = s.count })
     
+    // Calculate monthly bank charges and VAT from receipts linked to POS machines
+    const receiptsWithPOS = await Transaction.find({
+      ...roleFilter,
+      createdAt: { $gte: startOfMonth },
+      type: { $in: ['sale', 'receipt'] },
+      posMachine: { $exists: true, $ne: null }
+    })
+      .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
+      .select('amount posMachine')
+
+    let totalBankCharges = 0
+    let totalVAT = 0
+    let totalMargin = 0
+    for (const txn of receiptsWithPOS) {
+      const pos = (txn as any).posMachine
+      const amt = (txn as any).amount || 0
+      if (pos) {
+        totalBankCharges += amt * ((pos.bankCharges || 0) / 100)
+        totalVAT += amt * ((pos.vatPercentage || 0) / 100)
+        totalMargin += amt * ((pos.commissionPercentage || 0) / 100)
+      }
+    }
+
     const stats = {
       totalReceipts: {
         today: todayReceipts[0]?.total || 0,
@@ -131,7 +154,9 @@ export async function GET(request: NextRequest) {
       totalPOSMachines,
       activePOSMachines,
       totalTransactions: (monthlyReceipts[0]?.count || 0) + (monthlyPayments[0]?.count || 0),
-      totalCommission: monthlyReceipts[0]?.commission || 0,
+      totalCommission: totalMargin || monthlyReceipts[0]?.commission || 0,
+      totalBankCharges,
+      totalVAT,
       monthlyTrend: { labels: trendLabels, data: trendData },
       transactionStatus: {
         completed: statusMap['completed'] || 0,

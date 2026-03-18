@@ -16,6 +16,8 @@ interface DashboardStats {
   activeAgents: number
   totalTransactions: number
   totalCommission: number
+  totalBankCharges: number
+  totalVAT: number
   totalPOSMachines?: number
 }
 
@@ -171,10 +173,10 @@ export default function Dashboard() {
                       <div className="ml-5 w-0 flex-1">
                         <dl>
                           <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                            Commission / Margin
+                            Commission / Margin (Month)
                           </dt>
                           <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                            AED {stats.totalCommission.toLocaleString()}
+                            AED {(stats.totalCommission || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </dd>
                         </dl>
                       </div>
@@ -190,17 +192,36 @@ export default function Dashboard() {
                       <div className="ml-5 w-0 flex-1">
                         <dl>
                           <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                            Bank Charges
+                            Bank Charges (Month)
                           </dt>
                           <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                            AED {stats.totalPayments.today.toLocaleString()}
+                            AED {(stats.totalBankCharges || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </dd>
                         </dl>
                       </div>
                     </div>
                   </div>
 
-                  {/* Admin Card 4: Active Agents */}
+                  {/* Admin Card 4: VAT */}
+                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <TrendingDown className="h-6 w-6 text-accent" />
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            VAT (Month)
+                          </dt>
+                          <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                            AED {(stats.totalVAT || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </dd>
+                        </dl>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Admin Card 5: Active Agents */}
                   <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
