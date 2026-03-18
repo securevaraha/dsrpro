@@ -6,14 +6,15 @@ import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 import { randomBytes } from 'crypto'
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = requireAuth(request)
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
+    const { id } = await params
 
-    const isSelfUpdate = params.id === auth.userId
+    const isSelfUpdate = id === auth.userId
     
     // Non-admins can only update their own profile
     if (!isSelfUpdate && auth.role !== 'admin') {
@@ -28,7 +29,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const hashedPassword = await bcrypt.hash(tempPassword, 12)
       const auditedData = addAuditFields({ password: hashedPassword }, auth.userId, true)
       
-      const user = await User.findByIdAndUpdate(params.id, auditedData, { new: true }).select('-password')
+      const user = await User.findByIdAndUpdate(id, auditedData, { new: true }).select('-password')
       if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
@@ -53,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const auditedData = addAuditFields(updateData, auth.userId, true)
     
     const user = await User.findByIdAndUpdate(
-      params.id,
+      id,
       auditedData,
       { new: true }
     ).select('-password')
@@ -71,20 +72,21 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Only admin can delete users
     const auth = requireRole(request, ['admin'])
     if (isErrorResponse(auth)) return auth
 
+    const { id } = await params
     // Prevent self-deletion
-    if (params.id === auth.userId) {
+    if (id === auth.userId) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
     }
 
     await connectDB()
     
-    const user = await User.findByIdAndDelete(params.id)
+    const user = await User.findByIdAndDelete(id)
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })

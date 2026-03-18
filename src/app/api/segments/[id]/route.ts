@@ -3,16 +3,17 @@ import connectDB from '@/lib/mongodb'
 import Segment from '@/models/Segment'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = requireRole(request, ['admin'])
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
+    const { id } = await params
     const { name, description, isActive } = await request.json()
 
     const segment = await Segment.findByIdAndUpdate(
-      params.id,
+      id,
       { name: name?.trim(), description: description?.trim() || '', isActive, updatedBy: auth.userId },
       { new: true }
     )
@@ -30,13 +31,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = requireRole(request, ['admin'])
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
-    const segment = await Segment.findByIdAndDelete(params.id)
+    const { id } = await params
+    const segment = await Segment.findByIdAndDelete(id)
 
     if (!segment) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })

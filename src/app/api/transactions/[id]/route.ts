@@ -4,14 +4,15 @@ import Transaction from '@/models/Transaction'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = requireAuth(request)
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
+    const { id } = await params
 
-    const transaction = await Transaction.findById(params.id)
+    const transaction = await Transaction.findById(id)
     if (!transaction) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
     }
@@ -30,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const auditedData = addAuditFields(updateData, auth.userId, true)
     
     const updated = await Transaction.findByIdAndUpdate(
-      params.id,
+      id,
       auditedData,
       { new: true }
     )
@@ -47,7 +48,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Only admin can delete transactions
     const auth = requireAuth(request)
@@ -57,8 +58,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     await connectDB()
+    const { id } = await params
     
-    const transaction = await Transaction.findByIdAndDelete(params.id)
+    const transaction = await Transaction.findByIdAndDelete(id)
     
     if (!transaction) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
