@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText, Briefcase, ShieldCheck } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Plus, Calculator, CreditCard, FileText, Briefcase, ShieldCheck, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { useLanguage } from '@/components/LanguageProvider'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
@@ -146,7 +146,7 @@ export default function Dashboard() {
               {role === 'admin' ? (
                 <>
                   {/* Admin Card 1: Total Receipts Today */}
-                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                  <Link href="/dashboard/receipts" className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200 group cursor-pointer">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
                         <TrendingUp className="h-6 w-6 text-success" />
@@ -161,11 +161,12 @@ export default function Dashboard() {
                           </dd>
                         </dl>
                       </div>
+                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
+                  </Link>
 
-                  {/* Admin Card 2: Commission / Margin */}
-                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                  {/* Admin Card 2: Margin */}
+                  <Link href="/dashboard/settlements" className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200 group cursor-pointer">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
                         <DollarSign className="h-6 w-6 text-warning" />
@@ -173,18 +174,19 @@ export default function Dashboard() {
                       <div className="ml-5 w-0 flex-1">
                         <dl>
                           <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                            Commission / Margin (Month)
+                            Margin (Month)
                           </dt>
                           <dd className="text-lg font-medium text-gray-900 dark:text-white">
                             AED {(stats.totalCommission || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </dd>
                         </dl>
                       </div>
+                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Admin Card 3: Bank Charges */}
-                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                  <Link href="/dashboard/payments" className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200 group cursor-pointer">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
                         <TrendingDown className="h-6 w-6 text-danger" />
@@ -199,11 +201,12 @@ export default function Dashboard() {
                           </dd>
                         </dl>
                       </div>
+                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Admin Card 4: VAT */}
-                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                  <Link href="/dashboard/reports" className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200 group cursor-pointer">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
                         <TrendingDown className="h-6 w-6 text-accent" />
@@ -218,11 +221,12 @@ export default function Dashboard() {
                           </dd>
                         </dl>
                       </div>
+                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Admin Card 5: Active Agents */}
-                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                  <Link href="/dashboard/admin" className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200 group cursor-pointer">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
                         <Users className="h-6 w-6 text-primary" />
@@ -237,12 +241,13 @@ export default function Dashboard() {
                           </dd>
                         </dl>
                       </div>
+                      <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
+                  </Link>
                 </>
               ) : (
                 /* Agent: only POS Machines count */
-                <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                <Link href="/dashboard/pos-machines" className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200 group cursor-pointer">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <Users className="h-6 w-6 text-primary" />
@@ -257,8 +262,9 @@ export default function Dashboard() {
                         </dd>
                       </dl>
                     </div>
+                    <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </div>
+                </Link>
               )}
             </>
           ) : null}
@@ -412,7 +418,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Net Commission</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">Net Margin</span>
                     <span className="text-sm font-medium text-primary">
                       AED {stats.totalCommission.toLocaleString()}
                     </span>

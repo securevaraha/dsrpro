@@ -4,6 +4,7 @@ import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import User from '@/models/User'
 import Client from '@/models/Client'
+import Notification from '@/models/Notification'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 
@@ -122,6 +123,30 @@ export async function POST(request: NextRequest) {
     
     const transaction = new Transaction(transactionData)
     await transaction.save()
+
+    // Notification Logic
+    try {
+      if (auth.role === 'agent') {
+        const admins = await User.find({ role: 'admin', status: 'active' }).select('_id')
+        if (admins.length > 0) {
+          await Notification.insertMany(admins.map(admin => ({
+            userId: admin._id,
+            title: `New ${transactionData.type === 'receipt' ? 'Receipt' : 'Payment'} Logged`,
+            message: `An Agent logged a new ${transactionData.type} for ${parsedAmount}.`,
+            type: 'info'
+          })))
+        }
+      } else if (auth.role === 'admin' && agentId && agentId !== auth.userId) {
+        await Notification.create({
+          userId: agentId,
+          title: `New ${transactionData.type === 'receipt' ? 'Receipt' : 'Payment'} Assigned`,
+          message: `An admin logged a new ${transactionData.type} for ${parsedAmount} on your behalf.`,
+          type: 'info'
+        })
+      }
+    } catch (err) {
+      console.error('Notification creation failed:', err)
+    }
     
     return NextResponse.json({ 
       message: 'Transaction created successfully',

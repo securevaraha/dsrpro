@@ -10,7 +10,6 @@ const POSMachineSchema = new mongoose.Schema({
   brand: { 
     type: String, 
     required: true,
-    enum: ['Network', 'RAKBank', 'Geidea', 'AFS', 'Other']
   },
   terminalId: { 
     type: String, 

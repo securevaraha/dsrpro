@@ -60,17 +60,15 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
   )
 }
 
+const CHART_HEIGHTS = [70, 90, 60, 110, 80, 130, 100, 75, 95, 85, 120, 65]
+
 export function ChartSkeleton({ className }: SkeletonProps) {
   return (
     <div className={cn("dubai-card p-6", className)}>
       <Skeleton className="h-6 w-32 mb-4" />
       <div className="h-64 flex items-end space-x-2">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton 
-            key={i} 
-            className="flex-1" 
-            style={{ height: `${Math.random() * 100 + 50}px` }}
-          />
+        {CHART_HEIGHTS.map((h, i) => (
+          <Skeleton key={i} className="flex-1" style={{ height: `${h}px` }} />
         ))}
       </div>
     </div>

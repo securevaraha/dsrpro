@@ -284,7 +284,7 @@ export default function Payments() {
             </div>
 
             {/* Desktop table view */}
-            <div className="hidden md:block overflow-hidden dubai-card !p-0">
+            <div className="hidden md:block overflow-x-auto dubai-card !p-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800/50">
@@ -385,9 +385,18 @@ export default function Payments() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">
-              {editingPayment ? 'Edit Payment' : t('addPayment')}
-            </h3>
+            <div className="flex items-start justify-between mb-1">
+              <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+                {editingPayment ? 'Edit Payment' : t('addPayment')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setShowModal(false); resetForm() }}
+                className="ml-4 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
             <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
               {editingPayment ? 'Update payment details below' : 'Fill in the payment details below'}
             </p>
@@ -473,7 +482,6 @@ export default function Payments() {
                 <label className="form-label">{t('description')}</label>
                 <textarea
                   placeholder={t('description')}
-                  required
                   rows={4}
                   className="form-input resize-none"
                   value={formData.description}
@@ -524,7 +532,7 @@ export default function Payments() {
             </button>
             <button
               onClick={handleDelete}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
+              className="btn-danger"
             >
               Delete
             </button>

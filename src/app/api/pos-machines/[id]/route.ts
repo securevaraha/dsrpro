@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import POSMachine from '@/models/POSMachine'
+import Notification from '@/models/Notification'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 
@@ -44,6 +45,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const machine = await POSMachine.findByIdAndUpdate(id, updateData, { new: true })
       .populate('assignedAgent', 'name email companyName')
+
+    if (machine && machine.assignedAgent && machine.assignedAgent._id.toString() !== existing.assignedAgent?.toString()) {
+      try {
+        await Notification.create({
+          userId: machine.assignedAgent._id,
+          title: 'POS Machine Assigned',
+          message: `A POS Machine (TID: ${machine.terminalId}, Brand: ${machine.brand}) has been assigned to you.`,
+          type: 'info',
+        })
+      } catch (err) {
+        console.error('Failed to create notification:', err)
+      }
+    }
 
     return NextResponse.json({ message: 'POS Machine updated', machine })
   } catch (error) {

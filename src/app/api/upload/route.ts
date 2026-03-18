@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import { uploadToLocal } from '@/lib/uploadFallback'
+import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if blob token is configured
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error('BLOB_READ_WRITE_TOKEN environment variable is not set')
-      return NextResponse.json({ error: 'File upload service not configured' }, { status: 500 })
-    }
+    // Require authentication before allowing any upload
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -41,6 +40,9 @@ export async function POST(request: NextRequest) {
     let uploadResult
     
     try {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        throw new Error('BLOB_READ_WRITE_TOKEN environment variable is not set')
+      }
       // Upload to Vercel Blob
       const blob = await put(fileName, file, {
         access: 'public',

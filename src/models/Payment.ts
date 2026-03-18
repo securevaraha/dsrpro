@@ -7,7 +7,7 @@ const PaymentSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ['cash', 'bank', 'upi', 'card'], required: true },
   bankAccount: String,
   amount: { type: Number, required: true },
-  description: { type: String, required: true },
+  description: { type: String, default: '' },
   attachment: String,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });

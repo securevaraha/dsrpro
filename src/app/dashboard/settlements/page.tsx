@@ -92,12 +92,12 @@ export default function Settlements() {
   return (
     <RoleGuard allowedRoles={['admin']}>
     <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Merchant Settlements</h1>
-          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">Track daily card sales and settlements like Excel sheets</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Merchant Settlements</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Track daily card sales and settlements like Excel sheets</p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <div>
           <button
             onClick={() => setShowModal(true)}
             className="dubai-button inline-flex items-center justify-center"
@@ -151,9 +151,37 @@ export default function Settlements() {
         </div>
       </div>
 
-      {/* Excel-like Table Headers */}
-      <div className="mt-8 dubai-card p-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Settlement Ledger (Excel Format)</h3>
+      {/* Mobile card view */}
+      {!loading && settlements.length > 0 && (
+        <div className="md:hidden mt-6 space-y-3">
+          {settlements.map((s: any) => (
+            <div key={s._id} className="dubai-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">{format(new Date(s.date), 'dd-MMM-yyyy')}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-medium">
+                  {s.merchantId?.name || s.merchantId?.companyName || '—'}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-sm">
+                {[['C/C Sales', s.ccSales], ['3.75% Charges', s.charges], ['Bank Charges', s.bankCharges], ['VAT', s.vat], ['Net Received', s.netReceived], ['To Pay', s.toPay], ['Margin', s.margin], ['Paid', s.paid]].map(([label, val]) => (
+                  <div key={label as string} className="flex justify-between">
+                    <span className="text-xs text-gray-400">{label}</span>
+                    <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{(val as number)?.toLocaleString() ?? '—'}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-1.5 border-t border-gray-100 dark:border-gray-700">
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Balance</span>
+                  <span className={`text-xs font-bold ${(s.balance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{s.balance?.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Desktop Excel-like Table */}
+      <div className="hidden md:block mt-8 dubai-card p-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Settlement Ledger</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
             <thead className="bg-gray-50 dark:bg-gray-700">
@@ -187,11 +215,11 @@ export default function Settlements() {
                   <td className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{s.balance?.toLocaleString()}</td>
                 </tr>
               )) : (
-              <tr>
-                <td colSpan={11} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
-                  No settlement data yet. Add your first settlement to see Excel-like calculations.
-                </td>
-              </tr>
+                <tr>
+                  <td colSpan={11} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+                    No settlement data yet. Add your first settlement to see Excel-like calculations.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -202,7 +230,16 @@ export default function Settlements() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">Add Daily Settlement</h3>
+            <div className="flex items-start justify-between mb-1">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Add Daily Settlement</h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="ml-4 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
             <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
               Record a new daily card settlement entry
             </p>

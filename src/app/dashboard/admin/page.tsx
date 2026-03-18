@@ -603,7 +603,7 @@ export default function AdminPanel() {
 
             {/* Desktop Table */}
             <div className="hidden lg:block">
-              <div className="overflow-hidden shadow ring-1 ring-black/5 dark:ring-gray-600 rounded-lg">
+              <div className="overflow-x-auto shadow ring-1 ring-black/5 dark:ring-gray-600 rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                   <thead className="table-header">
                     <tr>
@@ -1091,7 +1091,7 @@ export default function AdminPanel() {
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
+                  className="btn-danger"
                 >
                   Delete User
                 </button>

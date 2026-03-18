@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import mongoose from 'mongoose'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
@@ -11,6 +12,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectDB()
     const { id } = await params
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: 'Invalid transaction ID' }, { status: 400 })
+    }
 
     const transaction = await Transaction.findById(id)
     if (!transaction) {
@@ -59,6 +64,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectDB()
     const { id } = await params
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: 'Invalid transaction ID' }, { status: 400 })
+    }
     
     const transaction = await Transaction.findByIdAndDelete(id)
     

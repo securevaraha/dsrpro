@@ -52,17 +52,17 @@ async function createSuperAdmin() {
 
     const existingAdmin = await User.findOne({ email: 'admin@dsrpro.ae' })
     if (existingAdmin) {
-      console.log('Super admin already exists!')
+      console.log('ℹ️  Super admin already exists. No changes made.')
       console.log('📧 Email: admin@dsrpro.ae')
-      console.log('🔑 Password: admin123')
+      console.log('   To reset the password, use the admin panel or the /api/profile/password endpoint.')
       return
     }
 
-    // Use the specified password
-    const adminPassword = 'admin123'
+    // Generate a strong random password
+    const adminPassword = crypto.randomBytes(16).toString('base64url')
     const hashedPassword = await bcrypt.hash(adminPassword, 12)
     
-    const superAdmin = await User.create({
+    await User.create({
       name: 'Super Admin',
       email: 'admin@dsrpro.ae',
       password: hashedPassword,
@@ -74,8 +74,11 @@ async function createSuperAdmin() {
 
     console.log('✅ Super Admin created successfully!')
     console.log('📧 Email: admin@dsrpro.ae')
-    console.log('🔑 Password: admin123')
-    console.log('👤 Role: admin')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('🔑 TEMPORARY PASSWORD (save this now, it will not be shown again):')
+    console.log(`   ${adminPassword}`)
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('⚠️  Change this password immediately after first login!')
     
   } catch (error) {
     console.error('❌ Error creating super admin:', error)
@@ -85,4 +88,4 @@ async function createSuperAdmin() {
   }
 }
 
-createSuperAdmin()
+createSuperAdmin()

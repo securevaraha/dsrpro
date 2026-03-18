@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose'
 const PUBLIC_ROUTES = ['/', '/auth/signin', '/auth/signup']
 const PUBLIC_API_ROUTES = ['/api/auth/signin', '/api/auth/signup']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl
     console.log('Middleware - pathname:', pathname)

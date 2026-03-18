@@ -70,10 +70,12 @@ export default function POSMachines() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
+  const [brands, setBrands] = useState<{ _id: string, name: string }[]>([])
+  const [segments, setSegments] = useState<{ _id: string, name: string }[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 })
   const [formData, setFormData] = useState({
     segment: '',
-    brand: 'Network' as string,
+    brand: '',
     terminalId: '',
     merchantId: '',
     deviceType: 'traditional_pos' as string,
@@ -99,30 +101,46 @@ export default function POSMachines() {
   })
 
   useEffect(() => {
-    console.log('Current user:', user)
-    console.log('Is admin:', isAdmin)
     fetchMachines()
+    fetchBrands()
+    fetchSegments()
     if (isAdmin) fetchAgents()
   }, [isAdmin, user])
+
+  const fetchBrands = async () => {
+    try {
+      const response = await fetch('/api/brands')
+      if (response.ok) {
+        const data = await response.json()
+        setBrands(data.brands || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch brands:', e)
+    }
+  }
+
+  const fetchSegments = async () => {
+    try {
+      const response = await fetch('/api/segments')
+      if (response.ok) {
+        const data = await response.json()
+        setSegments(data.segments || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch segments:', e)
+    }
+  }
 
   const fetchMachines = async () => {
     try {
       setLoading(true)
-      console.log('Fetching POS machines...')
       const response = await fetch('/api/pos-machines')
-      console.log('Response status:', response.status)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('API Response:', data)
-        console.log('Machines received:', data.machines?.length || 0)
-        console.log('Stats received:', data.stats)
-        
         setMachines(data.machines || [])
         setStats(data.stats || { total: 0, active: 0, inactive: 0, maintenance: 0 })
       } else {
         const errorData = await response.json()
-        console.error('API Error:', errorData)
         toast.error(`Failed to load POS machines: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
@@ -187,8 +205,6 @@ export default function POSMachines() {
       vatPercentage,
       commissionPercentage
     }
-
-    console.log('Submitting data:', submitData) // Debug log
 
     setSubmitting(true)
 
@@ -278,7 +294,7 @@ export default function POSMachines() {
 
   const resetForm = () => {
     setFormData({
-      segment: '', brand: 'Network', terminalId: '', merchantId: '',
+      segment: '', brand: '', terminalId: '', merchantId: '',
       deviceType: 'traditional_pos', assignedAgent: '', location: '', bankCharges: '', vatPercentage: '5', commissionPercentage: '',
       status: 'active', notes: '',
     })
@@ -394,7 +410,7 @@ export default function POSMachines() {
           ) : (
             <>
               {/* Desktop Table */}
-              <div className="hidden lg:block overflow-hidden dubai-card !p-0">
+              <div className="hidden lg:block overflow-x-auto dubai-card !p-0">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800/50">
@@ -588,9 +604,18 @@ export default function POSMachines() {
         {showModal && (
           <div className="modal-overlay">
             <div className="modal-content max-w-4xl">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                {editingMachine ? 'Edit POS Machine' : 'Add New POS Machine'}
-              </h3>
+              <div className="flex items-start justify-between mb-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingMachine ? 'Edit POS Machine' : 'Add New POS Machine'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowModal(false); setEditingMachine(null); resetForm() }}
+                  className="ml-4 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                 {editingMachine ? 'Update machine details' : 'Register a new POS machine and assign it to an agent'}
               </p>
@@ -601,14 +626,18 @@ export default function POSMachines() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="form-label">Segment *</label>
-                      <input
-                        type="text"
+                      <select
                         required
-                        className="form-input"
-                        placeholder="e.g. Retail, Restaurant, Gas Station"
+                        className="form-select"
                         value={formData.segment}
                         onChange={(e) => setFormData({...formData, segment: e.target.value})}
-                      />
+                      >
+                        <option value="" disabled>Select Segment</option>
+                        {segments.map(s => (
+                          <option key={s._id} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                      {segments.length === 0 && <p className="text-xs text-amber-500 mt-1">Please create Segments in Admin Panel first</p>}
                     </div>
                     <div>
                       <label className="form-label">Brand *</label>
@@ -618,12 +647,12 @@ export default function POSMachines() {
                         value={formData.brand}
                         onChange={(e) => setFormData({...formData, brand: e.target.value})}
                       >
-                        <option value="Network">Network</option>
-                        <option value="RAKBank">RAKBank</option>
-                        <option value="Geidea">Geidea</option>
-                        <option value="AFS">AFS</option>
-                        <option value="Other">Other</option>
+                        <option value="" disabled>Select Brand</option>
+                        {brands.map(b => (
+                          <option key={b._id} value={b.name}>{b.name}</option>
+                        ))}
                       </select>
+                      {brands.length === 0 && <p className="text-xs text-amber-500 mt-1">Please create Brands in Admin Panel first</p>}
                     </div>
                   </div>
 
@@ -658,7 +687,7 @@ export default function POSMachines() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="form-label">Device Type *</label>
                       <select

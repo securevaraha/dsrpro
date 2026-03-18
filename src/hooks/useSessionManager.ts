@@ -3,46 +3,35 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-const IDLE_TIME = 10 * 60 * 1000 // 10 minutes in milliseconds
-const WARNING_TIME = 9 * 60 * 1000 // 9 minutes - show warning 1 minute before logout
+const IDLE_TIME = 10 * 60 * 1000       // 10 minutes
+const WARNING_TIME = 9 * 60 * 1000     // show warning at 9 minutes
+const ACTIVITY_THROTTLE = 2 * 60 * 1000 // sync to server at most every 2 minutes
 
 export function useSessionManager() {
   const router = useRouter()
   const [showWarning, setShowWarning] = useState(false)
   const idleTimerRef = useRef<NodeJS.Timeout>()
   const warningTimerRef = useRef<NodeJS.Timeout>()
-  const lastActivityRef = useRef<number>(Date.now())
+  const lastServerSyncRef = useRef<number>(0)
+
+  const updateServerActivity = async () => {
+    const now = Date.now()
+    if (now - lastServerSyncRef.current < ACTIVITY_THROTTLE) return
+    lastServerSyncRef.current = now
+    try {
+      await fetch('/api/sessions/activity', { method: 'POST' })
+    } catch {}
+  }
 
   const resetTimers = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
-    
-    lastActivityRef.current = Date.now()
-    setShowWarning(false)
 
-    // Update session activity on server
+    setShowWarning(false)
     updateServerActivity()
 
-    // Set warning timer (9 minutes)
-    warningTimerRef.current = setTimeout(() => {
-      setShowWarning(true)
-    }, WARNING_TIME)
-
-    // Set logout timer (10 minutes)
-    idleTimerRef.current = setTimeout(() => {
-      handleAutoLogout()
-    }, IDLE_TIME)
-  }
-
-  const updateServerActivity = async () => {
-    try {
-      await fetch('/api/sessions/activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-    } catch (error) {
-      console.error('Failed to update session activity:', error)
-    }
+    warningTimerRef.current = setTimeout(() => setShowWarning(true), WARNING_TIME)
+    idleTimerRef.current = setTimeout(() => handleAutoLogout(), IDLE_TIME)
   }
 
   const handleAutoLogout = async () => {

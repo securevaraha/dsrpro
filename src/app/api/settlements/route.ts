@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import MerchantSettlement from '@/models/MerchantSettlement'
+import Notification from '@/models/Notification'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 
@@ -97,6 +98,19 @@ export async function POST(request: NextRequest) {
     
     const settlement = new MerchantSettlement(settlementData)
     await settlement.save()
+
+    // Notification Logic
+    try {
+      await Notification.create({
+        userId: settlement.merchantId,
+        title: 'Settlement Processed',
+        message: `A settlement of ${settlement.netReceived} has been processed for your account.`,
+        type: 'success'
+      })
+    } catch (err) {
+      console.error('Notification creation failed:', err)
+    }
+
     
     return NextResponse.json({ 
       message: 'Settlement created successfully',

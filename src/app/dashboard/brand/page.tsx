@@ -150,7 +150,7 @@ export default function BrandsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden dubai-card !p-0">
+            <div className="overflow-x-auto dubai-card !p-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800/50">
@@ -264,7 +264,7 @@ export default function BrandsPage() {
               </p>
               <div className="flex justify-end gap-3">
                 <button onClick={() => setShowDeleteDialog(false)} className="btn-secondary">Cancel</button>
-                <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">Delete</button>
+                <button onClick={handleDelete} className="btn-danger">Delete</button>
               </div>
             </div>
           </div>
