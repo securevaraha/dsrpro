@@ -167,15 +167,32 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
   
   const receipts = await Transaction.find(query)
     .populate('agentId', 'name email')
+    .populate('posMachine', 'segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('createdBy', 'name')
+    .populate('updatedBy', 'name')
     .sort({ createdAt: -1 })
     .limit(500)
   
   const totalAmount = receipts.reduce((sum: number, r: any) => sum + (r.amount || 0), 0)
+
+  // Collect unique segments and brands for filters
+  const segments = Array.from(new Set(receipts.map((r: any) => r.posMachine?.segment).filter(Boolean))) as string[]
+  const brands = Array.from(new Set(receipts.map((r: any) => r.posMachine?.brand).filter(Boolean))) as string[]
   
   const items = receipts.map((r: any) => ({
     receiptNumber: r.metadata?.receiptNumber || r.transactionId,
     date: r.createdAt,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
     agent: r.agentId?.name || 'N/A',
+    createdBy: r.createdBy?.name || null,
+    updatedBy: r.updatedBy?.name || null,
+    posMachineSegment: r.posMachine?.segment || null,
+    posMachineBrand: r.posMachine?.brand || null,
+    posMachineTerminalId: r.posMachine?.terminalId || null,
+    bankCharges: r.posMachine?.bankCharges ?? null,
+    vatPercentage: r.posMachine?.vatPercentage ?? null,
+    commissionPercentage: r.posMachine?.commissionPercentage ?? null,
     paymentMethod: r.paymentMethod,
     amount: r.amount,
     description: r.description,
@@ -185,7 +202,11 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
   return NextResponse.json({
     reportType: 'receipts',
     totalAmount,
+    totalRevenue: totalAmount,
+    totalTransactions: receipts.length,
     totalReceipts: receipts.length,
+    segments,
+    brands,
     items
   })
 }

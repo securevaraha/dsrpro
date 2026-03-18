@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const transactions = await Transaction.find(query)
       .populate('agentId', 'name email')
       .populate('clientId', 'name businessType')
-      .populate('posMachine', 'segment brand terminalId')
+      .populate('posMachine', 'segment brand terminalId bankCharges vatPercentage commissionPercentage')
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
       .sort({ createdAt: -1 })

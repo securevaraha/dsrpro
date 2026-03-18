@@ -18,6 +18,9 @@ interface Receipt {
     segment: string
     brand: string
     terminalId: string
+    bankCharges?: number
+    vatPercentage?: number
+    commissionPercentage?: number
   } | null
   amount: number
   description: string
@@ -27,6 +30,7 @@ interface Receipt {
 export default function Receipts() {
   const { t } = useLanguage()
   const { user } = useCurrentUser()
+  const isAdmin = user?.role === 'admin'
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
@@ -37,6 +41,8 @@ export default function Receipts() {
   const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null)
   const [deletingReceipt, setDeletingReceipt] = useState<Receipt | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [segmentFilter, setSegmentFilter] = useState('all')
+  const [brandFilter, setBrandFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [showImagePreview, setShowImagePreview] = useState(false)
@@ -173,10 +179,14 @@ export default function Receipts() {
   const filteredReceipts = receipts.filter(receipt => {
     const matchesSearch = receipt.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || 
-                         (receipt.posMachine && `${receipt.posMachine.segment}/${receipt.posMachine.brand}` === statusFilter)
-    return matchesSearch && matchesStatus
+    const matchesSegment = segmentFilter === 'all' || (receipt.posMachine?.segment === segmentFilter)
+    const matchesBrand = brandFilter === 'all' || (receipt.posMachine?.brand === brandFilter)
+    return matchesSearch && matchesSegment && matchesBrand
   })
+
+  // Derive unique segments and brands from loaded POS machines
+  const uniqueSegments = Array.from(new Set(posMachines.map(m => m.segment).filter(Boolean)))
+  const uniqueBrands = Array.from(new Set(posMachines.map(m => m.brand).filter(Boolean)))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -310,7 +320,7 @@ export default function Receipts() {
       </div>
 
       {/* Filters */}
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -323,14 +333,22 @@ export default function Receipts() {
         </div>
         <select
           className="form-select"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          value={segmentFilter}
+          onChange={(e) => setSegmentFilter(e.target.value)}
         >
-          <option value="all">All POS Machines</option>
-          {posMachines.map(machine => (
-            <option key={machine._id} value={`${machine.segment}/${machine.brand}`}>
-              {machine.segment} / {machine.brand}
-            </option>
+          <option value="all">All Segments</option>
+          {uniqueSegments.map(segment => (
+            <option key={segment} value={segment}>{segment}</option>
+          ))}
+        </select>
+        <select
+          className="form-select"
+          value={brandFilter}
+          onChange={(e) => setBrandFilter(e.target.value)}
+        >
+          <option value="all">All Brands</option>
+          {uniqueBrands.map(brand => (
+            <option key={brand} value={brand}>{brand}</option>
           ))}
         </select>
       </div>
@@ -430,22 +448,24 @@ export default function Receipts() {
                     >
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => {
-                        setDeletingReceipt(receipt)
-                        setShowDeleteDialog(true)
-                      }}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setDeletingReceipt(receipt)
+                          setShowDeleteDialog(true)
+                        }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Desktop table view */}
-            <div className="hidden md:block overflow-hidden dubai-card !p-0">
+              <div className="hidden md:block overflow-hidden dubai-card !p-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800/50">
@@ -453,6 +473,13 @@ export default function Receipts() {
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('date')}</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">POS Machine</th>
                     <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
+                    {isAdmin && (
+                      <>
+                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Margin (%)</th>
+                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bank Charges</th>
+                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">VAT (%)</th>
+                      </>
+                    )}
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
                     <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preview</th>
                     <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('actions')}</th>
@@ -475,6 +502,19 @@ export default function Receipts() {
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-gray-100">
                         AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
+                      {isAdmin && (
+                        <>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
+                            {receipt.posMachine?.commissionPercentage != null ? `${receipt.posMachine.commissionPercentage}%` : '—'}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
+                            {receipt.posMachine?.bankCharges != null ? `AED ${receipt.posMachine.bankCharges}` : '—'}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
+                            {receipt.posMachine?.vatPercentage != null ? `${receipt.posMachine.vatPercentage}%` : '—'}
+                          </td>
+                        </>
+                      )}
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">
                         {receipt.description}
                       </td>
@@ -533,16 +573,18 @@ export default function Receipts() {
                           >
                             <Edit className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => {
-                              setDeletingReceipt(receipt)
-                              setShowDeleteDialog(true)
-                            }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title={t('delete')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                setDeletingReceipt(receipt)
+                                setShowDeleteDialog(true)
+                              }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title={t('delete')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -565,7 +607,26 @@ export default function Receipts() {
               {editingReceipt ? 'Update receipt details below' : 'Fill in the receipt details below'}
             </p>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* POS Machine selector at the top to avoid bottom overflow */}
+              <div className="flex flex-col">
+                <label className="form-label text-sm">POS Machine</label>
+                <select
+                  className="form-select"
+                  value={formData.posMachine}
+                  onChange={(e) => setFormData({...formData, posMachine: e.target.value})}
+                >
+                  <option value="">Select POS Machine</option>
+                  {posMachines.map(machine => (
+                    <option key={machine._id} value={machine._id}>
+                      {machine.segment} / {machine.brand} - {machine.terminalId}
+                    </option>
+                  ))}
+                </select>
+                {posMachines.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">No POS machines available</p>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col">
                   <label className="form-label text-sm">Transaction Number *</label>
                   <input
@@ -588,31 +649,6 @@ export default function Receipts() {
                     placeholder="dd-MMM-yyyy"
                     onChange={(e) => setFormData({...formData, date: e.target.value})}
                   />
-                </div>
-                <div className="flex flex-col">
-                  <label className="form-label text-sm">POS Machine</label>
-                  <select
-                    className="form-select h-10 min-w-0"
-                    value={formData.posMachine}
-                    onChange={(e) => {
-                      console.log('POS machine selected:', e.target.value)
-                      setFormData({...formData, posMachine: e.target.value})
-                    }}
-                  >
-                    <option value="">Select POS Machine</option>
-                    {posMachines.map(machine => {
-                      console.log('Rendering POS machine option:', machine)
-                      return (
-                        <option key={machine._id} value={machine._id}>
-                          {machine.segment} / {machine.brand} - {machine.terminalId}
-                        </option>
-                      )
-                    })}
-                  </select>
-                  {posMachines.length === 0 && (
-                    <p className="text-xs text-red-500 mt-1">No POS machines available</p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">Available machines: {posMachines.length}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

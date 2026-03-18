@@ -162,8 +162,8 @@ export default function POSMachines() {
 
     // Validate bank charges
     const bankCharges = parseFloat(formData.bankCharges) || 0
-    if (bankCharges < 0) {
-      toast.error('Bank charges cannot be negative')
+    if (bankCharges < 0 || bankCharges > 100) {
+      toast.error('Bank charges must be between 0 and 100%')
       return
     }
 
@@ -677,12 +677,13 @@ export default function POSMachines() {
                         type="number"
                         step="0.01"
                         min="0"
+                        max="100"
                         className="form-input text-sm"
                         placeholder="0.00"
                         value={formData.bankCharges}
                         onChange={(e) => {
                           const value = e.target.value
-                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
                             setFormData({...formData, bankCharges: value})
                           }
                         }}

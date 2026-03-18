@@ -136,86 +136,109 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
           {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
+            Array.from({ length: role === 'admin' ? 4 : 1 }).map((_, i) => (
               <CardSkeleton key={i} />
             ))
           ) : stats ? (
             <>
-              {/* Card 1: Revenue / Sales Today */}
-              <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingUp className="h-6 w-6 text-success" />
+              {role === 'admin' ? (
+                <>
+                  {/* Admin Card 1: Total Receipts Today */}
+                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <TrendingUp className="h-6 w-6 text-success" />
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            {t('totalReceiptsToday')}
+                          </dt>
+                          <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                            AED {stats.totalReceipts.today.toLocaleString()}
+                          </dd>
+                        </dl>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {t('totalReceiptsToday')}
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                        AED {stats.totalReceipts.today.toLocaleString()}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 2: Payments / Pending */}
-              <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingDown className="h-6 w-6 text-danger" />
+                  {/* Admin Card 2: Commission / Margin */}
+                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <DollarSign className="h-6 w-6 text-warning" />
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            Commission / Margin
+                          </dt>
+                          <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                            AED {stats.totalCommission.toLocaleString()}
+                          </dd>
+                        </dl>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {t('totalPaymentsToday')}
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                        AED {stats.totalPayments.today.toLocaleString()}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 3: Commission / Monthly Revenue */}
-              <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <DollarSign className="h-6 w-6 text-warning" />
+                  {/* Admin Card 3: Bank Charges */}
+                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <TrendingDown className="h-6 w-6 text-danger" />
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            Bank Charges
+                          </dt>
+                          <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                            AED {stats.totalPayments.today.toLocaleString()}
+                          </dd>
+                        </dl>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        Commission Earned
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                        AED {stats.totalCommission.toLocaleString()}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 4: Agents / POS Machines */}
-              <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Users className="h-6 w-6 text-primary" />
+                  {/* Admin Card 4: Active Agents */}
+                  <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <Users className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            Active Agents
+                          </dt>
+                          <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                            {stats.activeAgents}
+                          </dd>
+                        </dl>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        {role === 'admin' ? 'Active Agents' : 'POS Machines'}
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                        {role === 'admin' ? stats.activeAgents : stats.totalPOSMachines || 0}
-                      </dd>
-                    </dl>
+                </>
+              ) : (
+                /* Agent: only POS Machines count */
+                <div className="dubai-card p-6 hover:shadow-lg transition-shadow duration-200">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                          POS Machines
+                        </dt>
+                        <dd className="text-lg font-medium text-gray-900 dark:text-white">
+                          {stats.totalPOSMachines || 0}
+                        </dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </>
           ) : null}
         </div>
@@ -264,7 +287,7 @@ export default function Dashboard() {
             </Link>
           )}
           
-          {(role === 'admin' || role === 'agent') && (
+          {role === 'admin' && (
             <Link href="/dashboard/payments" className="dubai-card p-6 hover:shadow-lg transition-all duration-200 group">
               <div className="flex items-center">
                 <CreditCard className="h-8 w-8 text-success group-hover:scale-110 transition-transform" />
