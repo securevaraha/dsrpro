@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 import { updateSessionActivity } from '@/lib/sessionCleanup'
 import { jwtVerify } from 'jose'
+import connectDB from '@/lib/mongodb'
+import User from '@/models/User'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +14,12 @@ export async function POST(request: NextRequest) {
     const token = request.cookies.get('token')?.value
     if (!token) {
       return NextResponse.json({ error: 'No session token' }, { status: 401 })
+    }
+
+    await connectDB()
+    const user = await User.findById(auth.userId).select('status')
+    if (user && user.status === 'inactive') {
+      return NextResponse.json({ error: 'Account inactive' }, { status: 403 })
     }
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET)

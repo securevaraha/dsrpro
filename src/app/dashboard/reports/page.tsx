@@ -47,21 +47,41 @@ export default function Reports() {
     }
   }
 
-  const exportReport = (format: 'excel' | 'pdf') => {
+  const exportReport = (exportFormat: 'excel' | 'pdf') => {
     if (!reportData) return
     
-    if (format === 'excel') {
-      const { exportToExcel } = require('@/lib/excelExport')
+    if (exportFormat === 'excel') {
+      const { exportToExcel, reportColumns } = require('@/lib/excelExport')
+      
+      const isReceiptsOrTransactions = ['receipts', 'transactions'].includes(reportType)
+      const mappedData = reportData.items?.map((r: any) => {
+        const amountNum = r.amount || 0
+        const marginAmt = r.commissionPercentage != null ? (amountNum * r.commissionPercentage / 100) : null
+        const bankChargesAmt = r.bankCharges != null ? (amountNum * r.bankCharges / 100) : null
+        const vatAmt = r.vatPercentage != null && bankChargesAmt != null ? (bankChargesAmt * r.vatPercentage / 100) : null
+
+        return {
+          ...r,
+          date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy') : ''),
+          transactionId: r.receiptNumber || r.transactionId || r.description,
+          posMachineInfo: r.posMachineSegment && r.posMachineBrand ? `${r.posMachineSegment} / ${r.posMachineBrand}` : 'No POS',
+          margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.commissionPercentage}%)` : '',
+          bankCharges: bankChargesAmt != null ? `AED ${bankChargesAmt.toFixed(2)} (${r.bankCharges}%)` : '',
+          vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.vatPercentage}%)` : '',
+          amount: `AED ${amountNum.toLocaleString()}`,
+          createdBy: r.createdBy || '',
+          updatedBy: r.updatedBy || '',
+          createdAtDate: r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy HH:mm') : '',
+          updatedAtDate: r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : '',
+          agent: r.agent || ''
+        }
+      }) || []
+
       exportToExcel({
         filename: `${reportType}_report`,
         sheetName: reportType.charAt(0).toUpperCase() + reportType.slice(1),
-        columns: [
-          { key: 'date', label: 'Date', width: 15 },
-          { key: 'description', label: 'Description', width: 25 },
-          { key: 'amount', label: 'Amount (AED)', width: 15 },
-          { key: 'status', label: 'Status', width: 12 }
-        ],
-        data: reportData.items || [],
+        columns: isAdmin ? reportColumns.reportsAdmin(t) : reportColumns.reportsAgent(t),
+        data: mappedData,
         title: `${reportType.toUpperCase()} Report - ${dateRange}`,
         isRTL: false
       })
@@ -248,9 +268,9 @@ export default function Reports() {
                         <>
                           <th className="table-cell font-medium">Created By</th>
                           <th className="table-cell font-medium">Updated By</th>
-                          <th className="table-cell font-medium">Margin (%)</th>
+                          <th className="table-cell font-medium">Margin</th>
                           <th className="table-cell font-medium">Bank Charges</th>
-                          <th className="table-cell font-medium">VAT (%)</th>
+                          <th className="table-cell font-medium">VAT</th>
                         </>
                       )}
                       <th className="table-cell font-medium">Amount</th>
@@ -282,9 +302,9 @@ export default function Reports() {
                           <>
                             <td className="table-cell">{item.createdBy || '—'}</td>
                             <td className="table-cell">{item.updatedBy || '—'}</td>
-                            <td className="table-cell">{item.commissionPercentage != null ? `${item.commissionPercentage}%` : '—'}</td>
-                            <td className="table-cell">{item.bankCharges != null ? `AED ${item.bankCharges}` : '—'}</td>
-                            <td className="table-cell">{item.vatPercentage != null ? `${item.vatPercentage}%` : '—'}</td>
+                            <td className="table-cell">{item.commissionPercentage != null ? `AED ${((item.amount || 0) * item.commissionPercentage / 100).toFixed(2)} (${item.commissionPercentage}%)` : '—'}</td>
+                            <td className="table-cell">{item.bankCharges != null ? `AED ${((item.amount || 0) * item.bankCharges / 100).toFixed(2)} (${item.bankCharges}%)` : '—'}</td>
+                            <td className="table-cell">{item.vatPercentage != null && item.bankCharges != null ? `AED ${(((item.amount || 0) * item.bankCharges / 100) * item.vatPercentage / 100).toFixed(2)} (${item.vatPercentage}%)` : '—'}</td>
                           </>
                         )}
                         <td className="table-cell font-medium">
@@ -385,9 +405,15 @@ export default function Reports() {
                     </div>
                     {isAdmin && (
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 grid grid-cols-3 gap-1">
-                        <span>Margin: {item.commissionPercentage != null ? `${item.commissionPercentage}%` : '—'}</span>
-                        <span>Charges: {item.bankCharges != null ? `AED ${item.bankCharges}` : '—'}</span>
-                        <span>VAT: {item.vatPercentage != null ? `${item.vatPercentage}%` : '—'}</span>
+                        <span>
+                          Margin: {item.commissionPercentage != null ? `AED ${((item.amount || 0) * item.commissionPercentage / 100).toFixed(2)}` : '—'}
+                        </span>
+                        <span>
+                          Charges: {item.bankCharges != null ? `AED ${((item.amount || 0) * item.bankCharges / 100).toFixed(2)}` : '—'}
+                        </span>
+                        <span>
+                          VAT: {item.vatPercentage != null && item.bankCharges != null ? `AED ${(((item.amount || 0) * item.bankCharges / 100) * item.vatPercentage / 100).toFixed(2)}` : '—'}
+                        </span>
                       </div>
                     )}
                     <div className="text-right">

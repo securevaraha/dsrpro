@@ -86,3 +86,6 @@ tmp/
 temp/
 local-data/
 
+.amazonq/
+.vscode/
+

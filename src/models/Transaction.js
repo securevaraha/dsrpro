@@ -61,7 +61,8 @@ const transactionSchema = new mongoose.Schema({
     cardType: String,
     bankName: String,
     upiId: String,
-    receiptNumber: String
+    receiptNumber: String,
+    paymentNumber: String
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

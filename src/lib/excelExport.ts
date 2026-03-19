@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 
 interface ExcelColumn {
   key: string
@@ -43,9 +43,24 @@ export const exportToExcel = ({
   const worksheet = XLSX.utils.aoa_to_sheet(wsData)
   
   // Set column widths
-  const colWidths = columns.map(col => ({ wch: col.width || 15 }))
+  const colWidths = columns.map(col => ({ wch: col.width || 20 }))
   worksheet['!cols'] = colWidths
   
+  // Set row heights
+  const rowHeights: any[] = []
+  if (title) {
+    rowHeights[0] = { hpt: 35 } // Title
+    rowHeights[1] = { hpt: 15 } // Empty spacer
+    rowHeights[2] = { hpt: 25 } // Header
+  } else {
+    rowHeights[0] = { hpt: 25 } // Header
+  }
+  
+  for (let r = 0; r < data.length; r++) {
+    rowHeights.push({ hpt: 22 }) // Data rows
+  }
+  worksheet['!rows'] = rowHeights
+
   // Style the header row
   const headerRowIndex = title ? 2 : 0
   columns.forEach((_, colIndex) => {
@@ -53,14 +68,14 @@ export const exportToExcel = ({
     if (!worksheet[cellAddress]) worksheet[cellAddress] = {}
     worksheet[cellAddress].s = {
       font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: 'C9A96E' } },
+      fill: { fgColor: { rgb: '4F46E5' } }, // Professional Indigo header
       border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } }
+        top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+        bottom: { style: 'medium', color: { rgb: '4F46E5' } },
+        left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+        right: { style: 'thin', color: { rgb: 'CCCCCC' } }
       },
-      alignment: { horizontal: 'center', vertical: 'center' }
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
     }
   })
   
@@ -69,36 +84,37 @@ export const exportToExcel = ({
     const titleCell = worksheet['A1']
     if (titleCell) {
       titleCell.s = {
-        font: { bold: true, size: 16, color: { rgb: 'C9A96E' } },
+        font: { bold: true, sz: 16, color: { rgb: '111827' } },
         alignment: { horizontal: 'center', vertical: 'center' }
       }
     }
-    // Merge title cells
     worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }]
   }
   
-  // Add borders to all data cells
+  // Add borders and center text to all data cells
   const dataStartRow = title ? 3 : 1
   for (let row = dataStartRow; row < dataStartRow + data.length; row++) {
     columns.forEach((_, colIndex) => {
       const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex })
       if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' }
+      
+      const isAlternate = (row - dataStartRow) % 2 === 1
       worksheet[cellAddress].s = {
+        fill: isAlternate ? { fgColor: { rgb: 'F9FAFB' } } : { fgColor: { rgb: 'FFFFFF' } },
         border: {
-          top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-          bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
-          left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-          right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+          top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          right: { style: 'thin', color: { rgb: 'E5E7EB' } }
         },
         alignment: { 
-          horizontal: isRTL ? 'right' : 'left',
-          vertical: 'center'
+          horizontal: 'center',
+          vertical: 'center',
+          wrapText: true
         }
       }
     })
   }
-  
-  // Set RTL if needed
   if (isRTL) {
     worksheet['!dir'] = 'rtl'
   }
@@ -115,20 +131,68 @@ export const exportToExcel = ({
 // Predefined column configurations for different reports
 export const reportColumns = {
   payments: (t: (key: string) => string) => [
-    { key: 'paymentNumber', label: t('paymentId'), width: 15 },
-    { key: 'date', label: t('date'), width: 12 },
-    { key: 'agentName', label: t('agent'), width: 20 },
-    { key: 'paymentMethod', label: t('paymentMethod'), width: 15 },
-    { key: 'amount', label: t('amount'), width: 15 },
-    { key: 'description', label: t('description'), width: 25 }
+    { key: 'paymentNumber', label: t('paymentId'), width: 22 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'agentName', label: t('agent'), width: 25 },
+    { key: 'paymentMethod', label: t('paymentMethod'), width: 18 },
+    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'description', label: t('description'), width: 40 }
   ],
   
   transactions: (t: (key: string) => string) => [
-    { key: 'transactionId', label: t('transactionId'), width: 18 },
-    { key: 'date', label: t('date'), width: 12 },
-    { key: 'clientName', label: t('client'), width: 20 },
-    { key: 'amount', label: t('amount'), width: 15 },
-    { key: 'commission', label: t('commission'), width: 15 },
-    { key: 'status', label: t('status'), width: 12 }
+    { key: 'transactionId', label: t('transactionId'), width: 25 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'clientName', label: t('client'), width: 25 },
+    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'commission', label: t('commission'), width: 20 },
+    { key: 'status', label: t('status'), width: 15 }
+  ],
+  
+  receiptsAgent: (t: (key: string) => string) => [
+    { key: 'receiptNumber', label: 'Receipt No.', width: 22 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'description', label: t('description'), width: 40 }
+  ],
+
+  receiptsAdmin: (t: (key: string) => string) => [
+    { key: 'receiptNumber', label: 'Receipt No.', width: 22 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'margin', label: 'Margin', width: 20 },
+    { key: 'bankCharges', label: 'Bank Charges', width: 20 },
+    { key: 'vat', label: 'VAT', width: 18 },
+    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'createdBy', label: 'Created By', width: 25 },
+    { key: 'updatedBy', label: 'Updated By', width: 25 },
+    { key: 'createdAtDate', label: 'Created Date', width: 22 },
+    { key: 'updatedAtDate', label: 'Updated Date', width: 22 },
+    { key: 'description', label: t('description'), width: 40 }
+  ],
+
+  reportsAgent: (t: (key: string) => string) => [
+    { key: 'transactionId', label: 'Transaction/Receipt No.', width: 25 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'agent', label: 'Agent', width: 25 },
+    { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'description', label: t('description'), width: 40 }
+  ],
+
+  reportsAdmin: (t: (key: string) => string) => [
+    { key: 'transactionId', label: 'Transaction/Receipt No.', width: 25 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'agent', label: 'Agent', width: 25 },
+    { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'margin', label: 'Margin', width: 20 },
+    { key: 'bankCharges', label: 'Bank Charges', width: 20 },
+    { key: 'vat', label: 'VAT', width: 18 },
+    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'createdBy', label: 'Created By', width: 25 },
+    { key: 'updatedBy', label: 'Updated By', width: 25 },
+    { key: 'createdAtDate', label: 'Created Date', width: 22 },
+    { key: 'updatedAtDate', label: 'Updated Date', width: 22 },
+    { key: 'description', label: t('description'), width: 40 }
   ]
 }

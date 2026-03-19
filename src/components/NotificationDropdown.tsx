@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Bell, Check, X, UserCheck, UserX, Loader2 } from 'lucide-react'
+import { Bell, Check, X, UserCheck, UserX, Loader2, Trash2 } from 'lucide-react'
 import { useLanguage } from '@/components/LanguageProvider'
 import { format } from 'date-fns'
 import { toast } from 'react-hot-toast'
@@ -85,6 +85,29 @@ export default function NotificationDropdown() {
     }
   }
 
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      await fetch(`/api/notifications?id=${notificationId}`, { method: 'DELETE' })
+      toast.success('Notification deleted')
+      fetchNotifications()
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+      toast.error('Failed to delete notification')
+    }
+  }
+
+  const deleteAllNotifications = async () => {
+    try {
+      await fetch(`/api/notifications?all=true`, { method: 'DELETE' })
+      toast.success('All notifications cleared')
+      setIsOpen(false)
+      fetchNotifications()
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error)
+      toast.error('Failed to clear notifications')
+    }
+  }
+
   const handleAction = async (notificationId: string, action: 'approved' | 'rejected') => {
     setActionLoading(`${notificationId}-${action}`)
     try {
@@ -135,14 +158,24 @@ export default function NotificationDropdown() {
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">Notifications</h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="text-sm text-primary hover:text-accent transition-colors"
-                >
-                  Mark all read
-                </button>
-              )}
+              <div className="flex gap-3">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-sm text-primary hover:text-accent transition-colors"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={deleteAllNotifications}
+                    className="text-sm text-red-500 hover:text-red-700 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           
@@ -232,15 +265,24 @@ export default function NotificationDropdown() {
                         {format(new Date(notification.createdAt), 'MMM dd, HH:mm')}
                       </p>
                     </div>
-                    {!notification.isRead && notification.actionType !== 'account_approval' && (
+                    <div className="flex flex-col gap-1 ml-2">
+                      {!notification.isRead && notification.actionType !== 'account_approval' && (
+                        <button
+                          onClick={() => markAsRead(notification._id)}
+                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-primary transition-colors flex-shrink-0"
+                          title="Mark as read"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
-                        onClick={() => markAsRead(notification._id)}
-                        className="ml-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors flex-shrink-0"
-                        title="Mark as read"
+                        onClick={() => deleteNotification(notification._id)}
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                        title="Delete notification"
                       >
-                        <Check className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))

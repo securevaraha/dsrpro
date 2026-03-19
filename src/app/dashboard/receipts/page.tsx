@@ -25,6 +25,9 @@ interface Receipt {
   amount: number
   description: string
   attachments?: string[]
+  createdBy?: string
+  updatedBy?: string
+  updatedAt?: string
 }
 
 export default function Receipts() {
@@ -73,7 +76,10 @@ export default function Receipts() {
           posMachine: t.posMachine || null,
           amount: t.amount,
           description: t.description || 'Transaction',
-          attachments: t.attachments || []
+          attachments: t.attachments || [],
+          createdBy: t.createdBy?.name || '—',
+          updatedBy: t.updatedBy?.name || '—',
+          updatedAt: t.updatedAt
         }))
         setReceipts(formattedReceipts)
       }
@@ -268,12 +274,26 @@ export default function Receipts() {
     exportToExcel({
       filename: 'receipts_report',
       sheetName: 'Receipts',
-      columns: reportColumns.payments(t),
-      data: filteredReceipts.map(r => ({
-        ...r,
-        date: format(new Date(r.date), 'dd-MMM-yyyy'),
-        amount: `AED ${r.amount.toLocaleString()}`
-      })),
+      columns: isAdmin ? reportColumns.receiptsAdmin(t) : reportColumns.receiptsAgent(t),
+      data: filteredReceipts.map(r => {
+        const marginAmt = r.posMachine?.commissionPercentage != null ? (r.amount * r.posMachine.commissionPercentage / 100) : null
+        const bankChargesAmt = r.posMachine?.bankCharges != null ? (r.amount * r.posMachine.bankCharges / 100) : null
+        const vatAmt = r.posMachine?.vatPercentage != null && bankChargesAmt != null ? (bankChargesAmt * r.posMachine.vatPercentage / 100) : null
+
+        return {
+          ...r,
+          date: format(new Date(r.date), 'dd-MMM-yyyy'),
+          posMachineInfo: r.posMachine ? `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
+          margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.posMachine!.commissionPercentage}%)` : '',
+          bankCharges: bankChargesAmt != null ? `AED ${bankChargesAmt.toFixed(2)} (${r.posMachine!.bankCharges}%)` : '',
+          vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.posMachine!.vatPercentage}%)` : '',
+          amount: `AED ${r.amount.toLocaleString()}`,
+          createdBy: r.createdBy || '',
+          updatedBy: r.updatedBy || '',
+          createdAtDate: r.date ? format(new Date(r.date), 'dd-MMM-yyyy HH:mm') : '',
+          updatedAtDate: r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : ''
+        }
+      }),
       title: t('receiptsReport'),
       isRTL: false
     })
@@ -463,9 +483,13 @@ export default function Receipts() {
                     <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
                     {isAdmin && (
                       <>
-                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Margin (%)</th>
+                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Margin</th>
                         <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bank Charges</th>
-                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">VAT (%)</th>
+                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">VAT</th>
+                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
+                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated By</th>
+                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created Date</th>
+                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated Date</th>
                       </>
                     )}
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
@@ -493,13 +517,31 @@ export default function Receipts() {
                       {isAdmin && (
                         <>
                           <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
-                            {receipt.posMachine?.commissionPercentage != null ? `${receipt.posMachine.commissionPercentage}%` : '—'}
+                            {receipt.posMachine?.commissionPercentage != null 
+                              ? `AED ${(receipt.amount * receipt.posMachine.commissionPercentage / 100).toFixed(2)} (${receipt.posMachine.commissionPercentage}%)`
+                              : '—'}
                           </td>
                           <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
-                            {receipt.posMachine?.bankCharges != null ? `AED ${receipt.posMachine.bankCharges}` : '—'}
+                            {receipt.posMachine?.bankCharges != null 
+                              ? `AED ${(receipt.amount * receipt.posMachine.bankCharges / 100).toFixed(2)} (${receipt.posMachine.bankCharges}%)`
+                              : '—'}
                           </td>
                           <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
-                            {receipt.posMachine?.vatPercentage != null ? `${receipt.posMachine.vatPercentage}%` : '—'}
+                            {receipt.posMachine?.vatPercentage != null && receipt.posMachine?.bankCharges != null
+                              ? `AED ${((receipt.amount * receipt.posMachine.bankCharges / 100) * receipt.posMachine.vatPercentage / 100).toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
+                              : '—'}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                            {receipt.createdBy || '—'}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                            {receipt.updatedBy || '—'}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                            {receipt.date ? format(new Date(receipt.date), 'dd-MMM-yyyy HH:mm') : '—'}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                            {receipt.updatedAt ? format(new Date(receipt.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}
                           </td>
                         </>
                       )}
@@ -613,9 +655,12 @@ export default function Receipts() {
                   onChange={(e) => setFormData({...formData, posMachine: e.target.value})}
                 >
                   <option value="">Select POS Machine</option>
-                  {posMachines.map(machine => (
+                  {posMachines
+                    .filter(machine => machine.status === 'active' || machine._id === formData.posMachine)
+                    .map(machine => (
                     <option key={machine._id} value={machine._id}>
                       {machine.segment} / {machine.brand} - {machine.terminalId}
+                      {machine.status !== 'active' ? ` (${machine.status})` : ''}
                     </option>
                   ))}
                 </select>

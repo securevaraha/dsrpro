@@ -19,7 +19,10 @@ export function useSessionManager() {
     if (now - lastServerSyncRef.current < ACTIVITY_THROTTLE) return
     lastServerSyncRef.current = now
     try {
-      await fetch('/api/sessions/activity', { method: 'POST' })
+      const res = await fetch('/api/sessions/activity', { method: 'POST' })
+      if (res.status === 403) {
+        handleAutoLogout('Your account has been deactivated by an admin.')
+      }
     } catch {}
   }
 
@@ -31,13 +34,13 @@ export function useSessionManager() {
     updateServerActivity()
 
     warningTimerRef.current = setTimeout(() => setShowWarning(true), WARNING_TIME)
-    idleTimerRef.current = setTimeout(() => handleAutoLogout(), IDLE_TIME)
+    idleTimerRef.current = setTimeout(() => handleAutoLogout('Session expired due to inactivity'), IDLE_TIME)
   }
 
-  const handleAutoLogout = async () => {
+  const handleAutoLogout = async (message: string = 'Session expired due to inactivity') => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      toast.error('Session expired due to inactivity')
+      toast.error(message)
       router.push('/auth/signin')
     } catch (error) {
       console.error('Logout error:', error)
@@ -51,7 +54,7 @@ export function useSessionManager() {
   }
 
   const logout = () => {
-    handleAutoLogout()
+    handleAutoLogout('Logged out successfully')
   }
 
   useEffect(() => {

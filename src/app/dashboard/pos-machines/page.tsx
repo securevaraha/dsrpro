@@ -65,6 +65,8 @@ export default function POSMachines() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [brandFilter, setBrandFilter] = useState<string>('all')
+  const [segmentFilter, setSegmentFilter] = useState<string>('all')
+  const [agentFilter, setAgentFilter] = useState<string>('all')
   const [showModal, setShowModal] = useState(false)
   const [editingMachine, setEditingMachine] = useState<POSMachine | null>(null)
   const [loading, setLoading] = useState(true)
@@ -172,7 +174,9 @@ export default function POSMachines() {
       machine.assignedAgent?.name?.toLowerCase().includes(search)
     const matchesStatus = statusFilter === 'all' || machine.status === statusFilter
     const matchesBrand = brandFilter === 'all' || machine.brand === brandFilter
-    return matchesSearch && matchesStatus && matchesBrand
+    const matchesSegment = segmentFilter === 'all' || machine.segment === segmentFilter
+    const matchesAgent = agentFilter === 'all' || machine.assignedAgent?._id === agentFilter
+    return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -354,12 +358,12 @@ export default function POSMachines() {
         </div>
 
         {/* Filters */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 overflow-x-auto pb-2">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by TID, MID, location, agent..."
+              placeholder="Search..."
               className="form-input pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -368,19 +372,37 @@ export default function POSMachines() {
           <select
             value={brandFilter}
             onChange={(e) => setBrandFilter(e.target.value)}
-            className="form-select w-auto"
+            className="form-select w-auto min-w-[130px]"
           >
             <option value="all">All Brands</option>
-            <option value="Network">Network</option>
-            <option value="RAKBank">RAKBank</option>
-            <option value="Geidea">Geidea</option>
-            <option value="AFS">AFS</option>
-            <option value="Other">Other</option>
+            {brands.map(b => (
+              <option key={b._id} value={b.name}>{b.name}</option>
+            ))}
+          </select>
+          <select
+            value={segmentFilter}
+            onChange={(e) => setSegmentFilter(e.target.value)}
+            className="form-select w-auto min-w-[140px]"
+          >
+            <option value="all">All Segments</option>
+            {segments.map(s => (
+              <option key={s._id} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+          <select
+            value={agentFilter}
+            onChange={(e) => setAgentFilter(e.target.value)}
+            className="form-select w-auto min-w-[130px]"
+          >
+            <option value="all">All Agents</option>
+            {agents.map(a => (
+              <option key={a._id} value={a._id}>{a.name}</option>
+            ))}
           </select>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="form-select w-auto"
+            className="form-select w-auto min-w-[130px]"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -411,97 +433,100 @@ export default function POSMachines() {
             <>
               {/* Desktop Table */}
               <div className="hidden lg:block overflow-x-auto dubai-card !p-0">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 whitespace-nowrap">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800/50">
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Segment / Brand</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Terminal / Merchant</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Device</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bank Charges (%) / Margin (%)</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Agent</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                      {isAdmin && <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>}
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Segment</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Brand</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Terminal</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Merchant</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Agent Name</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Device</div></th>
+                      {isAdmin && (
+                        <>
+                          <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Margin</div></th>
+                          <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Bank Charges</div></th>
+                          <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Vat</div></th>
+                        </>
+                      )}
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Location</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Status</div></th>
+                      {isAdmin && <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Actions</div></th>}
                     </tr></thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
                     {filteredMachines.map((machine) => (
                       <tr key={machine._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                              {machine.segment || '—'}
-                            </div>
-                            <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full ${brandColors[machine.brand]}`}>
-                              {machine.brand}
-                            </span>
+                        <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {machine.segment || '—'}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full ${brandColors[machine.brand] || 'bg-gray-100 text-gray-800'}`}>
+                            {machine.brand}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <Hash className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                            <span className="font-mono font-medium text-sm text-gray-900 dark:text-gray-100">{machine.terminalId}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <Hash className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                              <span className="font-mono font-medium text-sm text-gray-900 dark:text-gray-100">{machine.terminalId}</span>
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 ml-[18px]">
-                              MID: {machine.merchantId}
-                            </div>
-                          </div>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{machine.merchantId}</span>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {machine.assignedAgent ? (
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <span className="text-sm font-medium">{machine.assignedAgent.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic whitespace-nowrap">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
                             {machine.deviceType === 'android_pos'
                               ? <Smartphone className="h-4 w-4 text-gray-400" />
                               : <Monitor className="h-4 w-4 text-gray-400" />
                             }
-                            <div>
-                              <span className="text-sm">{deviceTypeLabel(machine.deviceType)}</span>
-                            </div>
+                            <span className="text-sm">{deviceTypeLabel(machine.deviceType)}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <div>
-                            <div className="text-sm text-gray-900 dark:text-gray-100">
-                              {machine.bankCharges?.toFixed(2) || '0.00'}% + VAT {machine.vatPercentage || 5}%
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {machine.commissionPercentage?.toFixed(2) || '0.00'}% margin
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {machine.assignedAgent ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                                {machine.assignedAgent.name?.charAt(0)?.toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium">{machine.assignedAgent.name}</p>
-                                {machine.assignedAgent.companyName && (
-                                  <p className="text-xs text-gray-400">{machine.assignedAgent.companyName}</p>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5">
+                        {isAdmin && (
+                          <>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className="text-sm text-gray-900 dark:text-gray-100">
+                                {machine.commissionPercentage?.toFixed(2) || '0.00'}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className="text-sm text-gray-900 dark:text-gray-100">
+                                {machine.bankCharges?.toFixed(2) || '0.00'}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className="text-sm text-gray-900 dark:text-gray-100">
+                                {machine.vatPercentage || 5}%
+                              </span>
+                            </td>
+                          </>
+                        )}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           {machine.location ? (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                               <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                               {machine.location}
                             </div>
                           ) : (
-                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-xs text-gray-400 whitespace-nowrap">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full capitalize ${statusColors[machine.status]}`}>
                             {machine.status}
                           </span>
                         </td>
                         {isAdmin && (
-                          <td className="px-5 py-3.5">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
                               <button onClick={() => handleEdit(machine)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
                                 <Edit className="h-4 w-4" />
@@ -555,14 +580,22 @@ export default function POSMachines() {
                         <span className="text-xs text-gray-400">Type</span>
                         <span className="text-xs">{deviceTypeLabel(machine.deviceType)}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Bank Charges</span>
-                        <span className="text-xs font-medium">{machine.bankCharges?.toFixed(2) || '0.00'}% + VAT {machine.vatPercentage || 5}%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Margin</span>
-                        <span className="text-xs font-medium">{machine.commissionPercentage?.toFixed(2) || '0.00'}%</span>
-                      </div>
+                      {isAdmin && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-400">Margin</span>
+                            <span className="text-xs font-medium">{machine.commissionPercentage?.toFixed(2) || '0.00'}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-400">Bank Charges</span>
+                            <span className="text-xs font-medium">{machine.bankCharges?.toFixed(2) || '0.00'}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-400">VAT</span>
+                            <span className="text-xs font-medium">{machine.vatPercentage || 5}%</span>
+                          </div>
+                        </>
+                      )}
                       {machine.assignedAgent && (
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-400">Agent</span>

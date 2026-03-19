@@ -4,6 +4,7 @@ import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import User from '@/models/User'
 import Client from '@/models/Client'
+import POSMachine from '@/models/POSMachine'
 import Notification from '@/models/Notification'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
@@ -78,8 +79,8 @@ export async function POST(request: NextRequest) {
       metadata
     } = await request.json()
     
-    // Use custom transaction ID from metadata if provided (for receipts)
-    const transactionId = metadata?.receiptNumber || 
+    // Use custom transaction ID from metadata if provided (for receipts/payments)
+    const transactionId = metadata?.paymentNumber || metadata?.receiptNumber || 
       `${type?.toUpperCase() || 'TXN'}${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
     
     // Validate amount
@@ -91,6 +92,20 @@ export async function POST(request: NextRequest) {
     // Validate clientId if provided
     if (clientId && !mongoose.Types.ObjectId.isValid(clientId)) {
       return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 })
+    }
+
+    // Validate POS Machine
+    if (posMachine) {
+      if (!mongoose.Types.ObjectId.isValid(posMachine)) {
+        return NextResponse.json({ error: 'Invalid POS Machine ID' }, { status: 400 })
+      }
+      const posDoc = await POSMachine.findById(posMachine)
+      if (!posDoc) {
+        return NextResponse.json({ error: 'POS Machine not found' }, { status: 404 })
+      }
+      if (posDoc.status !== 'active') {
+        return NextResponse.json({ error: `Selected POS Machine is ${posDoc.status} and cannot be used` }, { status: 400 })
+      }
     }
 
     // Agents can only create transactions assigned to themselves

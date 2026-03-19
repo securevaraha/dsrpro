@@ -26,7 +26,7 @@ export default function SegmentsPage() {
   const [deletingSegment, setDeletingSegment] = useState<Segment | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [formData, setFormData] = useState({ name: '', description: '' })
+  const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
 
   useEffect(() => {
     fetchSegments()
@@ -68,7 +68,7 @@ export default function SegmentsPage() {
         toast.success(editingSegment ? 'Segment updated' : 'Segment created')
         setShowModal(false)
         setEditingSegment(null)
-        setFormData({ name: '', description: '' })
+        setFormData({ name: '', description: '', isActive: true })
         fetchSegments()
       } else {
         const data = await response.json()
@@ -115,7 +115,7 @@ export default function SegmentsPage() {
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage POS machine segments</p>
           </div>
           <button
-            onClick={() => { setEditingSegment(null); setFormData({ name: '', description: '' }); setShowModal(true) }}
+            onClick={() => { setEditingSegment(null); setFormData({ name: '', description: '', isActive: true }); setShowModal(true) }}
             className="dubai-button inline-flex items-center justify-center"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -159,6 +159,7 @@ export default function SegmentsPage() {
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created Date</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated Date</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -180,12 +181,17 @@ export default function SegmentsPage() {
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         {format(new Date(segment.updatedAt), 'dd-MMM-yyyy')}
                       </td>
+                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${segment.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {segment.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
                       <td className="px-5 py-3.5 text-center">
                         <div className="flex justify-center gap-1">
                           <button
                             onClick={() => {
                               setEditingSegment(segment)
-                              setFormData({ name: segment.name, description: segment.description || '' })
+                              setFormData({ name: segment.name, description: segment.description || '', isActive: segment.isActive ?? true })
                               setShowModal(true)
                             }}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -236,6 +242,17 @@ export default function SegmentsPage() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
+                </div>
+                <div>
+                  <label className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    value={formData.isActive ? 'active' : 'inactive'}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'active' })}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button

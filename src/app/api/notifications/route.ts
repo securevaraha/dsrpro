@@ -55,3 +55,28 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update notifications' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = requireAuth(request)
+    if (isErrorResponse(auth)) return auth
+
+    await connectDB()
+
+    const { searchParams } = new URL(request.url)
+    const notificationId = searchParams.get('id')
+    const deleteAll = searchParams.get('all') === 'true'
+
+    if (deleteAll) {
+      await Notification.deleteMany({ userId: auth.userId })
+    } else if (notificationId) {
+      await Notification.findOneAndDelete({ _id: notificationId, userId: auth.userId })
+    } else {
+      return NextResponse.json({ error: 'Missing notification ID or all=true flag' }, { status: 400 })
+    }
+
+    return NextResponse.json({ message: 'Notifications deleted successfully' })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete notifications' }, { status: 500 })
+  }
+}
