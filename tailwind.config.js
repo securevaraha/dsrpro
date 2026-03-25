@@ -37,9 +37,16 @@ module.exports = {
       spacing: {
         '65': '260px',
         '16': '64px',
+        '18': '72px',
       },
       borderRadius: {
         'card': '16px',
+      },
+      ringWidth: {
+        '3': '3px',
+      },
+      ringOffsetWidth: {
+        '2': '2px',
       },
       fontFamily: {
         'arabic': ['Noto Sans Arabic', 'sans-serif'],
@@ -52,6 +59,9 @@ module.exports = {
       boxShadow: {
         'dubai': '0 10px 40px rgba(212, 175, 55, 0.2)',
         'elegant': '0 8px 32px rgba(0, 0, 0, 0.1)',
+        'card': '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+        'card-hover': '0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
+        'modal': '0 20px 60px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.08)',
       }
     },
   },
