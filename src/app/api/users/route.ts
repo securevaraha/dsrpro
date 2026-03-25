@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
     
     const { name, email, phone, role, companyName, address, bankDetails, password } = await request.json()
     
-    if (!name || !email) {
-      return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+    if (!name || !email || !phone || !address) {
+      return NextResponse.json({ error: 'Name, email, phone and address are required' }, { status: 400 })
     }
 
     const normalizedEmail = email.toLowerCase().trim()

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { ImagePreviewModal } from '@/components/ImagePreviewModal'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface Receipt {
   _id: string
@@ -37,6 +38,7 @@ export default function Receipts() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
+  const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -52,8 +54,9 @@ export default function Receipts() {
   const [previewImage, setPreviewImage] = useState({ url: '', fileName: '' })
   const [formData, setFormData] = useState({
     receiptNumber: '',
-    date: format(new Date(), 'dd-MMM-yyyy'),
+    date: format(new Date(), 'yyyy-MM-dd'),
     posMachine: '',
+    agentId: '',
     amount: '',
     description: '',
   })
@@ -61,7 +64,8 @@ export default function Receipts() {
   useEffect(() => {
     fetchReceipts()
     fetchPosMachines()
-  }, [user])
+    if (isAdmin) fetchAgents()
+  }, [user, isAdmin])
 
   const fetchReceipts = async () => {
     try {
@@ -89,6 +93,16 @@ export default function Receipts() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchAgents = async () => {
+    try {
+      const response = await fetch('/api/users?role=agent')
+      if (response.ok) {
+        const data = await response.json()
+        setAgents(data.users || [])
+      }
+    } catch {}
   }
 
   const fetchPosMachines = async () => {
@@ -202,6 +216,7 @@ export default function Receipts() {
           type: 'receipt',
           amount: parseFloat(formData.amount),
           posMachine: formData.posMachine || null,
+          agentId: isAdmin ? (formData.agentId || null) : undefined,
           description: formData.description,
           attachments: uploadedFiles,
           metadata: {
@@ -228,8 +243,9 @@ export default function Receipts() {
     setEditingReceipt(receipt)
     setFormData({
       receiptNumber: receipt.receiptNumber,
-      date: format(new Date(receipt.date), 'dd-MMM-yyyy'),
+      date: format(new Date(receipt.date), 'yyyy-MM-dd'),
       posMachine: receipt.posMachine?._id || '',
+      agentId: '',
       amount: receipt.amount.toString(),
       description: receipt.description
     })
@@ -259,7 +275,7 @@ export default function Receipts() {
   }
 
   const resetForm = () => {
-    setFormData({ receiptNumber: '', date: format(new Date(), 'dd-MMM-yyyy'), posMachine: '', amount: '', description: '' })
+    setFormData({ receiptNumber: '', date: format(new Date(), 'yyyy-MM-dd'), posMachine: '', agentId: '', amount: '', description: '' })
     setUploadedFiles([])
     setEditingReceipt(null)
   }
@@ -475,80 +491,64 @@ export default function Receipts() {
             {/* Desktop table view */}
               <div className="hidden md:block overflow-x-auto dubai-card !p-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-800/50">
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Transaction Number</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('date')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">POS Machine</th>
-                    <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
-                    {isAdmin && (
-                      <>
-                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Margin</th>
-                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bank Charges</th>
-                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">VAT</th>
-                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
-                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated By</th>
-                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created Date</th>
-                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated Date</th>
-                      </>
-                    )}
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
-                    <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preview</th>
-                    <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('actions')}</th>
+                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <tr>
+                    {['Batch ID', t('date'), 'POS Machine', t('amount'),
+                      ...(isAdmin ? ['Margin', 'Bank Charges', 'VAT', 'Created By', 'Updated By', 'Created Date', 'Updated Date'] : []),
+                      t('description'), 'Preview', t('actions')
+                    ].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredReceipts.map((receipt) => (
                     <tr key={receipt._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {receipt.receiptNumber}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         {format(new Date(receipt.date), 'dd-MMM-yyyy')}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
                           {receipt.posMachine ? `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
                         AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       {isAdmin && (
                         <>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
-                            {receipt.posMachine?.commissionPercentage != null 
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            {receipt.posMachine?.commissionPercentage != null
                               ? `AED ${(receipt.amount * receipt.posMachine.commissionPercentage / 100).toFixed(2)} (${receipt.posMachine.commissionPercentage}%)`
                               : '—'}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
-                            {receipt.posMachine?.bankCharges != null 
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            {receipt.posMachine?.bankCharges != null
                               ? `AED ${(receipt.amount * receipt.posMachine.bankCharges / 100).toFixed(2)} (${receipt.posMachine.bankCharges}%)`
                               : '—'}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-right text-gray-700 dark:text-gray-300">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {receipt.posMachine?.vatPercentage != null && receipt.posMachine?.bankCharges != null
                               ? `AED ${((receipt.amount * receipt.posMachine.bankCharges / 100) * receipt.posMachine.vatPercentage / 100).toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
                               : '—'}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                            {receipt.createdBy || '—'}
-                          </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                            {receipt.updatedBy || '—'}
-                          </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{receipt.createdBy || '—'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{receipt.updatedBy || '—'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {receipt.date ? format(new Date(receipt.date), 'dd-MMM-yyyy HH:mm') : '—'}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {receipt.updatedAt ? format(new Date(receipt.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}
                           </td>
                         </>
                       )}
-                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
                         {receipt.description}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-center text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
                         {receipt.attachments && receipt.attachments.length > 0 ? (
                           <div className="flex justify-center gap-1">
                             {receipt.attachments.map((url, index) => {
@@ -581,7 +581,7 @@ export default function Receipts() {
                           <span className="text-gray-400 text-xs">No attachment</span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-center text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
                         <div className="flex justify-center gap-1">
                           {receipt.attachments && receipt.attachments.length > 0 && (
                             <button
@@ -629,200 +629,124 @@ export default function Receipts() {
       {/* Add/Edit Receipt Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between mb-1">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {editingReceipt ? 'Edit Receipt' : t('addReceipt')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => { setShowModal(false); resetForm() }}
-                className="ml-4 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-              >
+          <div className="modal-content">
+            <div className="modal-header">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {editingReceipt ? 'Edit Receipt' : t('addReceipt')}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {editingReceipt ? 'Update receipt details' : 'Fill in the receipt details below'}
+                </p>
+              </div>
+              <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="modal-close-btn">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              {editingReceipt ? 'Update receipt details below' : 'Fill in the receipt details below'}
-            </p>
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* POS Machine selector at the top to avoid bottom overflow */}
-              <div className="flex flex-col">
-                <label className="form-label text-sm">POS Machine</label>
-                <select
-                  className="form-select"
-                  value={formData.posMachine}
-                  onChange={(e) => setFormData({...formData, posMachine: e.target.value})}
-                >
-                  <option value="">Select POS Machine</option>
-                  {posMachines
-                    .filter(machine => machine.status === 'active' || machine._id === formData.posMachine)
-                    .map(machine => (
-                    <option key={machine._id} value={machine._id}>
-                      {machine.segment} / {machine.brand} - {machine.terminalId}
-                      {machine.status !== 'active' ? ` (${machine.status})` : ''}
-                    </option>
-                  ))}
-                </select>
-                {posMachines.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">No POS machines available</p>
+              {/* Section: Assignment */}
+              <div className="form-section">
+                <p className="form-section-title">Assignment</p>
+                {isAdmin && (
+                  <div>
+                    <label className="form-label">Agent *</label>
+                    <select required className="form-select" value={formData.agentId} onChange={(e) => setFormData({...formData, agentId: e.target.value})}>
+                      <option value="">Select Agent</option>
+                      {agents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
+                    </select>
+                  </div>
                 )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col">
-                  <label className="form-label text-sm">Transaction Number *</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input h-10 uppercase"
-                    placeholder="Enter transaction number"
-                    value={formData.receiptNumber}
-                    onChange={(e) => setFormData({...formData, receiptNumber: e.target.value.toUpperCase()})}
-                    style={{ textTransform: 'uppercase' }}
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="form-label text-sm">{t('date')}</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input h-10"
-                    value={formData.date}
-                    placeholder="dd-MMM-yyyy"
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  />
+                <div>
+                  <label className="form-label">POS Machine</label>
+                  <select className="form-select" value={formData.posMachine} onChange={(e) => setFormData({...formData, posMachine: e.target.value})}>
+                    <option value="">Select POS Machine</option>
+                    {posMachines
+                      .filter(m => m.status === 'active' || m._id === formData.posMachine)
+                      .map(m => (
+                        <option key={m._id} value={m._id}>
+                          {m.segment} / {m.brand} — {m.terminalId}{m.status !== 'active' ? ` (${m.status})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                  {posMachines.length === 0 && <p className="text-xs text-red-500 mt-1">No POS machines available</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label text-sm">{t('amount')}</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    required
-                    className="form-input h-10"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                  />
+
+              {/* Section: Transaction */}
+              <div className="form-section">
+                <p className="form-section-title">Transaction Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Batch ID *</label>
+                    <input type="text" required className="form-input uppercase" placeholder="Enter batch ID"
+                      value={formData.receiptNumber}
+                      onChange={(e) => setFormData({...formData, receiptNumber: e.target.value.toUpperCase()})}
+                    />
+                  </div>
+                  <DatePicker label={t('date')} required value={formData.date} onChange={(v) => setFormData({...formData, date: v})} />
                 </div>
-                <div>
-                  <label className="form-label text-sm">{t('description')}</label>
-                  <input
-                    type="text"
-                    placeholder={t('description')}
-                    className="form-input h-10"
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">{t('amount')} (AED)</label>
+                    <input type="number" placeholder="0.00" required className="form-input"
+                      value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">{t('description')}</label>
+                    <input type="text" placeholder={t('description')} className="form-input"
+                      value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    />
+                  </div>
                 </div>
               </div>
               
-              {/* File Upload Section */}
-              <div>
-                <label className="form-label text-sm">Attachments</label>
-                <div className="space-y-3">
-                  {/* Upload Area */}
-                  <div 
-                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-primary transition-colors cursor-pointer"
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      e.currentTarget.classList.add('border-primary', 'bg-primary/5')
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault()
-                      e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
-                      const files = e.dataTransfer.files
-                      if (files) handleFileUpload(files)
-                    }}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files) handleFileUpload(e.target.files)
-                      }}
-                    />
-                    <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      {uploading ? 'Uploading file...' : 'Click to upload or drag and drop'}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">
-                      One image (JPG, PNG, GIF) or PDF file, max 5MB
-                    </p>
-                  </div>
-                  
-                  {/* Uploaded File */}
-                  {uploadedFiles.length > 0 && (
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                      {uploadedFiles.map((url, index) => {
-                        const fileName = url.split('/').pop() || `File ${index + 1}`
-                        const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
-                        return (
-                          <div key={url} className="flex items-center gap-3">
-                            {isImage ? (
-                              <div className="flex-shrink-0">
-                                <img 
-                                  src={url} 
-                                  alt={fileName} 
-                                  className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600" 
-                                />
-                              </div>
-                            ) : (
-                              <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
-                                <File className="h-6 w-6 text-red-500" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {fileName}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <a 
-                                  href={url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline"
-                                >
-                                  View File
-                                </a>
-                                <span className="text-xs text-gray-400">•</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeUploadedFile(url)}
-                                  className="text-xs text-red-500 hover:text-red-700 transition-colors"
-                                >
-                                  Remove
-                                </button>
-                              </div>
+              {/* Section: Attachment */}
+              <div className="form-section">
+                <p className="form-section-title">Attachment</p>
+                <div
+                  className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-5 text-center hover:border-primary/60 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-700/30"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary', 'bg-primary/5') }}
+                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary', 'bg-primary/5') }}
+                  onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary', 'bg-primary/5'); if (e.dataTransfer.files) handleFileUpload(e.dataTransfer.files) }}
+                >
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { if (e.target.files) handleFileUpload(e.target.files) }} />
+                  <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{uploading ? 'Uploading...' : 'Click or drag & drop to upload'}</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF or PDF — max 5MB</p>
+                </div>
+                {uploadedFiles.length > 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                    {uploadedFiles.map((url, index) => {
+                      const fileName = url.split('/').pop() || `File ${index + 1}`
+                      const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                      return (
+                        <div key={url} className="flex items-center gap-3 flex-1 min-w-0">
+                          {isImage
+                            ? <img src={url} alt={fileName} className="w-10 h-10 object-cover rounded-lg border border-gray-200 dark:border-gray-600 flex-shrink-0" />
+                            : <div className="w-10 h-10 bg-red-50 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0"><File className="h-5 w-5 text-red-500" /></div>
+                          }
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{fileName}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
+                              <span className="text-xs text-gray-300 dark:text-gray-600">•</span>
+                              <button type="button" onClick={() => removeUploadedFile(url)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
                             </div>
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false)
-                    resetForm()
-                  }}
-                  className="btn-secondary w-full sm:w-auto"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="dubai-button w-full sm:w-auto"
+
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="btn-secondary w-full sm:w-auto">{t('cancel')}</button>
+                <button type="submit"
+                  disabled={!formData.receiptNumber.trim() || !formData.amount || !formData.date || (isAdmin && !formData.agentId) || uploadedFiles.length === 0}
+                  className="dubai-button w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingReceipt ? 'Update Receipt' : t('addReceipt')}
                 </button>

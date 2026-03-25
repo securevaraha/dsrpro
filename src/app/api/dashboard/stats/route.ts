@@ -5,120 +5,153 @@ import User from '@/models/User'
 import POSMachine from '@/models/POSMachine'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 
+function getPeriodRange(period: string): { start: Date; end: Date } {
+  const now = new Date()
+  const end = new Date(now)
+  end.setHours(23, 59, 59, 999)
+
+  switch (period) {
+    case 'today': {
+      const start = new Date(now)
+      start.setHours(0, 0, 0, 0)
+      return { start, end }
+    }
+    case 'week': {
+      const start = new Date(now)
+      const day = start.getDay()
+      const diff = day === 0 ? -6 : 1 - day // Monday start
+      start.setDate(start.getDate() + diff)
+      start.setHours(0, 0, 0, 0)
+      return { start, end }
+    }
+    case 'month': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      return { start, end }
+    }
+    case 'year': {
+      const start = new Date(now.getFullYear(), 0, 1)
+      return { start, end }
+    }
+    default: {
+      const start = new Date(now)
+      start.setHours(0, 0, 0, 0)
+      return { start, end }
+    }
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = requireAuth(request)
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
-    
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
 
-    // Scope data by role: agents see their own, admins see all
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get('period') || 'today'
+    const { start, end } = getPeriodRange(period)
+
     const roleFilter: any = {}
     if (auth.role === 'agent') {
       roleFilter.agentId = auth.userId
     }
-    
-    // Today's receipt stats (sales/receipts)
-    const todayReceipts = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: today }, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
-      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ])
-    
-    // Monthly receipt stats
-    const monthlyReceipts = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth }, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
-      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 }, commission: { $sum: '$commission' } } }
-    ])
-    
-    // Yearly receipt stats
-    const yearlyReceipts = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfYear }, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
+
+    const dateFilter = { $gte: start, $lte: end }
+
+    // Receipts for period
+    const receiptsAgg = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: dateFilter, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ])
 
-    // Today's payment stats
-    const todayPayments = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: today }, status: 'completed', type: 'payment' } },
+    // Payments for period
+    const paymentsAgg = await Transaction.aggregate([
+      { $match: { ...roleFilter, createdAt: dateFilter, status: 'completed', type: 'payment' } },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ])
-    
-    // Monthly payment stats
-    const monthlyPayments = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth }, status: 'completed', type: 'payment' } },
-      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ])
-    
-    // Yearly payment stats
-    const yearlyPayments = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfYear }, status: 'completed', type: 'payment' } },
-      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
-    ])
-    
+
     // Active agents count
     const activeAgents = await User.countDocuments({ role: 'agent', status: 'active' })
-    
+
     // POS machines count
     const posMachinesFilter = auth.role === 'agent' ? { assignedAgent: auth.userId } : {}
     const totalPOSMachines = await POSMachine.countDocuments(posMachinesFilter)
-    const activePOSMachines = await POSMachine.countDocuments({ ...posMachinesFilter, status: 'active' })
-    
-    // Pending payments
-    const pendingPayments = await Transaction.aggregate([
-      { $match: { ...roleFilter, status: 'pending' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ])
 
-    // Monthly revenue trend (last 6 months)
-    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1)
-    const monthlyTrend = await Transaction.aggregate([
-      {
-        $match: {
-          ...roleFilter,
-          createdAt: { $gte: sixMonthsAgo },
-          status: 'completed',
-          type: { $in: ['sale', 'receipt'] }
-        }
-      },
-      {
-        $group: {
-          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
-          total: { $sum: '$amount' }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ])
-
-    // Build a complete 6-month series (fill gaps with 0)
+    // Revenue trend — period-aware
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const trendLabels: string[] = []
     const trendData: number[] = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      const y = d.getFullYear()
-      const m = d.getMonth() + 1
-      trendLabels.push(monthNames[m - 1])
-      const found = monthlyTrend.find((r: any) => r._id.year === y && r._id.month === m)
-      trendData.push(found ? found.total : 0)
+
+    if (period === 'today') {
+      // Hourly breakdown for today (0–23)
+      const hourlyTrend = await Transaction.aggregate([
+        { $match: { ...roleFilter, createdAt: dateFilter, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
+        { $group: { _id: { hour: { $hour: '$createdAt' } }, total: { $sum: '$amount' } } },
+        { $sort: { '_id.hour': 1 } }
+      ])
+      const hourMap: Record<number, number> = {}
+      hourlyTrend.forEach((r: any) => { hourMap[r._id.hour] = r.total })
+      for (let h = 0; h < 24; h++) {
+        trendLabels.push(`${h.toString().padStart(2, '0')}:00`)
+        trendData.push(hourMap[h] || 0)
+      }
+    } else if (period === 'week') {
+      // Daily breakdown for current week (Mon–Sun)
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      const dailyTrend = await Transaction.aggregate([
+        { $match: { ...roleFilter, createdAt: dateFilter, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
+        { $group: { _id: { dayOfWeek: { $dayOfWeek: '$createdAt' } }, total: { $sum: '$amount' } } },
+        { $sort: { '_id.dayOfWeek': 1 } }
+      ])
+      // MongoDB dayOfWeek: 1=Sun, 2=Mon ... 7=Sat → remap to Mon-first
+      const dayMap: Record<number, number> = {}
+      dailyTrend.forEach((r: any) => { dayMap[r._id.dayOfWeek] = r.total })
+      const order = [2, 3, 4, 5, 6, 7, 1] // Mon=2 ... Sun=1
+      order.forEach((d, i) => {
+        trendLabels.push(dayNames[i])
+        trendData.push(dayMap[d] || 0)
+      })
+    } else if (period === 'month') {
+      // Daily breakdown for current month
+      const daysInMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate()
+      const dailyTrend = await Transaction.aggregate([
+        { $match: { ...roleFilter, createdAt: dateFilter, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
+        { $group: { _id: { day: { $dayOfMonth: '$createdAt' } }, total: { $sum: '$amount' } } },
+        { $sort: { '_id.day': 1 } }
+      ])
+      const dayMap: Record<number, number> = {}
+      dailyTrend.forEach((r: any) => { dayMap[r._id.day] = r.total })
+      for (let d = 1; d <= daysInMonth; d++) {
+        trendLabels.push(String(d))
+        trendData.push(dayMap[d] || 0)
+      }
+    } else {
+      // year — monthly breakdown
+      const yearlyTrend = await Transaction.aggregate([
+        { $match: { ...roleFilter, createdAt: dateFilter, status: 'completed', type: { $in: ['sale', 'receipt'] } } },
+        { $group: { _id: { month: { $month: '$createdAt' } }, total: { $sum: '$amount' } } },
+        { $sort: { '_id.month': 1 } }
+      ])
+      const monthMap: Record<number, number> = {}
+      yearlyTrend.forEach((r: any) => { monthMap[r._id.month] = r.total })
+      for (let m = 1; m <= 12; m++) {
+        trendLabels.push(monthNames[m - 1])
+        trendData.push(monthMap[m] || 0)
+      }
     }
 
-    // Transaction status breakdown (current month)
+    // Transaction status breakdown for period
     const statusBreakdown = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: { $gte: startOfMonth } } },
+      { $match: { ...roleFilter, createdAt: dateFilter } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ])
     const statusMap: Record<string, number> = {}
     statusBreakdown.forEach((s: any) => { statusMap[s._id] = s.count })
-    
-    // Calculate monthly bank charges and VAT from receipts linked to POS machines
+
+    // Bank charges, VAT, margin from POS-linked receipts for period
     const receiptsWithPOS = await Transaction.find({
       ...roleFilter,
-      createdAt: { $gte: startOfMonth },
+      createdAt: dateFilter,
       type: { $in: ['sale', 'receipt'] },
       posMachine: { $exists: true, $ne: null }
     })
@@ -138,35 +171,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const stats = {
-      totalReceipts: {
-        today: todayReceipts[0]?.total || 0,
-        month: monthlyReceipts[0]?.total || 0,
-        year: yearlyReceipts[0]?.total || 0
-      },
-      totalPayments: {
-        today: todayPayments[0]?.total || 0,
-        month: monthlyPayments[0]?.total || 0,
-        year: yearlyPayments[0]?.total || 0
-      },
-      pendingPayments: pendingPayments[0]?.total || 0,
-      activeAgents,
-      totalPOSMachines,
-      activePOSMachines,
-      totalTransactions: (monthlyReceipts[0]?.count || 0) + (monthlyPayments[0]?.count || 0),
-      totalCommission: totalMargin || monthlyReceipts[0]?.commission || 0,
+    return NextResponse.json({
+      totalReceipts: receiptsAgg[0]?.total || 0,
+      totalPayments: paymentsAgg[0]?.total || 0,
+      totalMargin: totalMargin || receiptsAgg[0]?.commission || 0,
       totalBankCharges,
       totalVAT,
+      activeAgents,
+      totalPOSMachines,
+      totalTransactions: (receiptsAgg[0]?.count || 0) + (paymentsAgg[0]?.count || 0),
       monthlyTrend: { labels: trendLabels, data: trendData },
       transactionStatus: {
         completed: statusMap['completed'] || 0,
         pending: statusMap['pending'] || 0,
         failed: statusMap['failed'] || 0,
-        cancelled: statusMap['cancelled'] || 0
       }
-    }
-    
-    return NextResponse.json(stats)
+    })
   } catch (error) {
     console.error('Dashboard stats error:', error)
     return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })

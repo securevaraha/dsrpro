@@ -12,6 +12,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     const { name, description, isActive } = await request.json()
 
+    if (name?.trim()) {
+      const existing = await Segment.findOne({ name: { $regex: `^${name.trim()}$`, $options: 'i' }, _id: { $ne: id } })
+      if (existing) {
+        return NextResponse.json({ error: 'Segment with this name already exists' }, { status: 409 })
+      }
+    }
+
     const segment = await Segment.findByIdAndUpdate(
       id,
       { name: name?.trim(), description: description?.trim() || '', isActive, updatedBy: auth.userId },

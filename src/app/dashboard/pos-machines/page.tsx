@@ -636,219 +636,148 @@ export default function POSMachines() {
         {/* Add/Edit Modal */}
         {showModal && (
           <div className="modal-overlay">
-            <div className="modal-content max-w-4xl">
-              <div className="flex items-start justify-between mb-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {editingMachine ? 'Edit POS Machine' : 'Add New POS Machine'}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); setEditingMachine(null); resetForm() }}
-                  className="ml-4 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-                >
+            <div className="modal-content">
+              <div className="modal-header">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                    {editingMachine ? 'Edit POS Machine' : 'Add New POS Machine'}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {editingMachine ? 'Update machine details' : 'Register a new POS machine and assign it to an agent'}
+                  </p>
+                </div>
+                <button type="button" onClick={() => { setShowModal(false); setEditingMachine(null); resetForm() }} className="modal-close-btn">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                {editingMachine ? 'Update machine details' : 'Register a new POS machine and assign it to an agent'}
-              </p>
               {optimisticLoading ? (
                 <FormSkeleton fields={7} />
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="form-label">Segment *</label>
-                      <select
-                        required
-                        className="form-select"
-                        value={formData.segment}
-                        onChange={(e) => setFormData({...formData, segment: e.target.value})}
-                      >
-                        <option value="" disabled>Select Segment</option>
-                        {segments.map(s => (
-                          <option key={s._id} value={s.name}>{s.name}</option>
-                        ))}
-                      </select>
-                      {segments.length === 0 && <p className="text-xs text-amber-500 mt-1">Please create Segments in Admin Panel first</p>}
-                    </div>
-                    <div>
-                      <label className="form-label">Brand *</label>
-                      <select
-                        required
-                        className="form-select"
-                        value={formData.brand}
-                        onChange={(e) => setFormData({...formData, brand: e.target.value})}
-                      >
-                        <option value="" disabled>Select Brand</option>
-                        {brands.map(b => (
-                          <option key={b._id} value={b.name}>{b.name}</option>
-                        ))}
-                      </select>
-                      {brands.length === 0 && <p className="text-xs text-amber-500 mt-1">Please create Brands in Admin Panel first</p>}
+                  {/* Section: Classification */}
+                  <div className="form-section">
+                    <p className="form-section-title">Classification</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="form-label">Segment *</label>
+                        <select required className="form-select" value={formData.segment} onChange={(e) => setFormData({...formData, segment: e.target.value})}>
+                          <option value="" disabled>Select Segment</option>
+                          {segments.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                        </select>
+                        {segments.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Segments in Admin Panel first</p>}
+                      </div>
+                      <div>
+                        <label className="form-label">Brand *</label>
+                        <select required className="form-select" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})}>
+                          <option value="" disabled>Select Brand</option>
+                          {brands.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
+                        </select>
+                        {brands.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Brands in Admin Panel first</p>}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="form-label">Terminal ID (TID) *</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-input font-mono text-sm uppercase"
-                        placeholder="e.g. 14100615"
-                        value={formData.terminalId}
-                        onChange={(e) => {
-                          // Only allow alphanumeric characters and convert to uppercase
-                          const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-                          setFormData({...formData, terminalId: value})
-                        }}
-                        maxLength={20}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Only letters and numbers allowed</p>
+                  {/* Section: Terminal IDs */}
+                  <div className="form-section">
+                    <p className="form-section-title">Terminal Details</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="form-label">Terminal ID (TID) *</label>
+                        <input type="text" required className="form-input font-mono uppercase" placeholder="e.g. 14100615"
+                          value={formData.terminalId}
+                          onChange={(e) => setFormData({...formData, terminalId: e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()})}
+                          maxLength={20}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Letters and numbers only</p>
+                      </div>
+                      <div>
+                        <label className="form-label">Merchant ID (MID) *</label>
+                        <input type="text" required className="form-input font-mono" placeholder="e.g. 200602374829"
+                          value={formData.merchantId}
+                          onChange={(e) => setFormData({...formData, merchantId: e.target.value})}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="form-label">Merchant ID (MID) *</label>
-                      <input
-                        type="text"
-                        required
-                        className="form-input font-mono text-sm"
-                        placeholder="e.g. 200602374829"
-                        value={formData.merchantId}
-                        onChange={(e) => setFormData({...formData, merchantId: e.target.value})}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="form-label">Device Type *</label>
-                      <select
-                        required
-                        className="form-select text-sm"
-                        value={formData.deviceType}
-                        onChange={(e) => setFormData({...formData, deviceType: e.target.value})}
-                      >
-                        <option value="traditional_pos">Traditional</option>
-                        <option value="android_pos">Android</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="form-label">Bank Charges (%)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        className="form-input text-sm"
-                        placeholder="0.00"
-                        value={formData.bankCharges}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
-                            setFormData({...formData, bankCharges: value})
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label">VAT (%)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        className="form-input text-sm"
-                        placeholder="5.00"
-                        value={formData.vatPercentage}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
-                            setFormData({...formData, vatPercentage: value})
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label">Margin (%)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        className="form-input text-sm"
-                        placeholder="0.00"
-                        value={formData.commissionPercentage}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
-                            setFormData({...formData, commissionPercentage: value})
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="form-label">Assign to Agent</label>
-                      <select
-                        className="form-select text-sm"
-                        value={formData.assignedAgent}
-                        onChange={(e) => setFormData({...formData, assignedAgent: e.target.value})}
-                      >
-                        <option value="">-- Unassigned --</option>
-                        {agents.map(agent => (
-                          <option key={agent._id} value={agent._id}>
-                            {agent.name}{agent.companyName ? ` (${agent.companyName})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="form-label">Location</label>
-                      <input
-                        type="text"
-                        className="form-input text-sm"
-                        placeholder="Ras Al Khor, Dubai"
-                        value={formData.location}
-                        onChange={(e) => setFormData({...formData, location: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label">Status</label>
-                      <select
-                        className="form-select text-sm"
-                        value={formData.status}
-                        onChange={(e) => setFormData({...formData, status: e.target.value})}
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="maintenance">Maintenance</option>
+                      <select required className="form-select" value={formData.deviceType} onChange={(e) => setFormData({...formData, deviceType: e.target.value})}>
+                        <option value="traditional_pos">Traditional POS</option>
+                        <option value="android_pos">Android POS</option>
                       </select>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="form-label">Notes</label>
-                    <textarea
-                      className="form-input text-sm"
-                      rows={2}
-                      placeholder="Any additional notes..."
-                      value={formData.notes}
-                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    />
+                  {/* Section: Financial */}
+                  <div className="form-section">
+                    <p className="form-section-title">Financial Settings</p>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="form-label">Bank Charges (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="0.00"
+                          value={formData.bankCharges}
+                          onChange={(e) => { const v = e.target.value; if (v === '' || (parseFloat(v) >= 0 && parseFloat(v) <= 100)) setFormData({...formData, bankCharges: v}) }}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">VAT (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="5.00"
+                          value={formData.vatPercentage}
+                          onChange={(e) => { const v = e.target.value; if (v === '' || (parseFloat(v) >= 0 && parseFloat(v) <= 100)) setFormData({...formData, vatPercentage: v}) }}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Margin (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="0.00"
+                          value={formData.commissionPercentage}
+                          onChange={(e) => { const v = e.target.value; if (v === '' || (parseFloat(v) >= 0 && parseFloat(v) <= 100)) setFormData({...formData, commissionPercentage: v}) }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <LoadingButton
-                      type="button"
-                      onClick={() => { setShowModal(false); setEditingMachine(null); resetForm() }}
-                      variant="secondary"
-                    >
+                  {/* Section: Assignment */}
+                  <div className="form-section">
+                    <p className="form-section-title">Assignment & Status</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="form-label">Assign to Agent</label>
+                        <select className="form-select" value={formData.assignedAgent} onChange={(e) => setFormData({...formData, assignedAgent: e.target.value})}>
+                          <option value="">— Unassigned —</option>
+                          {agents.map(agent => (
+                            <option key={agent._id} value={agent._id}>{agent.name}{agent.companyName ? ` (${agent.companyName})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">Location</label>
+                        <input type="text" className="form-input" placeholder="Ras Al Khor, Dubai"
+                          value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Status</label>
+                        <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="maintenance">Maintenance</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="form-label">Notes</label>
+                      <textarea className="form-input" rows={2} placeholder="Any additional notes..."
+                        value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <LoadingButton type="button" onClick={() => { setShowModal(false); setEditingMachine(null); resetForm() }} variant="secondary">
                       {t('cancel')}
                     </LoadingButton>
-                    <LoadingButton type="submit" loading={submitting} variant="primary">
+                    <LoadingButton type="submit" loading={submitting} variant="primary"
+                      disabled={submitting || !formData.segment || !formData.brand || !formData.terminalId.trim() || !formData.merchantId.trim()}
+                    >
                       {editingMachine ? 'Update Machine' : 'Add Machine'}
                     </LoadingButton>
                   </div>

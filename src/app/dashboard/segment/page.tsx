@@ -218,51 +218,39 @@ export default function SegmentsPage() {
         {showModal && (
           <div className="modal-overlay">
             <div className="modal-content max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                {editingSegment ? 'Edit Segment' : 'Add Segment'}
-              </h3>
+              <div className="modal-header">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{editingSegment ? 'Edit Segment' : 'Add Segment'}</h3>
+                </div>
+                <button type="button" onClick={() => { setShowModal(false); setEditingSegment(null) }} className="modal-close-btn">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="form-label">Name *</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    placeholder="Segment name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  <input type="text" required className="form-input" placeholder="Segment name"
+                    value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
                 <div>
                   <label className="form-label">Description</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Optional description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  <input type="text" className="form-input" placeholder="Optional description"
+                    value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
                 <div>
                   <label className="form-label">Status</label>
-                  <select
-                    className="form-select"
-                    value={formData.isActive ? 'active' : 'inactive'}
+                  <select className="form-select" value={formData.isActive ? 'active' : 'inactive'}
                     onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'active' })}
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => { setShowModal(false); setEditingSegment(null) }}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={submitting} className="dubai-button">
+                <div className="flex justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <button type="button" onClick={() => { setShowModal(false); setEditingSegment(null) }} className="btn-secondary">Cancel</button>
+                  <button type="submit" disabled={submitting || !formData.name.trim()} className="dubai-button disabled:opacity-50 disabled:cursor-not-allowed">
                     {submitting ? 'Saving...' : (editingSegment ? 'Update' : 'Create')}
                   </button>
                 </div>

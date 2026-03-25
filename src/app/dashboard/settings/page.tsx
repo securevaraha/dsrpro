@@ -160,72 +160,33 @@ export default function Settings() {
           <div className="dubai-card p-5 sm:p-8">
             {activeTab === 'profile' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-6 sm:mb-8">{t('profile')}</h3>
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-5">{t('profile')}</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">
-                        {t('name')}
-                      </label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={profileData.name}
-                        onChange={(e) => setProfileData({...profileData, name: e.target.value})}
-                      />
+                      <label className="form-label">{t('name')}</label>
+                      <input type="text" className="form-input" value={profileData.name} onChange={(e) => setProfileData({...profileData, name: e.target.value})} />
                     </div>
                     <div>
-                      <label className="form-label">
-                        {t('email')}
-                      </label>
-                      <input
-                        type="email"
-                        className="form-input"
-                        value={profileData.email}
-                        onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                      />
+                      <label className="form-label">{t('email')}</label>
+                      <input type="email" className="form-input" value={profileData.email} onChange={(e) => setProfileData({...profileData, email: e.target.value})} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">
-                        {t('phoneNumber')}
-                      </label>
-                      <input
-                        type="tel"
-                        className="form-input"
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                      />
+                      <label className="form-label">{t('phoneNumber')}</label>
+                      <input type="tel" className="form-input" value={profileData.phone} onChange={(e) => setProfileData({...profileData, phone: e.target.value})} />
                     </div>
                     <div>
-                      <label className="form-label">
-                        {t('companyName')}
-                      </label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={profileData.companyName}
-                        onChange={(e) => setProfileData({...profileData, companyName: e.target.value})}
-                      />
+                      <label className="form-label">{t('companyName')}</label>
+                      <input type="text" className="form-input" value={profileData.companyName} onChange={(e) => setProfileData({...profileData, companyName: e.target.value})} />
                     </div>
                   </div>
                   <div>
-                    <label className="form-label">
-                      Address
-                    </label>
-                    <textarea
-                      className="form-input"
-                      rows={3}
-                      value={profileData.address}
-                      onChange={(e) => setProfileData({...profileData, address: e.target.value})}
-                    />
+                    <label className="form-label">Address</label>
+                    <textarea className="form-input" rows={3} value={profileData.address} onChange={(e) => setProfileData({...profileData, address: e.target.value})} />
                   </div>
-                  <button
-                    onClick={saveProfile}
-                    disabled={loading}
-                    className="dubai-button flex items-center"
-                  >
+                  <button onClick={saveProfile} disabled={loading} className="dubai-button flex items-center">
                     <Save className="h-4 w-4 mr-2" />
                     {loading ? 'Saving...' : t('save')}
                   </button>
@@ -395,50 +356,29 @@ export default function Settings() {
 
             {activeTab === 'security' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-6 sm:mb-8">{t('security')}</h3>
-                <div className="space-y-6">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-5">{t('security')}</h3>
+                <div className="space-y-4 max-w-md">
                   <div>
-                    <h4 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-4">Change Password</h4>
-                    <div className="space-y-5 max-w-lg">
-                      <div>
-                        <label className="form-label">Current Password</label>
-                        <input
-                          type="password"
-                          placeholder="Enter current password"
-                          className="form-input"
-                          value={passwordData.currentPassword}
-                          onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">New Password</label>
-                        <input
-                          type="password"
-                          placeholder="Enter new password"
-                          className="form-input"
-                          value={passwordData.newPassword}
-                          onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Confirm New Password</label>
-                        <input
-                          type="password"
-                          placeholder="Confirm new password"
-                          className="form-input"
-                          value={passwordData.confirmPassword}
-                          onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                        />
-                      </div>
-                      <button
-                        onClick={changePassword}
-                        disabled={loading}
-                        className="dubai-button"
-                      >
-                        {loading ? 'Updating...' : 'Update Password'}
-                      </button>
-                    </div>
+                    <label className="form-label">Current Password</label>
+                    <input type="password" placeholder="Enter current password" className="form-input"
+                      value={passwordData.currentPassword} onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                    />
                   </div>
+                  <div>
+                    <label className="form-label">New Password</label>
+                    <input type="password" placeholder="Enter new password" className="form-input"
+                      value={passwordData.newPassword} onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Confirm New Password</label>
+                    <input type="password" placeholder="Confirm new password" className="form-input"
+                      value={passwordData.confirmPassword} onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                    />
+                  </div>
+                  <button onClick={changePassword} disabled={loading} className="dubai-button">
+                    {loading ? 'Updating...' : 'Update Password'}
+                  </button>
                 </div>
               </div>
             )}

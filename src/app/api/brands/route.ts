@@ -32,6 +32,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brand name is required' }, { status: 400 })
     }
 
+    const existing = await Brand.findOne({ name: { $regex: `^${name.trim()}$`, $options: 'i' } })
+    if (existing) {
+      return NextResponse.json({ error: 'Brand with this name already exists' }, { status: 409 })
+    }
+
     const brand = await Brand.create({
       name: name.trim(),
       description: description?.trim() || '',

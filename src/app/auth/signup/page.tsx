@@ -30,6 +30,7 @@ export default function SignUp() {
     role: 'agent',
     companyName: '',
     phone: '',
+    address: '',
   })
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -56,9 +57,13 @@ export default function SignUp() {
     } else if (!/[a-zA-Z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
       newErrors.password = 'Must contain a letter and a number'
     }
-    if (formData.phone && !/^\+?[0-9\s\-()]{7,20}$/.test(formData.phone)) {
+    if (!formData.phone) {
+      newErrors.phone = 'Phone number is required'
+    } else if (!/^\+?[0-9\s\-()]{7,20}$/.test(formData.phone)) {
       newErrors.phone = 'Invalid phone number'
     }
+    if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required'
+    if (!formData.address.trim()) newErrors.address = 'Address is required'
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -338,11 +343,12 @@ export default function SignUp() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
-                    {t('phoneNumber')} <span className="normal-case text-gray-400 font-normal">(optional)</span>
+                    {t('phoneNumber')}
                   </label>
                   <div className={inputClass('phone')}>
                     <input
                       type="tel"
+                      required
                       className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                       placeholder="+971-XX-XXX-XXXX"
                       value={formData.phone}
@@ -356,11 +362,12 @@ export default function SignUp() {
 
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
-                    {t('companyName')} <span className="normal-case text-gray-400 font-normal">(optional)</span>
+                    {t('companyName')}
                   </label>
                   <div className={inputClass('companyName')}>
                     <input
                       type="text"
+                      required
                       className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl"
                       placeholder="Your company"
                       value={formData.companyName}
@@ -369,7 +376,28 @@ export default function SignUp() {
                       onBlur={() => setFocusedField(null)}
                     />
                   </div>
+                  {errors.companyName && <p className="text-danger text-xs mt-1.5 flex items-center gap-1"><span className="inline-block w-1 h-1 rounded-full bg-danger" />{errors.companyName}</p>}
                 </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
+                  Address
+                </label>
+                <div className={inputClass('address')}>
+                  <textarea
+                    required
+                    rows={2}
+                    className="w-full px-4 py-3.5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-sm sm:text-base rounded-xl resize-none"
+                    placeholder="Street, City, Country"
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    onFocus={() => setFocusedField('address')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </div>
+                {errors.address && <p className="text-danger text-xs mt-1.5 flex items-center gap-1"><span className="inline-block w-1 h-1 rounded-full bg-danger" />{errors.address}</p>}
               </div>
 
               {/* Submit */}

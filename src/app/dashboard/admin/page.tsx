@@ -18,6 +18,7 @@ interface User {
   name: string
   email: string
   phone: string
+  address?: string
   role: 'admin' | 'agent'
   companyName?: string
   status: 'active' | 'inactive'
@@ -67,6 +68,7 @@ export default function AdminPanel() {
     name: '',
     email: '',
     phone: '',
+    address: '',
     role: 'agent' as 'admin' | 'agent',
     companyName: '',
     password: '',
@@ -198,6 +200,7 @@ export default function AdminPanel() {
       name: user.name,
       email: user.email,
       phone: user.phone || '',
+      address: user.address || '',
       role: user.role,
       companyName: user.companyName || '',
       password: '',
@@ -285,7 +288,7 @@ export default function AdminPanel() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', phone: '', role: 'agent', companyName: '', password: '' })
+    setFormData({ name: '', email: '', phone: '', address: '', role: 'agent', companyName: '', password: '' })
     setEditingUser(null)
     setShowAdminConfirm(false)
     setShowPassword(false)
@@ -603,33 +606,27 @@ export default function AdminPanel() {
 
             {/* Desktop Table */}
             <div className="hidden lg:block">
-              <div className="overflow-x-auto shadow ring-1 ring-black/5 dark:ring-gray-600 rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-                  <thead className="table-header">
+              <div className="overflow-x-auto dubai-card !p-0">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                      <th className="table-cell font-medium text-xs uppercase tracking-wider">User</th>
-                      <th className="table-cell font-medium text-xs uppercase tracking-wider">Role</th>
-                      <th className="table-cell font-medium text-xs uppercase tracking-wider">Company</th>
-                      <th className="table-cell font-medium text-xs uppercase tracking-wider">Status</th>
-                      <th className="table-cell font-medium text-xs uppercase tracking-wider">Joined</th>
-                      <th className="table-cell font-medium text-xs uppercase tracking-wider text-right">Actions</th>
+                      {['User', 'Role', 'Company', 'Address', 'Status', 'Joined', 'Actions'].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {loadingUsers ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <tr key={i} className="animate-pulse">
-                          <td className="table-cell"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></td>
-                          <td className="table-cell"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
-                          <td className="table-cell"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></td>
-                          <td className="table-cell"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
-                          <td className="table-cell"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                          <td className="table-cell"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-auto" /></td>
+                          {Array.from({ length: 7 }).map((_, j) => (
+                            <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></td>
+                          ))}
                         </tr>
                       ))
                     ) : filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <td colSpan={7} className="text-center py-12 text-gray-500 dark:text-gray-400">
                           <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
                           <p className="font-medium">No users found</p>
                           <p className="text-sm mt-1">{searchTerm ? 'Try adjusting your filters' : 'Create your first user to get started'}</p>
@@ -637,28 +634,32 @@ export default function AdminPanel() {
                       </tr>
                     ) : (
                       filteredUsers.map((user) => (
-                        <tr key={user._id} className="table-row">
-                          <td className="table-cell">
+                        <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center space-x-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${getRoleBadge(user.role)}`}>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${getRoleBadge(user.role)}`}>
                                 {user.name.charAt(0).toUpperCase()}
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-1.5 whitespace-nowrap">
                                   {user.name}
                                   {user.role === 'admin' && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                                 </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{user.email}</p>
+                                {user.phone && <p className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{user.phone}</p>}
                               </div>
                             </div>
                           </td>
-                          <td className="table-cell">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
                               {user.role}
                             </span>
                           </td>
-                          <td className="table-cell text-gray-500 dark:text-gray-400">{user.companyName || '—'}</td>
-                          <td className="table-cell">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.companyName || '—'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 max-w-[160px]">
+                            <span className="block truncate" title={user.address}>{user.address || '—'}</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <button
                               onClick={() => handleToggleStatus(user)}
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full transition-colors ${
@@ -672,30 +673,18 @@ export default function AdminPanel() {
                               {user.status}
                             </button>
                           </td>
-                          <td className="table-cell text-gray-500 dark:text-gray-400 text-sm">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {format(new Date(user.createdAt), 'MMM dd, yyyy')}
                           </td>
-                          <td className="table-cell">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center justify-end space-x-1">
-                              <button
-                                onClick={() => handleEdit(user)}
-                                className="p-1.5 text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                                title="Edit user"
-                              >
+                              <button onClick={() => handleEdit(user)} className="p-1.5 text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors" title="Edit user">
                                 <Edit className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => { setResetUser(user); setShowResetDialog(true) }}
-                                className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                                title="Reset password"
-                              >
+                              <button onClick={() => { setResetUser(user); setShowResetDialog(true) }} className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors" title="Reset password">
                                 <Key className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => { setDeletingUser(user); setShowDeleteDialog(true) }}
-                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                                title="Delete user"
-                              >
+                              <button onClick={() => { setDeletingUser(user); setShowDeleteDialog(true) }} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors" title="Delete user">
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
@@ -756,8 +745,9 @@ export default function AdminPanel() {
                     </div>
 
                     <div className="flex items-center justify-between text-xs mb-3">
-                      <div className="text-gray-500 dark:text-gray-400">
-                        {user.companyName && <span className="mr-3">{user.companyName}</span>}
+                      <div className="text-gray-500 dark:text-gray-400 space-y-0.5">
+                        {user.companyName && <p>{user.companyName}</p>}
+                        {user.address && <p className="flex items-center gap-1"><MapPin className="h-3 w-3" />{user.address}</p>}
                         <span>Joined {format(new Date(user.createdAt), 'MMM dd, yyyy')}</span>
                       </div>
                       <button
@@ -894,166 +884,111 @@ export default function AdminPanel() {
         {showModal && (
           <div className="modal-overlay">
             <div className="modal-content">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                {editingUser ? 'Edit User' : 'Create New User'}
-              </h3>
-              <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
-                {editingUser ? 'Update user details' : 'Add a new user to the system'}
-              </p>
+              <div className="modal-header">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                    {editingUser ? 'Edit User' : 'Create New User'}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {editingUser ? 'Update user details' : 'Add a new user to the system'}
+                  </p>
+                </div>
+                <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="modal-close-btn">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  <div>
-                    <label className="form-label">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      className="form-input"
-                      placeholder="Enter full name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    />
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Section: Identity */}
+                <div className="form-section">
+                  <p className="form-section-title">Identity</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Full Name *</label>
+                      <input type="text" required className="form-input" placeholder="Enter full name"
+                        value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Email *</label>
+                      <input type="email" required className="form-input" placeholder="user@example.com"
+                        value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        disabled={!!editingUser}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Phone *</label>
+                      <input type="tel" required className="form-input" placeholder="+971-XX-XXX-XXXX"
+                        value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Company Name</label>
+                      <input type="text" className="form-input" placeholder="Optional"
+                        value={formData.companyName} onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                      />
+                    </div>
                   </div>
-
                   <div>
-                    <label className="form-label">Email</label>
-                    <input
-                      type="email"
-                      required
-                      className="form-input"
-                      placeholder="user@example.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      disabled={!!editingUser}
+                    <label className="form-label">Address *</label>
+                    <textarea required rows={2} className="form-input resize-none" placeholder="Street, City, Country"
+                      value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  <div>
-                    <label className="form-label">Phone</label>
-                    <input
-                      type="tel"
-                      className="form-input"
-                      placeholder="+971-XX-XXX-XXXX"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    />
+                {/* Section: Access */}
+                <div className="form-section">
+                  <p className="form-section-title">Access & Security</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Role</label>
+                      <select className="form-select" value={formData.role}
+                        onChange={(e) => { setFormData({...formData, role: e.target.value as any}); setShowAdminConfirm(false) }}
+                      >
+                        <option value="agent">Agent</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">
+                        {editingUser ? 'New Password' : 'Password'}
+                        <span className="text-gray-400 font-normal normal-case ml-1">(leave blank to {editingUser ? 'keep current' : 'auto-generate'})</span>
+                      </label>
+                      <div className="relative">
+                        <input type={showPassword ? 'text' : 'password'} className="form-input pr-10"
+                          placeholder={editingUser ? 'Leave blank to keep current' : 'Auto-generated if empty'}
+                          value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})}
+                          minLength={8}
+                        />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="form-label">Role</label>
-                    <select
-                      className="form-select"
-                      value={formData.role}
-                      onChange={(e) => {
-                        const role = e.target.value as any
-                        setFormData({...formData, role})
-                        setShowAdminConfirm(false)
-                      }}
-                    >
-                      <option value="agent">Agent</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label">Company Name</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Optional"
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                    />
-                  </div>
-                </div>
 
-                {formData.role === 'admin' && !editingUser && (
-                  <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-amber-800 dark:text-amber-300">Creating an admin user</p>
-                      <p className="text-amber-700 dark:text-amber-400 mt-0.5">
-                        This user will have full system access including user management, data access, and session control.
+                  {formData.role === 'admin' && !editingUser && (
+                    <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        <span className="font-semibold">Admin role:</span> This user will have full system access including user management and session control.
                       </p>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {!editingUser && (
-                  <div>
-                    <label className="form-label">
-                      Password <span className="text-gray-400 font-normal">(leave blank to auto-generate)</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        className="form-input pr-10"
-                        placeholder="Auto-generated if empty"
-                        value={formData.password}
-                        onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        minLength={8}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+                  {showAdminConfirm && !editingUser && formData.role === 'admin' && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <p className="text-xs font-medium text-red-800 dark:text-red-300">Confirm admin creation — click &quot;Create User&quot; again to confirm.</p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {editingUser && (
-                  <div>
-                    <label className="form-label">
-                      New Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        className="form-input pr-10"
-                        placeholder="Leave blank to keep current"
-                        value={formData.password}
-                        onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        minLength={8}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Admin confirmation step */}
-                {showAdminConfirm && !editingUser && formData.role === 'admin' && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <p className="text-sm font-medium text-red-800 dark:text-red-300">
-                      Confirm admin creation
-                    </p>
-                    <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-                      Click &quot;Create User&quot; again to confirm creating <strong>{formData.name || 'this user'}</strong> as an admin.
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-700 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => { setShowModal(false); resetForm() }}
-                    className="btn-secondary w-full sm:w-auto"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="dubai-button w-full sm:w-auto"
-                  >
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="btn-secondary w-full sm:w-auto">Cancel</button>
+                  <button type="submit" disabled={submitting} className="dubai-button w-full sm:w-auto">
                     {submitting ? 'Saving...' : editingUser ? 'Update User' : showAdminConfirm ? 'Confirm & Create' : 'Create User'}
                   </button>
                 </div>

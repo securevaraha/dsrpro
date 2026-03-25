@@ -140,7 +140,7 @@ export const reportColumns = {
   ],
   
   transactions: (t: (key: string) => string) => [
-    { key: 'transactionId', label: t('transactionId'), width: 25 },
+    { key: 'transactionId', label: t('batchId'), width: 25 },
     { key: 'date', label: t('date'), width: 18 },
     { key: 'clientName', label: t('client'), width: 25 },
     { key: 'amount', label: t('amount'), width: 20 },
@@ -172,7 +172,7 @@ export const reportColumns = {
   ],
 
   reportsAgent: (t: (key: string) => string) => [
-    { key: 'transactionId', label: 'Transaction/Receipt No.', width: 25 },
+    { key: 'transactionId', label: 'Batch ID', width: 25 },
     { key: 'date', label: t('date'), width: 18 },
     { key: 'agent', label: 'Agent', width: 25 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
@@ -181,7 +181,7 @@ export const reportColumns = {
   ],
 
   reportsAdmin: (t: (key: string) => string) => [
-    { key: 'transactionId', label: 'Transaction/Receipt No.', width: 25 },
+    { key: 'transactionId', label: 'Batch ID', width: 25 },
     { key: 'date', label: t('date'), width: 18 },
     { key: 'agent', label: 'Agent', width: 25 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },

@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { TableSkeleton } from '@/components/ui/skeleton'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface Payment {
   _id: string
@@ -30,7 +31,7 @@ export default function Payments() {
   const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null)
   const [formData, setFormData] = useState({
     paymentNumber: '',
-    date: format(new Date(), 'dd-MMM-yyyy'),
+    date: format(new Date(), 'yyyy-MM-dd'),
     agentId: '',
     paymentMethod: 'cash' as 'cash' | 'bank' | 'upi' | 'card',
     bankAccount: '',
@@ -123,7 +124,7 @@ export default function Payments() {
     setEditingPayment(payment)
     setFormData({
       paymentNumber: payment.paymentNumber,
-      date: format(new Date(payment.date), 'dd-MMM-yyyy'),
+      date: format(new Date(payment.date), 'yyyy-MM-dd'),
       agentId: payment.agentId || '',
       paymentMethod: payment.paymentMethod,
       bankAccount: '',
@@ -157,7 +158,7 @@ export default function Payments() {
   const resetForm = () => {
     setFormData({ 
       paymentNumber: '', 
-      date: format(new Date(), 'dd-MMM-yyyy'), 
+      date: format(new Date(), 'yyyy-MM-dd'), 
       agentId: '', 
       paymentMethod: 'cash', 
       bankAccount: '', 
@@ -286,31 +287,26 @@ export default function Payments() {
             {/* Desktop table view */}
             <div className="hidden md:block overflow-x-auto dubai-card !p-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-800/50">
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('paymentId')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('date')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('agent')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('paymentMethod')}</th>
-                    <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('amount')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('description')}</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
-                    <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('actions')}</th>
+                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <tr>
+                    {['Batch ID', t('date'), t('agent'), t('paymentMethod'), t('amount'), t('description'), 'Created By', t('actions')].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {payments.map((payment) => (
                     <tr key={payment._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {payment.paymentNumber}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         {format(new Date(payment.date), 'dd-MMM-yyyy')}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         {payment.agentName}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
                           payment.paymentMethod === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
                           payment.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
@@ -320,17 +316,17 @@ export default function Payments() {
                           {payment.paymentMethod.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-right text-gray-900 dark:text-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
                         AED {payment.amount.toLocaleString()}
                       </td>
-                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
                         {payment.description}
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         <div>{payment.createdBy?.name || 'System'}</div>
-                        <div>{format(new Date(payment.createdAt || payment.date), 'dd-MMM HH:mm')}</div>
+                        <div className="text-xs text-gray-400">{format(new Date(payment.createdAt || payment.date), 'dd-MMM HH:mm')}</div>
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-center text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
                         <div className="flex justify-center gap-1">
                           <button
                             onClick={() => handleEdit(payment)}
@@ -385,123 +381,80 @@ export default function Payments() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="flex items-start justify-between mb-1">
-              <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-                {editingPayment ? 'Edit Payment' : t('addPayment')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => { setShowModal(false); resetForm() }}
-                className="ml-4 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-              >
+            <div className="modal-header">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {editingPayment ? 'Edit Payment' : t('addPayment')}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {editingPayment ? 'Update payment details' : 'Fill in the payment details below'}
+                </p>
+              </div>
+              <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="modal-close-btn">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-8">
-              {editingPayment ? 'Update payment details below' : 'Fill in the payment details below'}
-            </p>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <div>
-                  <label className="form-label">{t('paymentId')}</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input bg-gray-50 dark:bg-gray-600"
-                    value={formData.paymentNumber}
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <label className="form-label">{t('date')}</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    value={formData.date}
-                    placeholder="dd-MMM-yyyy"
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  />
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Section: Reference */}
+              <div className="form-section">
+                <p className="form-section-title">Reference</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">{t('batchId')}</label>
+                    <input type="text" required className="form-input bg-gray-100 dark:bg-gray-600/50 cursor-not-allowed" value={formData.paymentNumber} readOnly />
+                  </div>
+                  <DatePicker label={t('date')} required value={formData.date} onChange={(v) => setFormData({...formData, date: v})} />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <div>
-                  <label className="form-label">{t('agent')}</label>
-                  <select
-                    required
-                    className="form-select"
-                    value={formData.agentId}
-                    onChange={(e) => setFormData({...formData, agentId: e.target.value})}
-                  >
-                    <option value="">Select {t('agent')}</option>
-                    {agents.map(agent => (
-                      <option key={agent._id} value={agent._id}>{agent.name}</option>
-                    ))}
-                  </select>
+
+              {/* Section: Payment Details */}
+              <div className="form-section">
+                <p className="form-section-title">Payment Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="form-label">{t('agent')}</label>
+                    <select required className="form-select" value={formData.agentId} onChange={(e) => setFormData({...formData, agentId: e.target.value})}>
+                      <option value="">Select {t('agent')}</option>
+                      {agents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">{t('paymentMethod')}</label>
+                    <select className="form-select" value={formData.paymentMethod} onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}>
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank Transfer</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">{t('amount')} (AED)</label>
+                    <input type="number" placeholder="0.00" required className="form-input"
+                      value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                    />
+                  </div>
                 </div>
+                {formData.paymentMethod === 'bank' && (
+                  <div>
+                    <label className="form-label">Bank Account</label>
+                    <input type="text" placeholder="Bank Account Number" className="form-input"
+                      value={formData.bankAccount} onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
+                    />
+                  </div>
+                )}
                 <div>
-                  <label className="form-label">{t('paymentMethod')}</label>
-                  <select
-                    className="form-select"
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="upi">UPI</option>
-                    <option value="card">Card</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">{t('amount')}</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    required
-                    className="form-input"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                  <label className="form-label">{t('description')}</label>
+                  <textarea placeholder={t('description')} rows={3} className="form-input resize-none"
+                    value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
                   />
                 </div>
               </div>
-              {formData.paymentMethod === 'bank' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                <div>
-                  <label className="form-label">Bank Account</label>
-                  <input
-                    type="text"
-                    placeholder="Bank Account Number"
-                    className="form-input"
-                    value={formData.bankAccount}
-                    onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
-                  />
-                </div>
-              </div>
-              )}
-              <div>
-                <label className="form-label">{t('description')}</label>
-                <textarea
-                  placeholder={t('description')}
-                  rows={4}
-                  className="form-input resize-none"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                />
-              </div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-200 dark:border-gray-700 mt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false)
-                    resetForm()
-                  }}
-                  className="btn-secondary w-full sm:w-auto"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="dubai-button w-full sm:w-auto"
+
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="btn-secondary w-full sm:w-auto">{t('cancel')}</button>
+                <button type="submit"
+                  disabled={!formData.paymentNumber.trim() || !formData.agentId || !formData.amount || !formData.date}
+                  className="dubai-button w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingPayment ? 'Update Payment' : t('addPayment')}
                 </button>

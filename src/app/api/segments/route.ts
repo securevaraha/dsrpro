@@ -32,6 +32,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Segment name is required' }, { status: 400 })
     }
 
+    const existing = await Segment.findOne({ name: { $regex: `^${name.trim()}$`, $options: 'i' } })
+    if (existing) {
+      return NextResponse.json({ error: 'Segment with this name already exists' }, { status: 409 })
+    }
+
     const segment = await Segment.create({
       name: name.trim(),
       description: description?.trim() || '',

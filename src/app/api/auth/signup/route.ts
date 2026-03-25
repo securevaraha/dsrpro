@@ -20,11 +20,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 })
     }
 
-    const { name, email, password, role, companyName, phone } = body
+    const { name, email, password, role, companyName, phone, address } = body
 
     // Type checks
     if (!name || !email || !password || typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
       return NextResponse.json({ message: 'Name, email and password are required' }, { status: 400 })
+    }
+
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return NextResponse.json({ message: 'Phone number is required' }, { status: 400 })
+    }
+
+    if (!companyName || typeof companyName !== 'string' || !companyName.trim()) {
+      return NextResponse.json({ message: 'Company name is required' }, { status: 400 })
+    }
+
+    if (!address || typeof address !== 'string' || !address.trim()) {
+      return NextResponse.json({ message: 'Address is required' }, { status: 400 })
     }
 
     const trimmedName = name.trim()
@@ -71,8 +83,9 @@ export async function POST(request: NextRequest) {
       email: normalizedEmail,
       password: hashedPassword,
       role: safeRole,
-      companyName: typeof companyName === 'string' ? companyName.trim().slice(0, 200) : undefined,
-      phone: typeof phone === 'string' ? phone.trim().slice(0, 20) : undefined,
+      companyName: companyName.trim().slice(0, 200),
+      phone: phone.trim().slice(0, 20),
+      address: address.trim(),
       status: 'inactive', // Requires admin activation
     })
 

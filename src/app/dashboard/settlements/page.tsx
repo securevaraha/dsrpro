@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
+import { DatePicker } from '@/components/ui/date-picker'
 
 export default function Settlements() {
   const { t } = useLanguage()
@@ -109,46 +110,28 @@ export default function Settlements() {
       </div>
 
       {/* Summary Cards */}
-      <div className="mt-6 sm:mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-        <div className="dubai-card p-4 sm:p-6">
-          <div className="flex items-center">
-            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-success flex-shrink-0" />
-            <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total CC Sales</p>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">AED {settlementStats.totalSales?.toLocaleString() || '0'}</p>
+      <div className="mt-6 grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: 'Total CC Sales', value: `AED ${settlementStats.totalSales?.toLocaleString() || '0'}`, icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+          { label: 'Total Margin', value: `AED ${settlementStats.totalMargin?.toLocaleString() || '0'}`, icon: Calculator, color: 'text-primary', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
+          { label: 'Total Paid', value: `AED ${settlementStats.totalPaid?.toLocaleString() || '0'}`, icon: DollarSign, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+          { label: 'Balance Due', value: `AED ${settlementStats.totalBalance?.toLocaleString() || '0'}`, icon: DollarSign, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
+        ].map((card) => {
+          const Icon = card.icon
+          return (
+            <div key={card.label} className="dubai-card p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className={`p-2.5 rounded-xl flex-shrink-0 ${card.bg}`}>
+                  <Icon className={`h-5 w-5 ${card.color}`} />
+                </div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 truncate">{card.label}</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900 dark:text-white break-words leading-snug">{card.value}</p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        <div className="dubai-card p-4 sm:p-6">
-          <div className="flex items-center">
-            <Calculator className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
-            <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Margin</p>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">AED {settlementStats.totalMargin?.toLocaleString() || '0'}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="dubai-card p-4 sm:p-6">
-          <div className="flex items-center">
-            <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-warning flex-shrink-0" />
-            <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Paid</p>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">AED {settlementStats.totalPaid?.toLocaleString() || '0'}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="dubai-card p-4 sm:p-6">
-          <div className="flex items-center">
-            <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-danger flex-shrink-0" />
-            <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Balance Due</p>
-              <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">AED {settlementStats.totalBalance?.toLocaleString() || '0'}</p>
-            </div>
-          </div>
-        </div>
+          )
+        })}
       </div>
 
       {/* Mobile card view */}
@@ -180,44 +163,41 @@ export default function Settlements() {
       )}
 
       {/* Desktop Excel-like Table */}
-      <div className="hidden md:block mt-8 dubai-card p-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Settlement Ledger</h3>
+      <div className="hidden md:block mt-8 dubai-card">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 px-5 pt-5">Settlement Ledger</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">DATES</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">MERCHANT</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">C/C SALES</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">3.75% CHARGES</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">BANK CHARGES</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">VAT</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">NET RECEIVED</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TO PAY</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">MARGIN</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PAID</th>
-                <th className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">BALANCE</th>
+                {['Dates', 'Merchant', 'C/C Sales', '3.75% Charges', 'Bank Charges', 'VAT', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {settlements.length > 0 ? settlements.map((s: any) => (
-                <tr key={s._id}>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{format(new Date(s.date), 'dd-MMM-yyyy')}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.merchantId?.name || s.merchantId?.companyName || '—'}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.ccSales?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.charges?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.bankCharges?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.vat?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.netReceived?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.toPay?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.margin?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{s.paid?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{s.balance?.toLocaleString()}</td>
+                <tr key={s._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{format(new Date(s.date), 'dd-MMM-yyyy')}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.merchantId?.name || s.merchantId?.companyName || '—'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.ccSales?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.charges?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.bankCharges?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.vat?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.netReceived?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.toPay?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.margin?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.paid?.toLocaleString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold">
+                    <span className={(s.balance || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                      {s.balance?.toLocaleString()}
+                    </span>
+                  </td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={11} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
-                    No settlement data yet. Add your first settlement to see Excel-like calculations.
+                  <td colSpan={11} className="px-4 py-12 text-center">
+                    <Calculator className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No settlement data yet. Add your first settlement to see Excel-like calculations.</p>
                   </td>
                 </tr>
               )}
@@ -246,13 +226,11 @@ export default function Settlements() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 <div>
-                  <label className="form-label">Date</label>
-                  <input
-                    type="date"
+                  <DatePicker
+                    label="Date"
                     required
-                    className="form-input"
                     value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
+                    onChange={(v) => setFormData({...formData, date: v})}
                   />
                 </div>
                 <div>
