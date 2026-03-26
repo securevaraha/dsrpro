@@ -7,6 +7,8 @@ import { useLanguage } from '@/components/LanguageProvider'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { DatePicker } from '@/components/ui/date-picker'
+import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { Search } from 'lucide-react'
 
 function formatAED(value: number): string {
   if (value >= 1_000_000_000) return `AED ${(value / 1_000_000_000).toFixed(2)}B`
@@ -23,11 +25,18 @@ export default function Reports() {
   const [dateRange, setDateRange] = useState('month')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [segmentFilter, setSegmentFilter] = useState('all')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [reportData, setReportData] = useState<any>(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
+  const [posMachines, setPosMachines] = useState<any[]>([])
 
   useEffect(() => { fetchReportData() }, [reportType, dateRange])
+
+  useEffect(() => {
+    fetch('/api/users?role=agent').then(r => r.ok ? r.json() : null).then(d => d && setAgents(d.users || []))
+    fetch('/api/pos-machines').then(r => r.ok ? r.json() : null).then(d => d && setPosMachines(d.machines || []))
+  }, [])
 
   const fetchReportData = async () => {
     try {
@@ -118,10 +127,25 @@ export default function Reports() {
   ]
 
   const filteredItems = (reportData?.items || []).filter((item: any) => {
-    const matchSeg = segmentFilter === 'all' || item.posMachineSegment === segmentFilter
-    const matchBrand = brandFilter === 'all' || item.posMachineBrand === brandFilter
-    return matchSeg && matchBrand
+    const matchBatchId = !filters.batchId || (item.receiptNumber || item.transactionId || '').toLowerCase().includes(filters.batchId.toLowerCase())
+    const matchAgent = !filters.agent || filters.agent === 'all' || item.agentId === filters.agent || item.agent === agents.find(a => a._id === filters.agent)?.name
+    const matchPOS = !filters.posMachine || filters.posMachine === 'all' || item.posMachineId === filters.posMachine
+    return matchBatchId && matchAgent && matchPOS
   })
+
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
+
+  const filterFields = [
+    { key: 'batchId', label: 'Batch ID', type: 'text' as const, placeholder: 'Filter by batch ID...' },
+    { key: 'agent', label: 'Agent', type: 'select' as const, options: [
+      { value: 'all', label: 'All Agents' },
+      ...agents.map(a => ({ value: a._id, label: a.name }))
+    ]},
+    { key: 'posMachine', label: 'POS Machine', type: 'select' as const, options: [
+      { value: 'all', label: 'All POS Machines' },
+      ...posMachines.map(m => ({ value: m._id, label: `${m.segment} / ${m.brand} — ${m.terminalId}` }))
+    ]},
+  ]
 
   return (
     <div className="space-y-6">
@@ -143,8 +167,19 @@ export default function Reports() {
             <span className="hidden sm:inline">{t('exportPDF')}</span>
             <span className="sm:hidden">PDF</span>
           </button>
+          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
         </div>
       </div>
+
+      <FilterPanel
+        open={showFilter}
+        onClose={() => setShowFilter(false)}
+        fields={filterFields}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onReset={() => setFilters({})}
+        activeCount={activeFilterCount}
+      />
 
       {/* Filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -165,14 +200,6 @@ export default function Reports() {
           <option value="month">{t('monthlyReport')}</option>
           <option value="year">{t('yearlyReport')}</option>
           <option value="custom">Custom Range</option>
-        </select>
-        <select className="form-select" value={segmentFilter} onChange={(e) => setSegmentFilter(e.target.value)}>
-          <option value="all">All Segments</option>
-          {reportData?.segments?.map((s: string) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select className="form-select" value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)}>
-          <option value="all">All Brands</option>
-          {reportData?.brands?.map((b: string) => <option key={b} value={b}>{b}</option>)}
         </select>
         {dateRange === 'custom' && (
           <>

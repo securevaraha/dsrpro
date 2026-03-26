@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
 import { DatePicker } from '@/components/ui/date-picker'
+import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 
 export default function Settlements() {
   const { t } = useLanguage()
@@ -13,6 +14,8 @@ export default function Settlements() {
   const [merchants, setMerchants] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [settlementStats, setSettlementStats] = useState<any>({ totalSales: 0, totalMargin: 0, totalPaid: 0, totalBalance: 0 })
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -57,6 +60,22 @@ export default function Settlements() {
     }
   }
 
+  const filteredSettlements = settlements.filter(s => {
+    const matchesDate = !filters.date || s.date?.startsWith(filters.date)
+    const matchesMerchant = !filters.merchant || filters.merchant === 'all' || s.merchantId?._id === filters.merchant
+    return matchesDate && matchesMerchant
+  })
+
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
+
+  const filterFields = [
+    { key: 'date', label: 'Date', type: 'text' as const, placeholder: 'YYYY-MM-DD' },
+    { key: 'merchant', label: 'Merchant', type: 'select' as const, options: [
+      { value: 'all', label: 'All Merchants' },
+      ...merchants.map(m => ({ value: m._id, label: `${m.name}${m.companyName ? ` - ${m.companyName}` : ''}` }))
+    ]},
+  ]
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -98,7 +117,7 @@ export default function Settlements() {
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Merchant Settlements</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Track daily card sales and settlements like Excel sheets</p>
         </div>
-        <div>
+        <div className="flex gap-2">
           <button
             onClick={() => setShowModal(true)}
             className="dubai-button inline-flex items-center justify-center"
@@ -106,8 +125,19 @@ export default function Settlements() {
             <Plus className="h-4 w-4 mr-2" />
             Add Settlement
           </button>
+          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
         </div>
       </div>
+
+      <FilterPanel
+        open={showFilter}
+        onClose={() => setShowFilter(false)}
+        fields={filterFields}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onReset={() => setFilters({})}
+        activeCount={activeFilterCount}
+      />
 
       {/* Summary Cards */}
       <div className="mt-6 grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -135,9 +165,9 @@ export default function Settlements() {
       </div>
 
       {/* Mobile card view */}
-      {!loading && settlements.length > 0 && (
+      {!loading && filteredSettlements.length > 0 && (
         <div className="md:hidden mt-6 space-y-3">
-          {settlements.map((s: any) => (
+          {filteredSettlements.map((s: any) => (
             <div key={s._id} className="dubai-card p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">{format(new Date(s.date), 'dd-MMM-yyyy')}</span>
@@ -175,7 +205,7 @@ export default function Settlements() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {settlements.length > 0 ? settlements.map((s: any) => (
+              {settlements.length > 0 ? filteredSettlements.map((s: any) => (
                 <tr key={s._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{format(new Date(s.date), 'dd-MMM-yyyy')}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{s.merchantId?.name || s.merchantId?.companyName || '—'}</td>

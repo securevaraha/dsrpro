@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { useOptimistic } from '@/hooks/useOptimistic'
 import { RoleGuard } from '@/components/RoleGuard'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 
 interface Agent {
   _id: string
@@ -63,10 +64,8 @@ export default function POSMachines() {
   const { user } = useCurrentUser()
   const isAdmin = user?.role === 'admin'
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [brandFilter, setBrandFilter] = useState<string>('all')
-  const [segmentFilter, setSegmentFilter] = useState<string>('all')
-  const [agentFilter, setAgentFilter] = useState<string>('all')
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [showModal, setShowModal] = useState(false)
   const [editingMachine, setEditingMachine] = useState<POSMachine | null>(null)
   const [loading, setLoading] = useState(true)
@@ -172,12 +171,41 @@ export default function POSMachines() {
       machine.merchantId?.toLowerCase().includes(search) ||
       machine.location?.toLowerCase().includes(search) ||
       machine.assignedAgent?.name?.toLowerCase().includes(search)
-    const matchesStatus = statusFilter === 'all' || machine.status === statusFilter
-    const matchesBrand = brandFilter === 'all' || machine.brand === brandFilter
-    const matchesSegment = segmentFilter === 'all' || machine.segment === segmentFilter
-    const matchesAgent = agentFilter === 'all' || machine.assignedAgent?._id === agentFilter
-    return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent
+    const matchesStatus = !filters.status || filters.status === 'all' || machine.status === filters.status
+    const matchesBrand = !filters.brand || filters.brand === 'all' || machine.brand === filters.brand
+    const matchesSegment = !filters.segment || filters.segment === 'all' || machine.segment === filters.segment
+    const matchesAgent = !filters.agent || filters.agent === 'all' || machine.assignedAgent?._id === filters.agent
+    const matchesDevice = !filters.device || filters.device === 'all' || machine.deviceType === filters.device
+    return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice
   })
+
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
+
+  const filterFields = [
+    { key: 'segment', label: 'Segment', type: 'select' as const, options: [
+      { value: 'all', label: 'All Segments' },
+      ...segments.map(s => ({ value: s.name, label: s.name }))
+    ]},
+    { key: 'brand', label: 'Brand', type: 'select' as const, options: [
+      { value: 'all', label: 'All Brands' },
+      ...brands.map(b => ({ value: b.name, label: b.name }))
+    ]},
+    { key: 'agent', label: 'Agent Name', type: 'select' as const, options: [
+      { value: 'all', label: 'All Agents' },
+      ...agents.map(a => ({ value: a._id, label: a.name }))
+    ]},
+    { key: 'device', label: 'Device Type', type: 'select' as const, options: [
+      { value: 'all', label: 'All Devices' },
+      { value: 'traditional_pos', label: 'Traditional POS' },
+      { value: 'android_pos', label: 'Android POS' },
+    ]},
+    { key: 'status', label: 'Status', type: 'select' as const, options: [
+      { value: 'all', label: 'All Status' },
+      { value: 'active', label: 'Active' },
+      { value: 'inactive', label: 'Inactive' },
+      { value: 'maintenance', label: 'Maintenance' },
+    ]},
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -358,8 +386,8 @@ export default function POSMachines() {
         </div>
 
         {/* Filters */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-3 overflow-x-auto pb-2">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="mt-6 flex gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -369,47 +397,18 @@ export default function POSMachines() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            value={brandFilter}
-            onChange={(e) => setBrandFilter(e.target.value)}
-            className="form-select w-auto min-w-[130px]"
-          >
-            <option value="all">All Brands</option>
-            {brands.map(b => (
-              <option key={b._id} value={b.name}>{b.name}</option>
-            ))}
-          </select>
-          <select
-            value={segmentFilter}
-            onChange={(e) => setSegmentFilter(e.target.value)}
-            className="form-select w-auto min-w-[140px]"
-          >
-            <option value="all">All Segments</option>
-            {segments.map(s => (
-              <option key={s._id} value={s.name}>{s.name}</option>
-            ))}
-          </select>
-          <select
-            value={agentFilter}
-            onChange={(e) => setAgentFilter(e.target.value)}
-            className="form-select w-auto min-w-[130px]"
-          >
-            <option value="all">All Agents</option>
-            {agents.map(a => (
-              <option key={a._id} value={a._id}>{a.name}</option>
-            ))}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="form-select w-auto min-w-[130px]"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="maintenance">Maintenance</option>
-          </select>
+          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
         </div>
+
+        <FilterPanel
+          open={showFilter}
+          onClose={() => setShowFilter(false)}
+          fields={filterFields}
+          values={filters}
+          onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+          onReset={() => setFilters({})}
+          activeCount={activeFilterCount}
+        />
 
         {/* Machines List */}
         <div className="mt-6">

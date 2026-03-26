@@ -7,6 +7,8 @@ import { useLanguage } from '@/components/LanguageProvider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { DatePicker } from '@/components/ui/date-picker'
+import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { Search } from 'lucide-react'
 
 interface Payment {
   _id: string
@@ -40,6 +42,9 @@ export default function Payments() {
   })
 
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetchPayments()
@@ -173,6 +178,24 @@ export default function Payments() {
     setFormData({...formData, paymentNumber: nextNumber})
   }
 
+  const filteredPayments = payments.filter(p => {
+    const matchesSearch = p.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.agentName.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesBatchId = !filters.batchId || p.paymentNumber.toLowerCase().includes(filters.batchId.toLowerCase())
+    const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId === filters.agent
+    return matchesSearch && matchesBatchId && matchesAgent
+  })
+
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
+
+  const filterFields = [
+    { key: 'batchId', label: 'Batch ID', type: 'text' as const, placeholder: 'Filter by batch ID...' },
+    { key: 'agent', label: 'Agent', type: 'select' as const, options: [
+      { value: 'all', label: 'All Agents' },
+      ...agents.map(a => ({ value: a._id, label: a.name }))
+    ]},
+  ]
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -193,6 +216,31 @@ export default function Payments() {
           </button>
         </div>
       </div>
+
+      {/* Search + Filter */}
+      <div className="mt-5 flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search payments..."
+            className="form-input pl-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
+      </div>
+
+      <FilterPanel
+        open={showFilter}
+        onClose={() => setShowFilter(false)}
+        fields={filterFields}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onReset={() => setFilters({})}
+        activeCount={activeFilterCount}
+      />
 
       {/* Payments */}
       <div className="mt-6">
@@ -221,7 +269,7 @@ export default function Payments() {
           <>
             {/* Mobile card view */}
             <div className="md:hidden space-y-3">
-              {payments.map((payment) => (
+              {filteredPayments.map((payment) => (
                 <div key={payment._id} className="dubai-card p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{payment.paymentNumber}</span>
@@ -295,7 +343,7 @@ export default function Payments() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {payments.map((payment) => (
+                  {filteredPayments.map((payment) => (
                     <tr key={payment._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {payment.paymentNumber}

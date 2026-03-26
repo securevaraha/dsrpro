@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
+import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 
 interface Segment {
   _id: string
@@ -26,7 +27,20 @@ export default function SegmentsPage() {
   const [deletingSegment, setDeletingSegment] = useState<Segment | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
+
+  const filterFields = [
+    { key: 'name', label: 'Name', type: 'text' as const, placeholder: 'Filter by name...' },
+    { key: 'status', label: 'Status', type: 'select' as const, options: [
+      { value: 'all', label: 'All Status' },
+      { value: 'active', label: 'Active' },
+      { value: 'inactive', label: 'Inactive' },
+    ]},
+  ]
+
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
   useEffect(() => {
     fetchSegments()
@@ -98,10 +112,14 @@ export default function SegmentsPage() {
     }
   }
 
-  const filteredSegments = segments.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredSegments = segments.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesName = !filters.name || s.name.toLowerCase().includes(filters.name.toLowerCase())
+    const matchesStatus = !filters.status || filters.status === 'all' ||
+      (filters.status === 'active' ? s.isActive : !s.isActive)
+    return matchesSearch && matchesName && matchesStatus
+  })
 
   return (
     <RoleGuard allowedRoles={['admin']}>
@@ -123,17 +141,30 @@ export default function SegmentsPage() {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="mt-5 relative max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search segments..."
-            className="form-input pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        {/* Search + Filter */}
+        <div className="mt-5 flex gap-2">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search segments..."
+              className="form-input pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
         </div>
+
+        <FilterPanel
+          open={showFilter}
+          onClose={() => setShowFilter(false)}
+          fields={filterFields}
+          values={filters}
+          onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+          onReset={() => setFilters({})}
+          activeCount={activeFilterCount}
+        />
 
         {/* Table */}
         <div className="mt-6">

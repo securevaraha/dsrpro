@@ -9,6 +9,7 @@ import { TableSkeleton } from '@/components/ui/skeleton'
 import { ImagePreviewModal } from '@/components/ImagePreviewModal'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { DatePicker } from '@/components/ui/date-picker'
+import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 
 interface Receipt {
   _id: string
@@ -46,9 +47,8 @@ export default function Receipts() {
   const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null)
   const [deletingReceipt, setDeletingReceipt] = useState<Receipt | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [segmentFilter, setSegmentFilter] = useState('all')
-  const [brandFilter, setBrandFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [previewImage, setPreviewImage] = useState({ url: '', fileName: '' })
@@ -187,14 +187,20 @@ export default function Receipts() {
   const filteredReceipts = receipts.filter(receipt => {
     const matchesSearch = receipt.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesSegment = segmentFilter === 'all' || (receipt.posMachine?.segment === segmentFilter)
-    const matchesBrand = brandFilter === 'all' || (receipt.posMachine?.brand === brandFilter)
-    return matchesSearch && matchesSegment && matchesBrand
+    const matchesBatchId = !filters.batchId || receipt.receiptNumber.toLowerCase().includes(filters.batchId.toLowerCase())
+    const matchesPOS = !filters.posMachine || filters.posMachine === 'all' || receipt.posMachine?._id === filters.posMachine
+    return matchesSearch && matchesBatchId && matchesPOS
   })
 
-  // Derive unique segments and brands from loaded POS machines
-  const uniqueSegments = Array.from(new Set(posMachines.map(m => m.segment).filter(Boolean)))
-  const uniqueBrands = Array.from(new Set(posMachines.map(m => m.brand).filter(Boolean)))
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
+
+  const filterFields = [
+    { key: 'batchId', label: 'Batch ID', type: 'text' as const, placeholder: 'Filter by batch ID...' },
+    { key: 'posMachine', label: 'POS Machine', type: 'select' as const, options: [
+      { value: 'all', label: 'All POS Machines' },
+      ...posMachines.map(m => ({ value: m._id, label: `${m.segment} / ${m.brand} — ${m.terminalId}` }))
+    ]},
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -344,8 +350,8 @@ export default function Receipts() {
       </div>
 
       {/* Filters */}
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="relative">
+      <div className="mt-5 flex gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
@@ -355,27 +361,18 @@ export default function Receipts() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <select
-          className="form-select"
-          value={segmentFilter}
-          onChange={(e) => setSegmentFilter(e.target.value)}
-        >
-          <option value="all">All Segments</option>
-          {uniqueSegments.map(segment => (
-            <option key={segment} value={segment}>{segment}</option>
-          ))}
-        </select>
-        <select
-          className="form-select"
-          value={brandFilter}
-          onChange={(e) => setBrandFilter(e.target.value)}
-        >
-          <option value="all">All Brands</option>
-          {uniqueBrands.map(brand => (
-            <option key={brand} value={brand}>{brand}</option>
-          ))}
-        </select>
+        <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
       </div>
+
+      <FilterPanel
+        open={showFilter}
+        onClose={() => setShowFilter(false)}
+        fields={filterFields}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onReset={() => setFilters({})}
+        activeCount={activeFilterCount}
+      />
 
       {/* Receipts */}
       <div className="mt-6">
