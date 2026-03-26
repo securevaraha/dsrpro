@@ -70,20 +70,19 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [period, setPeriod] = useState<Period>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(PERIOD_KEY) as Period) || 'today'
-    }
-    return 'today'
-  })
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [period, setPeriod] = useState<Period>('today')
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const [periodLabel, setPeriodLabel] = useState('')
   const { t } = useLanguage()
   const { user } = useCurrentUser()
   const role = user?.role || 'agent'
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Live clock
+  // Restore period from localStorage + init clock after mount
   useEffect(() => {
+    const saved = (localStorage.getItem(PERIOD_KEY) as Period) || 'today'
+    setPeriod(saved)
+    setCurrentTime(new Date())
     clockRef.current = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => { if (clockRef.current) clearInterval(clockRef.current) }
   }, [])
@@ -91,6 +90,7 @@ export default function Dashboard() {
   // Persist period selection
   useEffect(() => {
     localStorage.setItem(PERIOD_KEY, period)
+    setPeriodLabel(getPeriodLabel(period))
     fetchDashboardData()
   }, [period])
 
@@ -256,12 +256,12 @@ export default function Dashboard() {
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                 <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-                  {getPeriodLabel(period)}
+                  {periodLabel}
                 </span>
                 <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
                 <span className="text-sm font-mono text-primary flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-                  {format(currentTime, 'hh:mm:ss aa')}
+                  {currentTime ? format(currentTime, 'hh:mm:ss aa') : ''}
                 </span>
               </div>
             </div>

@@ -19,7 +19,8 @@ interface ChartProps {
   className?: string
 }
 
-export default function Chart({ type, data, options = {}, className = '' }: ChartProps) {
+const EMPTY_OPTIONS = {}
+export default function Chart({ type, data, options = EMPTY_OPTIONS, className = '' }: ChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<any>(null)
 
@@ -31,7 +32,9 @@ export default function Chart({ type, data, options = {}, className = '' }: Char
       ChartJS.register(...registerables)
 
       if (chartRef.current) {
-        chartRef.current.destroy()
+        chartRef.current.data = data
+        chartRef.current.update('none')
+        return
       }
 
       const ctx = canvasRef.current!.getContext('2d')!
@@ -41,11 +44,10 @@ export default function Chart({ type, data, options = {}, className = '' }: Char
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: { duration: 400 },
           plugins: {
             legend: {
-              labels: {
-                color: 'rgb(107, 114, 128)'
-              }
+              labels: { color: 'rgb(107, 114, 128)' }
             }
           },
           scales: type !== 'doughnut' ? {
@@ -68,9 +70,17 @@ export default function Chart({ type, data, options = {}, className = '' }: Char
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy()
+        chartRef.current = null
       }
     }
-  }, [type, data, options])
+  }, [type])
+
+  // Update data without destroying the chart
+  useEffect(() => {
+    if (!chartRef.current) return
+    chartRef.current.data = data
+    chartRef.current.update('none')
+  }, [data])
 
   return <canvas ref={canvasRef} className={className} />
 }
