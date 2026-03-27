@@ -26,6 +26,7 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
@@ -97,18 +98,22 @@ export default function BrandsPage() {
 
   const handleDelete = async () => {
     if (!deletingBrand) return
+    setDeleting(true)
     try {
       const response = await fetch(`/api/brands/${deletingBrand._id}`, { method: 'DELETE' })
+      const data = await response.json()
       if (response.ok) {
         toast.success('Brand deleted')
         setShowDeleteDialog(false)
         setDeletingBrand(null)
         fetchBrands()
       } else {
-        toast.error('Failed to delete brand')
+        toast.error(data.error || 'Failed to delete brand')
       }
     } catch {
       toast.error('Failed to delete brand')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -126,10 +131,7 @@ export default function BrandsPage() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <Tag className="h-6 w-6 text-primary" />
-              Brands
-            </h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Brands</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage POS machine brands</p>
           </div>
           <button
@@ -143,7 +145,7 @@ export default function BrandsPage() {
 
         {/* Search + Filter */}
         <div className="mt-5 flex gap-2">
-          <div className="relative flex-1 max-w-xs">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -176,7 +178,7 @@ export default function BrandsPage() {
               <h3 className="text-base font-medium text-gray-900 dark:text-white mb-1">
                 {searchTerm ? 'No brands found' : 'No brands yet'}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {searchTerm ? 'Try a different search term' : 'Create your first brand'}
               </p>
             </div>
@@ -213,7 +215,11 @@ export default function BrandsPage() {
                         {format(new Date(brand.updatedAt), 'dd-MMM-yyyy')}
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${brand.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          brand.isActive
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                        }`}>
                           {brand.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -294,13 +300,20 @@ export default function BrandsPage() {
         {showDeleteDialog && deletingBrand && (
           <div className="modal-overlay">
             <div className="modal-content max-w-sm">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Brand</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                  <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete Brand</h3>
+              </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                 Are you sure you want to delete <strong>{deletingBrand.name}</strong>? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
-                <button onClick={() => setShowDeleteDialog(false)} className="btn-secondary">Cancel</button>
-                <button onClick={handleDelete} className="btn-danger">Delete</button>
+                <button onClick={() => setShowDeleteDialog(false)} disabled={deleting} className="btn-secondary disabled:opacity-50">Cancel</button>
+                <button onClick={handleDelete} disabled={deleting} className="btn-danger disabled:opacity-50 inline-flex items-center gap-2">
+                  {deleting ? <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Deleting...</> : 'Delete'}
+                </button>
               </div>
             </div>
           </div>

@@ -45,12 +45,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectDB()
     const { id } = await params
-    const brand = await Brand.findByIdAndDelete(id)
+    const brand = await Brand.findById(id)
 
     if (!brand) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 })
     }
 
+    const POSMachine = (await import('@/models/POSMachine')).default
+    const machineCount = await POSMachine.countDocuments({ brand: brand.name })
+    if (machineCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete brand "${brand.name}" — it is assigned to ${machineCount} POS machine${machineCount > 1 ? 's' : ''}. Remove or reassign those machines first.` },
+        { status: 409 }
+      )
+    }
+
+    await brand.deleteOne()
     return NextResponse.json({ message: 'Brand deleted successfully' })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete brand' }, { status: 500 })

@@ -70,6 +70,9 @@ export default function POSMachines() {
   const [editingMachine, setEditingMachine] = useState<POSMachine | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deletingMachine, setDeletingMachine] = useState<POSMachine | null>(null)
   const [agents, setAgents] = useState<Agent[]>([])
   const [brands, setBrands] = useState<{ _id: string, name: string }[]>([])
   const [segments, setSegments] = useState<{ _id: string, name: string }[]>([])
@@ -311,16 +314,24 @@ export default function POSMachines() {
     setShowModal(true)
   }
 
-  const handleDelete = async (machine: POSMachine) => {
-    if (window.confirm(`Delete POS machine ${machine.terminalId}? This action cannot be undone.`)) {
+  const handleDelete = async () => {
+    if (!deletingMachine) return
+    setDeleting(true)
+    try {
       await optimisticDelete(
-        machine._id,
+        deletingMachine._id,
         async () => {
-          const response = await fetch(`/api/pos-machines/${machine._id}`, { method: 'DELETE' })
+          const response = await fetch(`/api/pos-machines/${deletingMachine._id}`, { method: 'DELETE' })
           if (!response.ok) throw new Error('Delete failed')
         }
       )
+      setShowDeleteDialog(false)
+      setDeletingMachine(null)
       fetchMachines()
+    } catch {
+      toast.error('Failed to delete POS machine')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -341,9 +352,6 @@ export default function POSMachines() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <CreditCard className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-            </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">POS Machines</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -415,19 +423,15 @@ export default function POSMachines() {
           {loading ? (
             <TableSkeleton rows={5} columns={6} />
           ) : filteredMachines.length === 0 ? (
-            <EmptyState
-              icon={<CreditCard className="h-12 w-12" />}
-              title={searchTerm ? 'No machines found' : 'No POS machines yet'}
-              description={searchTerm
-                ? 'Try adjusting your search or filters'
-                : 'Start by adding POS machines and assigning them to agents.'
-              }
-              action={!searchTerm && isAdmin ? (
-                <LoadingButton onClick={() => setShowModal(true)} className="dubai-button">
-                  <Plus className="h-4 w-4 mr-2" /> Add Machine
-                </LoadingButton>
-              ) : undefined}
-            />
+            <div className="dubai-card text-center py-12">
+              <CreditCard className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-base font-medium text-gray-900 dark:text-white mb-1">
+                {searchTerm ? 'No machines found' : 'No POS machines yet'}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {searchTerm ? 'Try adjusting your search or filters' : 'Start by adding POS machines and assigning them to agents.'}
+              </p>
+            </div>
           ) : (
             <>
               {/* Desktop Table */}
@@ -530,7 +534,7 @@ export default function POSMachines() {
                               <button onClick={() => handleEdit(machine)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
                                 <Edit className="h-4 w-4" />
                               </button>
-                              <button onClick={() => handleDelete(machine)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
+                              <button onClick={() => { setDeletingMachine(machine); setShowDeleteDialog(true) }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
@@ -620,7 +624,7 @@ export default function POSMachines() {
                         <button onClick={() => handleEdit(machine)} className="p-1.5 text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button onClick={() => handleDelete(machine)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
+                        <button onClick={() => { setDeletingMachine(machine); setShowDeleteDialog(true) }} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -785,6 +789,38 @@ export default function POSMachines() {
             </div>
           </div>
         )}
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && deletingMachine && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete POS Machine</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete terminal <strong>{deletingMachine.terminalId}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteDialog(false); setDeletingMachine(null) }}
+                disabled={deleting}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn-danger disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {deleting ? <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Deleting...</> : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </ErrorBoundary>
     </RoleGuard>

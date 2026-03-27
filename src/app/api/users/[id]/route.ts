@@ -115,11 +115,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectDB()
     
-    const user = await User.findByIdAndDelete(id)
-    
+    const user = await User.findById(id)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    // Check for assigned POS machines
+    const POSMachine = (await import('@/models/POSMachine')).default
+    const machineCount = await POSMachine.countDocuments({ assignedAgent: id })
+    if (machineCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete user "${user.name}" — they have ${machineCount} POS machine${machineCount > 1 ? 's' : ''} assigned. Unassign or reassign those machines first.` },
+        { status: 409 }
+      )
+    }
+
+    await user.deleteOne()
     
     return NextResponse.json({ 
       message: 'User deleted successfully'

@@ -1,5 +1,10 @@
 import mongoose from 'mongoose'
 
+// Clear cached model to pick up schema changes
+if (mongoose.models.Transaction) {
+  delete mongoose.models.Transaction
+}
+
 const transactionSchema = new mongoose.Schema({
   transactionId: {
     type: String,
@@ -39,7 +44,7 @@ const transactionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'cancelled'],
+    enum: ['pending', 'completed', 'failed', 'cancelled', 'due'],
     default: 'pending'
   },
   posMachine: {

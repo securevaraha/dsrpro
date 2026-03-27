@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       description,
       attachments,
-      metadata
+      metadata,
+      status,
     } = await request.json()
     
     // Use custom transaction ID from metadata if provided (for receipts/payments)
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
       description,
       attachments: attachments || [],
       metadata,
-      status: 'completed'
+      status: status || 'completed'
     }, auth.userId)
     
     // Calculate commissions only if client exists

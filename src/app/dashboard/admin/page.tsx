@@ -64,6 +64,7 @@ export default function AdminPanel() {
   const [resetUser, setResetUser] = useState<User | null>(null)
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -210,6 +211,7 @@ export default function AdminPanel() {
 
   const handleDelete = async () => {
     if (!deletingUser) return
+    setDeleting(true)
     try {
       const response = await fetch(`/api/users/${deletingUser._id}`, { method: 'DELETE' })
       const data = await response.json()
@@ -223,6 +225,8 @@ export default function AdminPanel() {
       }
     } catch {
       toast.error('Failed to delete user')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -715,11 +719,6 @@ export default function AdminPanel() {
                 <div className="text-center py-12">
                   <Users className="h-10 w-10 mx-auto mb-3 text-gray-400" />
                   <p className="font-medium text-gray-900 dark:text-white">No users found</p>
-                  {!searchTerm && (
-                    <button onClick={() => setShowModal(true)} className="dubai-button mt-3 text-sm py-2 px-4">
-                      <UserPlus className="h-4 w-4 mr-2 inline" /> Add User
-                    </button>
-                  )}
                 </div>
               ) : (
                 filteredUsers.map((user) => (
@@ -1020,15 +1019,17 @@ export default function AdminPanel() {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => { setShowDeleteDialog(false); setDeletingUser(null) }}
-                  className="btn-secondary"
+                  disabled={deleting}
+                  className="btn-secondary disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="btn-danger"
+                  disabled={deleting}
+                  className="btn-danger disabled:opacity-50 inline-flex items-center gap-2"
                 >
-                  Delete User
+                  {deleting ? <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Deleting...</> : 'Delete User'}
                 </button>
               </div>
             </div>

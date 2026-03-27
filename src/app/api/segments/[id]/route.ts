@@ -45,12 +45,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     await connectDB()
     const { id } = await params
-    const segment = await Segment.findByIdAndDelete(id)
+    const segment = await Segment.findById(id)
 
     if (!segment) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
 
+    const POSMachine = (await import('@/models/POSMachine')).default
+    const machineCount = await POSMachine.countDocuments({ segment: segment.name })
+    if (machineCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete segment "${segment.name}" — it is assigned to ${machineCount} POS machine${machineCount > 1 ? 's' : ''}. Remove or reassign those machines first.` },
+        { status: 409 }
+      )
+    }
+
+    await segment.deleteOne()
     return NextResponse.json({ message: 'Segment deleted successfully' })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete segment' }, { status: 500 })

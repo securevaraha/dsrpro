@@ -19,6 +19,7 @@ interface Payment {
   paymentMethod: 'cash' | 'bank' | 'upi' | 'card'
   amount: number
   description: string
+  status: 'completed' | 'pending' | 'failed' | 'due'
   createdBy?: { name: string }
   createdAt?: string
 }
@@ -31,6 +32,7 @@ export default function Payments() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     paymentNumber: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -39,6 +41,7 @@ export default function Payments() {
     bankAccount: '',
     amount: '',
     description: '',
+    status: 'completed' as 'completed' | 'pending' | 'failed' | 'due',
   })
 
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
@@ -78,6 +81,7 @@ export default function Payments() {
           paymentMethod: t.paymentMethod,
           amount: t.amount,
           description: t.description || 'Payment',
+          status: t.status || 'completed',
           createdBy: t.createdBy,
           createdAt: t.createdAt
         }))
@@ -105,6 +109,7 @@ export default function Payments() {
           amount: parseFloat(formData.amount),
           paymentMethod: formData.paymentMethod,
           description: formData.description,
+          status: formData.status,
           metadata: {
             paymentNumber: formData.paymentNumber,
             bankAccount: formData.bankAccount
@@ -118,10 +123,11 @@ export default function Payments() {
         resetForm()
         fetchPayments()
       } else {
-        throw new Error('Failed to save payment')
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to save payment')
       }
-    } catch (error) {
-      toast.error('Failed to save payment')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save payment')
     }
   }
 
@@ -134,19 +140,17 @@ export default function Payments() {
       paymentMethod: payment.paymentMethod,
       bankAccount: '',
       amount: payment.amount.toString(),
-      description: payment.description
+      description: payment.description,
+      status: payment.status || 'completed',
     })
     setShowModal(true)
   }
 
   const handleDelete = async () => {
     if (!deletingPayment) return
-    
+    setDeleting(true)
     try {
-      const response = await fetch(`/api/transactions/${deletingPayment._id}`, {
-        method: 'DELETE'
-      })
-      
+      const response = await fetch(`/api/transactions/${deletingPayment._id}`, { method: 'DELETE' })
       if (response.ok) {
         toast.success('Payment deleted successfully')
         setShowDeleteDialog(false)
@@ -157,6 +161,8 @@ export default function Payments() {
       }
     } catch (error) {
       toast.error('Failed to delete payment')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -168,14 +174,17 @@ export default function Payments() {
       paymentMethod: 'cash', 
       bankAccount: '', 
       amount: '', 
-      description: '' 
+      description: '',
+      status: 'completed',
     })
     setEditingPayment(null)
   }
 
-  const generatePaymentNumber = () => {
-    const nextNumber = `P${String(payments.length + 1).padStart(3, '0')}`
-    setFormData({...formData, paymentNumber: nextNumber})
+  const openAddModal = () => {
+    const id = `P${Date.now().toString().slice(-6)}${Math.random().toString(36).slice(2,4).toUpperCase()}`
+    setFormData({ paymentNumber: id, date: format(new Date(), 'yyyy-MM-dd'), agentId: '', paymentMethod: 'cash', bankAccount: '', amount: '', description: '', status: 'completed' })
+    setEditingPayment(null)
+    setShowModal(true)
   }
 
   const filteredPayments = payments.filter(p => {
@@ -205,10 +214,7 @@ export default function Payments() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => {
-              generatePaymentNumber()
-              setShowModal(true)
-            }}
+            onClick={openAddModal}
             className="dubai-button inline-flex items-center justify-center"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -255,15 +261,6 @@ export default function Payments() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {t('noPaymentsDescription')}
             </p>
-            <button
-              onClick={() => {
-                generatePaymentNumber()
-                setShowModal(true)
-              }}
-              className="dubai-button"
-            >
-              {t('addFirstPayment')}
-            </button>
           </div>
         ) : (
           <>
@@ -337,7 +334,7 @@ export default function Payments() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    {['Batch ID', t('date'), t('agent'), t('paymentMethod'), t('amount'), t('description'), 'Created By', t('actions')].map((h) => (
+                    {['Batch ID', t('date'), t('agent'), t('paymentMethod'), 'Status', t('amount'), t('description'), 'Created By', t('actions')].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -362,6 +359,16 @@ export default function Payments() {
                           'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
                         }`}>
                           {payment.paymentMethod.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          payment.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                          payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
+                          payment.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' :
+                          'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300'
+                        }`}>
+                          {payment.status === 'due' ? 'Due' : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
@@ -482,14 +489,28 @@ export default function Payments() {
                     />
                   </div>
                 </div>
-                {formData.paymentMethod === 'bank' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">Bank Account</label>
-                    <input type="text" placeholder="Bank Account Number" className="form-input"
-                      value={formData.bankAccount} onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
-                    />
+                    <label className="form-label">Payment Status</label>
+                    <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})}>
+                      <option value="completed">Completed</option>
+                      <option value="pending">Pending</option>
+                      <option value="due">Due</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                    {(formData.status === 'pending' || formData.status === 'failed' || formData.status === 'due') && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠ This payment will appear in Settlements for follow-up.</p>
+                    )}
                   </div>
-                )}
+                  {formData.paymentMethod === 'bank' && (
+                    <div>
+                      <label className="form-label">Bank Account</label>
+                      <input type="text" placeholder="Bank Account Number" className="form-input"
+                        value={formData.bankAccount} onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
+                      />
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="form-label">{t('description')}</label>
                   <textarea placeholder={t('description')} rows={3} className="form-input resize-none"
@@ -527,15 +548,17 @@ export default function Payments() {
                 setShowDeleteDialog(false)
                 setDeletingPayment(null)
               }}
-              className="btn-secondary"
+              disabled={deleting}
+              className="btn-secondary disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleDelete}
-              className="btn-danger"
+              disabled={deleting}
+              className="btn-danger disabled:opacity-50 inline-flex items-center gap-2"
             >
-              Delete
+              {deleting ? <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Deleting...</> : 'Delete'}
             </button>
           </div>
         </DialogContent>

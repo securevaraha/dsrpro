@@ -46,6 +46,7 @@ export default function Receipts() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null)
   const [deletingReceipt, setDeletingReceipt] = useState<Receipt | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
@@ -261,12 +262,9 @@ export default function Receipts() {
 
   const handleDelete = async () => {
     if (!deletingReceipt) return
-    
+    setDeleting(true)
     try {
-      const response = await fetch(`/api/transactions/${deletingReceipt._id}`, {
-        method: 'DELETE'
-      })
-      
+      const response = await fetch(`/api/transactions/${deletingReceipt._id}`, { method: 'DELETE' })
       if (response.ok) {
         toast.success('Receipt deleted successfully')
         setShowDeleteDialog(false)
@@ -277,6 +275,8 @@ export default function Receipts() {
       }
     } catch (error) {
       toast.error('Failed to delete receipt')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -387,18 +387,6 @@ export default function Receipts() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first receipt'}
             </p>
-            {!searchTerm && (
-              <button
-                onClick={() => {
-                  resetForm()
-                  setShowModal(true)
-                }}
-                className="dubai-button"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t('addReceipt')}
-              </button>
-            )}
           </div>
         ) : (
           <>
@@ -428,19 +416,22 @@ export default function Receipts() {
                           const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
                           const fileName = url.split('/').pop() || `File ${index + 1}`
                           return (
-                            <div key={index} className="relative">
+                            <div key={index} className="relative w-12 h-12">
                               {isImage ? (
-                                <img 
-                                  src={url} 
-                                  alt={`Receipt ${receipt.receiptNumber}`}
-                                  className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
-                                  onClick={() => handleImagePreview(url, fileName)}
-                                />
+                                <>
+                                  <img 
+                                    src={url} 
+                                    alt={`Receipt ${receipt.receiptNumber}`}
+                                    className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
+                                    onClick={() => handleImagePreview(url, fileName)}
+                                    onError={(e) => { const t = e.target as HTMLImageElement; t.style.display='none'; t.parentElement?.querySelector('.img-fallback')?.classList.remove('hidden') }}
+                                  />
+                                  <button onClick={() => handleImagePreview(url, fileName)} className="img-fallback hidden w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                                    <File className="h-6 w-6 text-gray-400" />
+                                  </button>
+                                </>
                               ) : (
-                                <button
-                                  onClick={() => window.open(url, '_blank')}
-                                  className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center"
-                                >
+                                <button onClick={() => window.open(url, '_blank')} className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
                                   <File className="h-6 w-6 text-red-500" />
                                 </button>
                               )}
@@ -554,13 +545,23 @@ export default function Receipts() {
                               return (
                                 <div key={index} className="relative group">
                                   {isImage ? (
-                                    <img 
-                                      src={url} 
-                                      alt={`Receipt ${receipt.receiptNumber}`}
-                                      className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:scale-110 transition-transform" 
-                                      onClick={() => handleImagePreview(url, fileName)}
-                                      title="Click to preview image"
-                                    />
+                                    <div className="relative w-8 h-8">
+                                      <img 
+                                        src={url} 
+                                        alt={`Receipt ${receipt.receiptNumber}`}
+                                        className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:scale-110 transition-transform" 
+                                        onClick={() => handleImagePreview(url, fileName)}
+                                        title="Click to preview image"
+                                        onError={(e) => { const t = e.target as HTMLImageElement; t.style.display='none'; t.parentElement?.querySelector('.img-fallback')?.classList.remove('hidden') }}
+                                      />
+                                      <button
+                                        onClick={() => handleImagePreview(url, fileName)}
+                                        className="img-fallback hidden w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center"
+                                        title="Preview unavailable"
+                                      >
+                                        <File className="h-4 w-4 text-gray-400" />
+                                      </button>
+                                    </div>
                                   ) : (
                                     <button
                                       onClick={() => window.open(url, '_blank')}
@@ -768,15 +769,17 @@ export default function Receipts() {
                 setShowDeleteDialog(false)
                 setDeletingReceipt(null)
               }}
-              className="btn-secondary"
+              disabled={deleting}
+              className="btn-secondary disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleDelete}
-              className="btn-danger"
+              disabled={deleting}
+              className="btn-danger disabled:opacity-50 inline-flex items-center gap-2"
             >
-              Delete
+              {deleting ? <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Deleting...</> : 'Delete'}
             </button>
           </div>
         </DialogContent>
