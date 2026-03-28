@@ -58,36 +58,131 @@ export default function Reports() {
 
   const exportReport = (exportFormat: 'excel' | 'pdf') => {
     if (!reportData) return
+    
     if (exportFormat === 'excel') {
-      const { exportToExcel, reportColumns } = require('@/lib/excelExport')
-      const mappedData = reportData.items?.map((r: any) => {
-        const amt = r.amount || 0
-        const marginAmt = r.commissionPercentage != null ? (amt * r.commissionPercentage / 100) : null
-        const bankAmt = r.bankCharges != null ? (amt * r.bankCharges / 100) : null
-        const vatAmt = r.vatPercentage != null && bankAmt != null ? (bankAmt * r.vatPercentage / 100) : null
-        return {
-          ...r,
-          date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy') : ''),
-          transactionId: r.receiptNumber || r.transactionId || r.description,
-          posMachineInfo: r.posMachineSegment && r.posMachineBrand ? `${r.posMachineSegment} / ${r.posMachineBrand}` : 'No POS',
-          margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.commissionPercentage}%)` : '',
-          bankCharges: bankAmt != null ? `AED ${bankAmt.toFixed(2)} (${r.bankCharges}%)` : '',
-          vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.vatPercentage}%)` : '',
-          amount: `AED ${amt.toLocaleString()}`,
-          createdBy: r.createdBy || '',
-          updatedBy: r.updatedBy || '',
-          createdAtDate: r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy HH:mm') : '',
-          updatedAtDate: r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : '',
-          agent: r.agent || '',
-        }
-      }) || []
+      const { exportToExcel } = require('@/lib/excelExport')
+      
+      // Get current date range for title
+      const now = new Date()
+      let dateRangeText = ''
+      switch (dateRange) {
+        case 'today':
+          dateRangeText = `Today - ${format(now, 'dd-MMM-yyyy')}`
+          break
+        case 'week':
+          dateRangeText = `This Week - ${format(now, 'dd-MMM-yyyy')}`
+          break
+        case 'month':
+          dateRangeText = `${format(now, 'MMMM yyyy')}`
+          break
+        case 'year':
+          dateRangeText = `${format(now, 'yyyy')}`
+          break
+        case 'custom':
+          dateRangeText = `${startDate} to ${endDate}`
+          break
+      }
+      
+      let columns: any[] = []
+      let data: any[] = []
+      let title = ''
+      
+      // Define columns based on report type
+      if (reportType === 'settlements') {
+        title = `SETTLEMENTS Report - ${dateRangeText}`
+        columns = [
+          { key: 'batchId', label: 'Batch ID', width: 12 },
+          { key: 'date', label: 'Date', width: 15 },
+          { key: 'agent', label: 'Agent', width: 20 },
+          { key: 'posMachine', label: 'POS Machine', width: 20 },
+          { key: 'posReceiptAmount', label: 'POS/Receipt Amount', width: 18 },
+          { key: 'marginPercent', label: 'Margin %', width: 12 },
+          { key: 'marginAmount', label: 'Margin Amount', width: 15 },
+          { key: 'bankChargesPercent', label: 'Bank Charges %', width: 15 },
+          { key: 'bankChargesAmount', label: 'Bank Charges Amount', width: 18 },
+          { key: 'vatPercent', label: 'VAT %', width: 10 },
+          { key: 'vatAmount', label: 'VAT Amount', width: 12 },
+          { key: 'netReceived', label: 'Net Received', width: 15 },
+          { key: 'toPayAmount', label: 'To Pay Amount', width: 15 },
+          { key: 'margin', label: 'Margin', width: 12 },
+          { key: 'paid', label: 'Paid', width: 12 },
+          { key: 'balance', label: 'Balance', width: 12 },
+          { key: 'createdBy', label: 'Created By', width: 15 },
+          { key: 'updatedBy', label: 'Updated By', width: 15 },
+          { key: 'createdDate', label: 'Created Date', width: 18 },
+          { key: 'updatedDate', label: 'Updated Date', width: 18 },
+          { key: 'description', label: 'Description', width: 25 }
+        ]
+        data = reportData.items?.map((item: any) => ({
+          batchId: item.batchId || item._id?.toString().slice(-8).toUpperCase() || 'N/A',
+          date: item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '',
+          agent: item.agent || 'N/A',
+          posMachine: item.posMachine || 'Edutech / Geodia',
+          posReceiptAmount: item.posReceiptAmount?.toFixed(2) || '0.00',
+          marginPercent: `${item.marginPercent || 3.75}%`,
+          marginAmount: item.marginAmount?.toFixed(2) || '0.00',
+          bankChargesPercent: `${item.bankChargesPercent || 2.7}%`,
+          bankChargesAmount: item.bankChargesAmount?.toFixed(2) || '0.00',
+          vatPercent: `${item.vatPercent || 5}%`,
+          vatAmount: item.vatAmount?.toFixed(2) || '0.00',
+          netReceived: item.netReceived?.toFixed(2) || '0.00',
+          toPayAmount: item.toPayAmount?.toFixed(2) || '0.00',
+          margin: item.margin?.toFixed(2) || '0.00',
+          paid: item.paid?.toFixed(2) || '0.00',
+          balance: item.balance?.toFixed(2) || '0.00',
+          createdBy: item.createdBy || 'System',
+          updatedBy: item.updatedBy || 'System',
+          createdDate: item.createdDate ? format(new Date(item.createdDate), 'dd-MMM-yyyy HH:mm') : '',
+          updatedDate: item.updatedDate ? format(new Date(item.updatedDate), 'dd-MMM-yyyy HH:mm') : '',
+          description: item.description || ''
+        })) || []
+      } else if (reportType === 'receipts') {
+        title = `RECEIPTS Report - ${dateRangeText}`
+        columns = [
+          { key: 'receiptNumber', label: 'Receipt Number', width: 15 },
+          { key: 'date', label: 'Date', width: 15 },
+          { key: 'agent', label: 'Agent', width: 20 },
+          { key: 'paymentMethod', label: 'Payment Method', width: 15 },
+          { key: 'amount', label: 'Amount', width: 15 },
+          { key: 'description', label: 'Description', width: 25 },
+          { key: 'attachments', label: 'Attachments', width: 12 }
+        ]
+        data = reportData.items?.map((item: any) => ({
+          receiptNumber: item.receiptNumber || item.transactionId || 'N/A',
+          date: item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '',
+          agent: item.agent || 'N/A',
+          paymentMethod: item.paymentMethod || 'N/A',
+          amount: item.amount?.toFixed(2) || '0.00',
+          description: item.description || '',
+          attachments: item.attachments || 0
+        })) || []
+      } else {
+        title = `${reportType.toUpperCase()} Report - ${dateRangeText}`
+        columns = [
+          { key: 'transactionId', label: 'Transaction ID', width: 15 },
+          { key: 'date', label: 'Date', width: 15 },
+          { key: 'agent', label: 'Agent', width: 20 },
+          { key: 'amount', label: 'Amount', width: 15 },
+          { key: 'status', label: 'Status', width: 12 },
+          { key: 'description', label: 'Description', width: 25 }
+        ]
+        data = reportData.items?.map((item: any) => ({
+          transactionId: item.transactionId || item.receiptNumber || 'N/A',
+          date: item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '',
+          agent: item.agent || 'N/A',
+          amount: item.amount?.toFixed(2) || '0.00',
+          status: item.status || 'completed',
+          description: item.description || ''
+        })) || []
+      }
+      
       exportToExcel({
-        filename: `${reportType}_report`,
+        filename: `${reportType}_report_${format(now, 'yyyy-MM-dd_HH-mm')}`,
         sheetName: reportType.charAt(0).toUpperCase() + reportType.slice(1),
-        columns: isAdmin ? reportColumns.reportsAdmin(t) : reportColumns.reportsAgent(t),
-        data: mappedData,
-        title: `${reportType.toUpperCase()} Report - ${dateRange}`,
-        isRTL: false,
+        columns,
+        data,
+        title,
+        isRTL: false
       })
       toast.success('Report exported to Excel')
     } else {
@@ -246,11 +341,17 @@ export default function Reports() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  {['Batch ID', 'Agent', 'POS Machine', 'Created Date', 'Updated Date',
-                    ...(isAdmin ? ['Created By', 'Updated By', 'Margin', 'Bank Charges', 'VAT'] : []),
-                    'Amount'
-                  ].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                  {(reportType === 'settlements' ? [
+                    'Batch ID', 'Date', 'Agent', 'POS Machine', 'POS/Receipt Amount', 
+                    'Margin %', 'Margin Amount', 'Bank Charges %', 'Bank Charges Amount',
+                    'VAT %', 'VAT Amount', 'Net Received', 'To Pay Amount', 'Margin',
+                    'Paid', 'Balance', 'Created By', 'Updated By', 'Created Date', 'Updated Date', 'Description'
+                  ] : reportType === 'receipts' ? [
+                    'Receipt Number', 'Date', 'Agent', 'Payment Method', 'Amount', 'Description', 'Attachments'
+                  ] : [
+                    'Transaction ID', 'Date', 'Agent', 'Amount', 'Status', 'Description'
+                  ]).map((h) => (
+                    <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -258,50 +359,145 @@ export default function Reports() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredItems.length > 0 ? filteredItems.map((item: any, i: number) => {
-                  const amt = item.amount || 0
-                  const marginAmt = item.commissionPercentage != null ? (amt * item.commissionPercentage / 100).toFixed(2) : null
-                  const bankAmt = item.bankCharges != null ? (amt * item.bankCharges / 100).toFixed(2) : null
-                  const vatAmt = item.vatPercentage != null && bankAmt != null ? ((parseFloat(bankAmt) * item.vatPercentage) / 100).toFixed(2) : null
-                  return (
-                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                        {item.receiptNumber || item.transactionId || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {item.agent || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment} / ${item.posMachineBrand}` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : (item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—')}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {item.updatedAt ? format(new Date(item.updatedAt), 'dd-MMM-yyyy') : '—'}
-                      </td>
-                      {isAdmin && (
-                        <>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.createdBy || '—'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.updatedBy || '—'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {marginAmt != null ? `AED ${marginAmt} (${item.commissionPercentage}%)` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {bankAmt != null ? `AED ${bankAmt} (${item.bankCharges}%)` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {vatAmt != null ? `AED ${vatAmt} (${item.vatPercentage}%)` : '—'}
-                          </td>
-                        </>
-                      )}
-                      <td className="px-4 py-3 text-sm font-semibold text-primary whitespace-nowrap">
-                        AED {amt.toLocaleString()}
-                      </td>
-                    </tr>
-                  )
+                  if (reportType === 'settlements') {
+                    const posAmount = item.posReceiptAmount || item.amount || 0
+                    const marginPercent = item.marginPercent || 3.75
+                    const marginAmount = (posAmount * marginPercent) / 100
+                    const bankChargesPercent = item.bankChargesPercent || 2.7
+                    const bankChargesAmount = (posAmount * bankChargesPercent) / 100
+                    const vatPercent = item.vatPercent || 5
+                    const vatAmount = (marginAmount * vatPercent) / 100
+                    const netReceived = posAmount - (marginAmount + bankChargesAmount + vatAmount)
+                    const toPayAmount = posAmount - marginAmount - bankChargesAmount
+                    const finalMargin = marginAmount - bankChargesAmount - vatAmount
+                    const balance = toPayAmount - (item.paid || 0)
+                    
+                    return (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                          {item.batchId || item._id?.toString().slice(-8).toUpperCase() || 'N/A'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.agent || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.posMachine || 'Edutech / Geodia'}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
+                          AED {posAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {marginPercent}%
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {marginAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {bankChargesPercent}%
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {bankChargesAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {vatPercent}%
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {vatAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {netReceived.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {toPayAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {finalMargin.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {(item.paid || 0).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          AED {balance.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.createdBy || 'System'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.updatedBy || 'System'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.createdDate ? format(new Date(item.createdDate), 'dd-MMM-yyyy HH:mm') : '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.updatedDate ? format(new Date(item.updatedDate), 'dd-MMM-yyyy HH:mm') : '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                          {item.description || '—'}
+                        </td>
+                      </tr>
+                    )
+                  } else if (reportType === 'receipts') {
+                    return (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                          {item.receiptNumber || item.transactionId || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.agent || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.paymentMethod || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
+                          AED {(item.amount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                          {item.description || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.attachments || 0}
+                        </td>
+                      </tr>
+                    )
+                  } else {
+                    return (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                          {item.transactionId || item.receiptNumber || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.agent || '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
+                          AED {(item.amount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            item.status === 'completed' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                          }`}>
+                            {item.status || 'completed'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                          {item.description || '—'}
+                        </td>
+                      </tr>
+                    )
+                  }
                 }) : (
                   <tr>
-                    <td colSpan={isAdmin ? 11 : 6} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? 21 : reportType === 'receipts' ? 7 : 6} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>

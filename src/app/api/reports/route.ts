@@ -248,7 +248,7 @@ async function generatePaymentReport(dateFilter: any, auth: any, agentId?: strin
   })
 }
 
-// Settlement Report
+// Settlement Report with detailed calculations
 async function generateSettlementReport(dateFilter: any, auth: any) {
   if (auth.role !== 'admin') {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -256,6 +256,8 @@ async function generateSettlementReport(dateFilter: any, auth: any) {
   
   const settlements = await MerchantSettlement.find(dateFilter)
     .populate('merchantId', 'name email')
+    .populate('createdBy', 'name')
+    .populate('updatedBy', 'name')
     .sort({ date: -1 })
     .limit(500)
   
@@ -265,16 +267,45 @@ async function generateSettlementReport(dateFilter: any, auth: any) {
   const totalPaid = settlements.reduce((sum: number, s: any) => sum + (s.paid || 0), 0)
   const totalBalance = settlements.reduce((sum: number, s: any) => sum + (s.balance || 0), 0)
   
-  const items = settlements.map((s: any) => ({
-    date: s.date,
-    merchant: s.merchantId?.name || 'N/A',
-    ccSales: s.ccSales,
-    charges: s.charges,
-    margin: s.margin,
-    paid: s.paid,
-    balance: s.balance,
-    status: s.status
-  }))
+  const items = settlements.map((s: any) => {
+    // Dynamic calculations
+    const posReceiptAmount = s.ccSales || 0
+    const marginPercent = s.chargesPercent || 3.75
+    const marginAmount = (posReceiptAmount * marginPercent) / 100
+    const bankChargesPercent = 2.7 // Standard bank charges
+    const bankChargesAmount = (posReceiptAmount * bankChargesPercent) / 100
+    const vatPercent = 5 // UAE VAT
+    const vatAmount = (marginAmount * vatPercent) / 100
+    const netReceived = posReceiptAmount - (marginAmount + bankChargesAmount + vatAmount)
+    const toPayAmount = posReceiptAmount - marginAmount - bankChargesAmount
+    const finalMargin = marginAmount - bankChargesAmount - vatAmount
+    const balance = toPayAmount - (s.paid || 0)
+    
+    return {
+      batchId: s._id.toString().slice(-8).toUpperCase(),
+      date: s.date,
+      agent: s.merchantId?.name || 'N/A',
+      posMachine: 'Edutech / Geodia', // Default or from POS data
+      posReceiptAmount: posReceiptAmount,
+      marginPercent: marginPercent,
+      marginAmount: marginAmount,
+      bankChargesPercent: bankChargesPercent,
+      bankChargesAmount: bankChargesAmount,
+      vatPercent: vatPercent,
+      vatAmount: vatAmount,
+      netReceived: netReceived,
+      toPayAmount: toPayAmount,
+      margin: finalMargin,
+      paid: s.paid || 0,
+      balance: balance,
+      createdBy: s.createdBy?.name || 'System',
+      updatedBy: s.updatedBy?.name || 'System',
+      createdDate: s.createdAt,
+      updatedDate: s.updatedAt,
+      description: s.description || '',
+      status: s.status
+    }
+  })
   
   return NextResponse.json({
     reportType: 'settlements',
