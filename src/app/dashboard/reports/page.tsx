@@ -21,7 +21,7 @@ export default function Reports() {
   const { user } = useCurrentUser()
   const isAdmin = user?.role === 'admin'
   const [loading, setLoading] = useState(true)
-  const [reportType, setReportType] = useState('settlements')
+  const [reportType, setReportType] = useState('summary')
   const [dateRange, setDateRange] = useState('month')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -30,8 +30,11 @@ export default function Reports() {
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
+  const [totalPages, setTotalPages] = useState(1)
 
-  useEffect(() => { fetchReportData() }, [reportType, dateRange])
+  useEffect(() => { fetchReportData() }, [reportType, dateRange, currentPage, itemsPerPage])
 
   useEffect(() => {
     fetch('/api/users?role=agent').then(r => r.ok ? r.json() : null).then(d => d && setAgents(d.users || []))
@@ -44,11 +47,17 @@ export default function Reports() {
       const params = new URLSearchParams({
         type: reportType,
         range: dateRange,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
         ...(startDate && { startDate }),
         ...(endDate && { endDate }),
       })
       const res = await fetch(`/api/reports?${params}`)
-      if (res.ok) setReportData(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setReportData(data)
+        setTotalPages(Math.ceil((data.total || data.items?.length || 0) / itemsPerPage))
+      }
     } catch {
       toast.error('Failed to load report data')
     } finally {
@@ -60,36 +69,52 @@ export default function Reports() {
     if (!reportData) return
     if (exportFormat === 'excel') {
       const { exportToExcel, reportColumns } = require('@/lib/excelExport')
-      const mappedData = reportData.items?.map((r: any) => {
+      // Use allItems for export (all data) instead of filtered paginated items
+      const dataToExport = reportData.allItems || reportData.items || []
+      const mappedData = dataToExport.map((r: any) => {
         const amt = r.amount || 0
-        const marginAmt = r.commissionPercentage != null ? (amt * r.commissionPercentage / 100) : null
-        const bankAmt = r.bankCharges != null ? (amt * r.bankCharges / 100) : null
-        const vatAmt = r.vatPercentage != null && bankAmt != null ? (bankAmt * r.vatPercentage / 100) : null
+        const marginAmt = r.marginAmount || 0
+        const bankAmt = r.bankChargesAmount || 0
+        const vatAmt = r.vatAmount || 0
+        const netRec = r.netReceived || 0
+        const toPay = r.toPayAmount || 0
+        const finalMarg = r.finalMargin || 0
+        const bal = r.balance || toPay
+        const paid = r.paid || 0
+        
         return {
-          ...r,
-          date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy') : ''),
-          transactionId: r.receiptNumber || r.transactionId || r.description,
-          posMachineInfo: r.posMachineSegment && r.posMachineBrand ? `${r.posMachineSegment} / ${r.posMachineBrand}` : 'No POS',
-          margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.commissionPercentage}%)` : '',
-          bankCharges: bankAmt != null ? `AED ${bankAmt.toFixed(2)} (${r.bankCharges}%)` : '',
-          vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.vatPercentage}%)` : '',
-          amount: `AED ${amt.toLocaleString()}`,
-          createdBy: r.createdBy || '',
-          updatedBy: r.updatedBy || '',
-          createdAtDate: r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy HH:mm') : '',
-          updatedAtDate: r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : '',
-          agent: r.agent || '',
+          batchId: r.batchId || r.receiptNumber || r.transactionId,
+          date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy') : ''),
+          agent: r.agent || 'System Agent',
+          posMachine: r.posMachine || 'No POS',
+          posReceiptAmount: amt.toFixed(0),
+          marginPercent: r.marginPercent ? r.marginPercent.toFixed(2) : '0',
+          marginAmount: marginAmt.toFixed(2),
+          bankChargesPercent: r.bankChargesPercent ? r.bankChargesPercent.toFixed(2) : '0',
+          bankChargesAmount: bankAmt.toFixed(0),
+          vatPercent: r.vatPercent ? r.vatPercent.toFixed(0) : '0',
+          vatAmount: vatAmt.toFixed(2),
+          netReceived: netRec.toFixed(2),
+          toPayAmount: toPay.toFixed(2),
+          finalMargin: finalMarg.toFixed(2),
+          paid: paid > 0 ? paid.toFixed(2) : '',
+          balance: bal.toFixed(2),
+          createdBy: r.createdBy || 'System',
+          updatedBy: r.updatedBy || 'System',
+          createdAtDate: r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy HH:mm') : '',
+          updatedAtDate: r.updatedDate ? format(new Date(r.updatedDate), 'dd-MMM-yyyy HH:mm') : '',
+          description: r.description || ''
         }
-      }) || []
+      })
       exportToExcel({
         filename: `${reportType}_report`,
         sheetName: reportType.charAt(0).toUpperCase() + reportType.slice(1),
         columns: isAdmin ? reportColumns.reportsAdmin(t) : reportColumns.reportsAgent(t),
         data: mappedData,
-        title: `${reportType.toUpperCase()} Report - ${dateRange}`,
+        title: `${reportType.toUpperCase()} Report - ${dateRange} (${dataToExport.length} records)`,
         isRTL: false,
       })
-      toast.success('Report exported to Excel')
+      toast.success(`Report exported to Excel (${dataToExport.length} records)`)
     } else {
       toast.success('PDF export functionality coming soon')
     }
@@ -111,15 +136,22 @@ export default function Reports() {
       bg: 'bg-yellow-50 dark:bg-yellow-900/20',
     },
     {
-      label: 'Average Transaction',
-      value: formatAED(reportData?.averageTransaction || 0),
-      icon: FileText,
-      color: 'text-amber-600 dark:text-amber-400',
-      bg: 'bg-amber-50 dark:bg-amber-900/20',
+      label: 'Total Bank Charges',
+      value: formatAED(reportData?.totalBankCharges || 0),
+      icon: Calculator,
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-50 dark:bg-red-900/20',
     },
     {
-      label: 'Commission Earned',
-      value: formatAED(reportData?.totalCommission || 0),
+      label: 'Total Margin',
+      value: formatAED(reportData?.totalMargin || 0),
+      icon: FileText,
+      color: 'text-blue-600 dark:text-blue-400',
+      bg: 'bg-blue-50 dark:bg-blue-900/20',
+    },
+    {
+      label: 'Total VAT',
+      value: formatAED(reportData?.totalVAT || 0),
       icon: Calculator,
       color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-50 dark:bg-purple-900/20',
@@ -194,11 +226,6 @@ export default function Reports() {
             <span className="hidden sm:inline">{t('exportExcel')}</span>
             <span className="sm:hidden">Excel</span>
           </button>
-          <button onClick={() => exportReport('pdf')} className="dubai-button inline-flex items-center gap-2 text-sm">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('exportPDF')}</span>
-            <span className="sm:hidden">PDF</span>
-          </button>
           <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
         </div>
       </div>
@@ -216,33 +243,70 @@ export default function Reports() {
       {/* Filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {isAdmin && (
-          <select className="form-select col-span-2 md:col-span-1" value={reportType} onChange={(e) => setReportType(e.target.value)}>
-            <option value="settlements">Settlements Report</option>
-            <option value="receipts">Receipts Report</option>
-            <option value="transactions">All Transactions</option>
-            <option value="payments">Payments Report</option>
-            <option value="agents">Agent Performance</option>
-            <option value="commission">Commission Report</option>
-            <option value="summary">Summary Report</option>
-          </select>
+          <div className="col-span-2 md:col-span-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Report Type
+            </label>
+            <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+              <option value="settlements">Settlements Report</option>
+              <option value="receipts">Receipts Report</option>
+              <option value="payments">Payments Report</option>
+              <option value="summary">Summary Report</option>
+            </select>
+          </div>
         )}
-        <select className="form-select" value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
-          <option value="today">Today</option>
-          <option value="week">This Week</option>
-          <option value="month">{t('monthlyReport')}</option>
-          <option value="year">{t('yearlyReport')}</option>
-          <option value="custom">Custom Range</option>
-        </select>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Date Range
+          </label>
+          <select className="form-select" value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">{t('monthlyReport')}</option>
+            <option value="year">{t('yearlyReport')}</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
         {dateRange === 'custom' && (
           <>
-            <DatePicker placeholder="Start Date" value={startDate} onChange={setStartDate} />
-            <DatePicker placeholder="End Date" value={endDate} onChange={setEndDate} />
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Start Date
+              </label>
+              <DatePicker 
+                placeholder="Start Date" 
+                value={startDate} 
+                onChange={(date) => {
+                  setStartDate(date)
+                  if (endDate && date && new Date(date) > new Date(endDate)) {
+                    toast.error('Start date cannot be after end date')
+                    setStartDate('')
+                  }
+                }} 
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                End Date
+              </label>
+              <DatePicker 
+                placeholder="End Date" 
+                value={endDate} 
+                onChange={(date) => {
+                  setEndDate(date)
+                  if (startDate && date && new Date(startDate) > new Date(date)) {
+                    toast.error('End date cannot be before start date')
+                    setEndDate('')
+                  }
+                }} 
+              />
+            </div>
           </>
         )}
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
         {summaryCards.map((card) => {
           const Icon = card.icon
           return (
@@ -290,6 +354,15 @@ export default function Reports() {
                     ] : [
                       'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
                     ]
+                  ) : reportType === 'summary' ? (
+                    isAdmin ? [
+                      'Batch ID', 'Date', 'Agent', 'POS Machine', 'POS/Receipt Amount', 
+                      'Margin %', 'Margin Amount', 'Bank Charges %', 'Bank Charges Amount',
+                      'VAT %', 'VAT Amount', 'Net Received', 'To Pay Amount', 'Margin',
+                      'Paid', 'Balance', 'Created By', 'Updated By', 'Created Date', 'Updated Date', 'Description'
+                    ] : [
+                      'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
+                    ]
                   ) : [
                     'Batch ID', 'Date', 'Agent', 'Amount', 'Status', 'Description'
                   ]).map((h) => (
@@ -328,7 +401,7 @@ export default function Reports() {
                             {item.agent || 'Nitesh'}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            Edutech / Geodia
+                            {item.posMachine || 'N/A'}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                             {posAmount.toFixed(0)}
@@ -392,7 +465,7 @@ export default function Reports() {
                             {format(new Date(), 'dd-MMM-yyyy')}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            Edutech / Geodia
+                            {item.posMachine || 'N/A'}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                             {posAmount.toFixed(0)}
@@ -402,6 +475,117 @@ export default function Reports() {
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
                             {item.description || ''}
+                          </td>
+                        </tr>
+                      )
+                    }
+                  } else if (reportType === 'summary') {
+                    // Summary report - use same calculation approach as receipts page
+                    const batchId = item.batchId || item.receiptNumber || item.transactionId
+                    const posAmount = item.amount || 0
+                    const posMachine = item.posMachineData || {}
+                    
+                    // Calculate using actual POS machine data (same as receipts page)
+                    const marginPercent = posMachine.commissionPercentage || 0
+                    const marginAmount = marginPercent > 0 ? (posAmount * marginPercent / 100) : 0
+                    const bankChargesPercent = posMachine.bankCharges || 0
+                    const bankChargesAmount = bankChargesPercent > 0 ? (posAmount * bankChargesPercent / 100) : 0
+                    const vatPercent = posMachine.vatPercentage || 0
+                    // VAT calculated on bank charges amount
+                    const vatAmount = vatPercent > 0 && bankChargesAmount > 0 ? (bankChargesAmount * vatPercent / 100) : 0
+                    // FIXED: Net Received = POS Amount - Bank Charges - VAT
+                    const netReceived = posAmount - bankChargesAmount - vatAmount
+                    // FIXED: To Pay Amount = POS Amount - Margin
+                    const toPayAmount = posAmount - marginAmount
+                    const finalMargin = marginAmount - bankChargesAmount - vatAmount
+                    const paid = item.paid || 0
+                    const balance = toPayAmount - paid
+                    
+                    if (isAdmin) {
+                      return (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : format(new Date(), 'dd-MMM-yyyy')}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.agent || 'System Agent'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.posMachine || 'No POS'}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
+                            {posAmount.toFixed(0)}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {marginPercent > 0 ? marginPercent.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {marginAmount > 0 ? marginAmount.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {bankChargesPercent > 0 ? bankChargesPercent.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {bankChargesAmount > 0 ? bankChargesAmount.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {vatPercent > 0 ? vatPercent.toFixed(0) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {vatAmount > 0 ? vatAmount.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {netReceived.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {toPayAmount.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {finalMargin.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {paid > 0 ? paid.toFixed(2) : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {balance.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.createdBy || 'System'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.updatedBy || 'System'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.createdDate ? format(new Date(item.createdDate), 'dd-MMM-yyyy HH:mm') : format(new Date(), 'dd-MMM-yyyy HH:mm')}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.updatedDate ? format(new Date(item.updatedDate), 'dd-MMM-yyyy HH:mm') : format(new Date(), 'dd-MMM-yyyy HH:mm')}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                            {item.description || '—'}
+                          </td>
+                        </tr>
+                      )
+                    } else {
+                      // Agent view - only net received amount
+                      return (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : format(new Date(), 'dd-MMM-yyyy')}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.posMachine || 'No POS'}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
+                            {posAmount.toFixed(0)}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
+                            {netReceived.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                            {item.description || '—'}
                           </td>
                         </tr>
                       )
@@ -439,7 +623,7 @@ export default function Reports() {
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 21 : 6) : 6} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' || reportType === 'summary' ? (isAdmin ? 21 : 6) : 6} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -447,6 +631,87 @@ export default function Reports() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {/* Pagination */}
+        {!loading && filteredItems.length > 0 && totalPages > 1 && (
+          <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing page {currentPage} of {totalPages} ({filteredItems.length} of {reportData?.total || 0} total items)
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Items per page:</label>
+                  <select 
+                    value={itemsPerPage} 
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1) // Reset to first page when changing page size
+                    }}
+                    className="form-select text-sm py-1 px-2 min-w-0 w-20"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = i + 1
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-primary text-white'
+                            : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                  {totalPages > 5 && (
+                    <>
+                      <span className="px-2 text-gray-400">...</span>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                          currentPage === totalPages
+                            ? 'bg-primary text-white'
+                            : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

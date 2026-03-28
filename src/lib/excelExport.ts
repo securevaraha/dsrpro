@@ -172,27 +172,35 @@ export const reportColumns = {
   ],
 
   reportsAgent: (t: (key: string) => string) => [
-    { key: 'transactionId', label: 'Batch ID', width: 25 },
-    { key: 'date', label: t('date'), width: 18 },
-    { key: 'agent', label: 'Agent', width: 25 },
-    { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
-    { key: 'amount', label: t('amount'), width: 20 },
-    { key: 'description', label: t('description'), width: 40 }
+    { key: 'batchId', label: 'Batch ID', width: 20 },
+    { key: 'date', label: 'Date', width: 15 },
+    { key: 'posMachine', label: 'POS Machine', width: 25 },
+    { key: 'posReceiptAmount', label: 'POS/Receipt Amount', width: 20 },
+    { key: 'netReceived', label: 'Net Received', width: 18 },
+    { key: 'description', label: 'Description', width: 40 }
   ],
 
   reportsAdmin: (t: (key: string) => string) => [
-    { key: 'transactionId', label: 'Batch ID', width: 25 },
-    { key: 'date', label: t('date'), width: 18 },
-    { key: 'agent', label: 'Agent', width: 25 },
-    { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
-    { key: 'margin', label: 'Margin', width: 20 },
-    { key: 'bankCharges', label: 'Bank Charges', width: 20 },
-    { key: 'vat', label: 'VAT', width: 18 },
-    { key: 'amount', label: t('amount'), width: 20 },
-    { key: 'createdBy', label: 'Created By', width: 25 },
-    { key: 'updatedBy', label: 'Updated By', width: 25 },
-    { key: 'createdAtDate', label: 'Created Date', width: 22 },
-    { key: 'updatedAtDate', label: 'Updated Date', width: 22 },
-    { key: 'description', label: t('description'), width: 40 }
+    { key: 'batchId', label: 'Batch ID', width: 15 },
+    { key: 'date', label: 'Date', width: 15 },
+    { key: 'agent', label: 'Agent', width: 20 },
+    { key: 'posMachine', label: 'POS Machine', width: 25 },
+    { key: 'posReceiptAmount', label: 'POS/Receipt Amount', width: 20 },
+    { key: 'marginPercent', label: 'Margin %', width: 12 },
+    { key: 'marginAmount', label: 'Margin Amount', width: 15 },
+    { key: 'bankChargesPercent', label: 'Bank Charges %', width: 15 },
+    { key: 'bankChargesAmount', label: 'Bank Charges Amount', width: 18 },
+    { key: 'vatPercent', label: 'VAT %', width: 10 },
+    { key: 'vatAmount', label: 'VAT Amount', width: 12 },
+    { key: 'netReceived', label: 'Net Received', width: 15 },
+    { key: 'toPayAmount', label: 'To Pay Amount', width: 15 },
+    { key: 'finalMargin', label: 'Margin', width: 12 },
+    { key: 'paid', label: 'Paid', width: 12 },
+    { key: 'balance', label: 'Balance', width: 12 },
+    { key: 'createdBy', label: 'Created By', width: 15 },
+    { key: 'updatedBy', label: 'Updated By', width: 15 },
+    { key: 'createdAtDate', label: 'Created Date', width: 18 },
+    { key: 'updatedAtDate', label: 'Updated Date', width: 18 },
+    { key: 'description', label: 'Description', width: 30 }
   ]
 }
