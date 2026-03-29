@@ -68,7 +68,7 @@ export const exportToExcel = ({
     if (!worksheet[cellAddress]) worksheet[cellAddress] = {}
     worksheet[cellAddress].s = {
       font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '4F46E5' } }, // Professional Indigo header
+      fill: { fgColor: { rgb: 'B8960C' } }, // DSR Info gold header
       border: {
         top: { style: 'thin', color: { rgb: 'CCCCCC' } },
         bottom: { style: 'medium', color: { rgb: '4F46E5' } },
@@ -84,7 +84,8 @@ export const exportToExcel = ({
     const titleCell = worksheet['A1']
     if (titleCell) {
       titleCell.s = {
-        font: { bold: true, sz: 16, color: { rgb: '111827' } },
+        font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: 'D4AF37' } },
         alignment: { horizontal: 'center', vertical: 'center' }
       }
     }
@@ -173,8 +174,8 @@ export const reportColumns = {
 
   reportsAgent: (t: (key: string) => string) => [
     { key: 'batchId', label: 'Batch ID', width: 20 },
-    { key: 'date', label: 'Date', width: 15 },
     { key: 'posMachine', label: 'POS Machine', width: 25 },
+    { key: 'date', label: 'Date', width: 15 },
     { key: 'posReceiptAmount', label: 'POS/Receipt Amount', width: 20 },
     { key: 'netReceived', label: 'Net Received', width: 18 },
     { key: 'description', label: 'Description', width: 40 }
@@ -182,9 +183,9 @@ export const reportColumns = {
 
   reportsAdmin: (t: (key: string) => string) => [
     { key: 'batchId', label: 'Batch ID', width: 15 },
-    { key: 'date', label: 'Date', width: 15 },
-    { key: 'agent', label: 'Agent', width: 20 },
     { key: 'posMachine', label: 'POS Machine', width: 25 },
+    { key: 'agent', label: 'Agent', width: 20 },
+    { key: 'date', label: 'Date', width: 15 },
     { key: 'posReceiptAmount', label: 'POS/Receipt Amount', width: 20 },
     { key: 'marginPercent', label: 'Margin %', width: 12 },
     { key: 'marginAmount', label: 'Margin Amount', width: 15 },
@@ -199,8 +200,6 @@ export const reportColumns = {
     { key: 'balance', label: 'Balance', width: 12 },
     { key: 'createdBy', label: 'Created By', width: 15 },
     { key: 'updatedBy', label: 'Updated By', width: 15 },
-    { key: 'createdAtDate', label: 'Created Date', width: 18 },
-    { key: 'updatedAtDate', label: 'Updated Date', width: 18 },
     { key: 'description', label: 'Description', width: 30 }
   ]
 }

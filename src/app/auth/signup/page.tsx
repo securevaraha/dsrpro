@@ -132,7 +132,7 @@ export default function SignUp() {
             <div className="w-10 h-10 bg-dubai-gradient rounded-xl flex items-center justify-center shadow-dubai">
               <span className="text-white font-bold text-lg">د</span>
             </div>
-            <span className="text-white font-display text-xl font-bold tracking-tight">DSR Pro</span>
+            <span className="text-white font-display text-xl font-bold tracking-tight">DSR Info</span>
           </div>
           <p className="text-white/40 text-sm mt-2">Dubai&apos;s Premier POS & ERP System</p>
         </div>
@@ -163,7 +163,7 @@ export default function SignUp() {
           </div>
         </div>
 
-        <p className="relative z-10 text-white/25 text-xs">&copy; 2026 DSR Pro. All rights reserved.</p>
+        <p className="relative z-10 text-white/25 text-xs">&copy; 2026 DSR Info. All rights reserved.</p>
       </div>
 
       {/* Right Panel */}
@@ -174,7 +174,7 @@ export default function SignUp() {
             <div className="w-8 h-8 bg-dubai-gradient rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">د</span>
             </div>
-            <span className="font-display font-bold text-gray-900 dark:text-white">DSR Pro</span>
+            <span className="font-display font-bold text-gray-900 dark:text-white">DSR Info</span>
           </div>
           <div className="lg:ml-auto flex items-center gap-2">
             <button

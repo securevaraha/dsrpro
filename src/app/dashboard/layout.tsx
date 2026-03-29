@@ -84,7 +84,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   // Derive current page label for header
   const currentPage = navigation.find(n => n.href === pathname)
-  const pageTitle = currentPage ? t(currentPage.name) : 'DSR Pro'
+  const pageTitle = currentPage ? t(currentPage.name) : 'DSR Info'
 
   const handleLogout = async () => {
     try {
@@ -119,7 +119,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <span className="text-white font-bold text-sm font-display">د</span>
         </div>
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-gray-900 dark:text-white tracking-tight leading-none">DSR Pro</h1>
+          <h1 className="text-base font-bold text-gray-900 dark:text-white tracking-tight leading-none">DSR Info</h1>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">POS & ERP System</p>
         </div>
       </div>
@@ -200,7 +200,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 {pageTitle}
               </h2>
               <p className="hidden sm:block text-xs text-gray-400 dark:text-gray-500 truncate">
-                DSR Pro · {userRole === 'admin' ? 'Administrator' : 'Agent'}
+                DSR Info · {userRole === 'admin' ? 'Administrator' : 'Agent'}
               </p>
             </div>
           </div>
