@@ -11,10 +11,12 @@ export async function GET(request: NextRequest) {
     const auth = requireAuth(request)
     if (isErrorResponse(auth)) return auth
 
+    console.log('Reports API - Auth user:', auth)
+
     await connectDB()
     
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') || 'transactions'
+    const type = searchParams.get('type') || 'summary'
     const range = searchParams.get('range') || 'month'
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
@@ -22,6 +24,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
+    
+    console.log('Reports API - Parameters:', { type, range, startDate, endDate, agentId, page, limit })
     
     let dateFilter: any = {}
     const now = new Date()
@@ -672,14 +676,19 @@ async function generateCommissionReport(dateFilter: any, auth: any, agentId?: st
 
 // Summary Report
 async function generateSummaryReport(dateFilter: any, auth: any, page: number = 1, limit: number = 50, skip: number = 0) {
+  console.log('generateSummaryReport - Starting with:', { dateFilter, auth: { userId: auth.userId, role: auth.role }, page, limit })
+  
   let query: any = { ...dateFilter }
   
   if (auth.role === 'agent') {
     query.agentId = auth.userId
   }
   
+  console.log('generateSummaryReport - Query:', query)
+  
   // Get total count for pagination
   const total = await Transaction.countDocuments(query)
+  console.log('generateSummaryReport - Total transactions found:', total)
   
   // Get ALL transactions for totals calculation (not paginated)
   const allTransactions = await Transaction.find(query)

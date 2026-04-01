@@ -124,6 +124,49 @@ export default function Reports() {
           description: r.description || ''
         }
       })
+      
+      // Calculate grand totals
+      const grandTotals = {
+        totalRecords: dataToExport.length,
+        totalPosReceiptAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.amount) || 0), 0),
+        totalMarginAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.marginAmount) || 0), 0),
+        totalBankChargesAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.bankChargesAmount) || 0), 0),
+        totalVatAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.vatAmount) || 0), 0),
+        totalNetReceived: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.netReceived) || 0), 0),
+        totalToPayAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.toPayAmount) || 0), 0),
+        totalFinalMargin: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.finalMargin) || 0), 0),
+        totalPaid: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.paid) || 0), 0),
+        totalBalance: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.balance) || parseFloat(r.toPayAmount) || 0), 0)
+      }
+      
+      // Add grand total row to the data
+      const grandTotalRow = {
+        batchId: 'GRAND TOTAL',
+        date: '',
+        agent: '',
+        posMachine: '',
+        posReceiptAmount: grandTotals.totalPosReceiptAmount.toFixed(0),
+        marginPercent: '',
+        marginAmount: grandTotals.totalMarginAmount.toFixed(2),
+        bankChargesPercent: '',
+        bankChargesAmount: grandTotals.totalBankChargesAmount.toFixed(0),
+        vatPercent: '',
+        vatAmount: grandTotals.totalVatAmount.toFixed(2),
+        netReceived: grandTotals.totalNetReceived.toFixed(2),
+        toPayAmount: grandTotals.totalToPayAmount.toFixed(2),
+        finalMargin: grandTotals.totalFinalMargin.toFixed(2),
+        paid: grandTotals.totalPaid > 0 ? grandTotals.totalPaid.toFixed(2) : '',
+        balance: grandTotals.totalBalance.toFixed(2),
+        createdBy: '',
+        updatedBy: '',
+        createdAtDate: '',
+        updatedAtDate: '',
+        description: `Total of ${grandTotals.totalRecords} records`
+      }
+      
+      // Add the grand total row at the end
+      mappedData.push(grandTotalRow)
+      
       exportToExcel({
         filename: `${reportType}_report`,
         sheetName: reportType.charAt(0).toUpperCase() + reportType.slice(1),
@@ -131,8 +174,12 @@ export default function Reports() {
         data: mappedData,
         title: `${reportType.toUpperCase()} Report - ${dateRange} (${dataToExport.length} records)`,
         isRTL: false,
+        grandTotals: {
+          enabled: true,
+          summary: `Grand Total: AED ${grandTotals.totalPosReceiptAmount.toFixed(2)} | Net Received: AED ${grandTotals.totalNetReceived.toFixed(2)} | Final Margin: AED ${grandTotals.totalFinalMargin.toFixed(2)}`
+        }
       })
-      toast.success(`Report exported to Excel (${dataToExport.length} records)`)
+      toast.success(`Report exported to Excel with grand totals (${dataToExport.length} records)`)
     } else {
       toast.success('PDF export functionality coming soon')
     }
@@ -344,17 +391,19 @@ export default function Reports() {
 
       {/* Filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="col-span-2 md:col-span-1">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Report Type
-          </label>
-          <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
-            <option value="summary">Summary Report</option>
-            <option value="receipts">Receipts Report</option>
-            <option value="payments">Payments Report</option>
-            <option value="settlements">Settlements Report</option>
-          </select>
-        </div>
+        {isAdmin && (
+          <div className="col-span-2 md:col-span-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Report Type
+            </label>
+            <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+              <option value="summary">Monthly Summary Report</option>
+              <option value="settlements">Settlements Report</option>
+              <option value="receipts">Receipts Report</option>
+              <option value="payments">Payments Report</option>
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Date Range

@@ -13,6 +13,10 @@ interface ExcelExportOptions {
   data: any[]
   title?: string
   isRTL?: boolean
+  grandTotals?: {
+    enabled: boolean
+    summary?: string
+  }
 }
 
 export const exportToExcel = ({
@@ -21,7 +25,8 @@ export const exportToExcel = ({
   columns,
   data,
   title,
-  isRTL = false
+  isRTL = false,
+  grandTotals
 }: ExcelExportOptions) => {
   const workbook = XLSX.utils.book_new()
   
@@ -94,17 +99,26 @@ export const exportToExcel = ({
   
   // Add borders and center text to all data cells
   const dataStartRow = title ? 3 : 1
+  const grandTotalRowIndex = dataStartRow + data.length - 1
+  
   for (let row = dataStartRow; row < dataStartRow + data.length; row++) {
     columns.forEach((_, colIndex) => {
       const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex })
       if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' }
       
+      const isGrandTotalRow = grandTotals?.enabled && row === grandTotalRowIndex
       const isAlternate = (row - dataStartRow) % 2 === 1
+      
       worksheet[cellAddress].s = {
-        fill: isAlternate ? { fgColor: { rgb: 'F9FAFB' } } : { fgColor: { rgb: 'FFFFFF' } },
+        fill: isGrandTotalRow 
+          ? { fgColor: { rgb: 'FEF3C7' } } // Yellow background for grand total
+          : isAlternate 
+            ? { fgColor: { rgb: 'F9FAFB' } } 
+            : { fgColor: { rgb: 'FFFFFF' } },
+        font: isGrandTotalRow ? { bold: true, color: { rgb: '92400E' } } : {},
         border: {
-          top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-          bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+          top: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
+          bottom: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
           left: { style: 'thin', color: { rgb: 'E5E7EB' } },
           right: { style: 'thin', color: { rgb: 'E5E7EB' } }
         },
@@ -118,6 +132,25 @@ export const exportToExcel = ({
   }
   if (isRTL) {
     worksheet['!dir'] = 'rtl'
+  }
+  
+  // Add grand totals summary if provided
+  if (grandTotals?.enabled && grandTotals.summary) {
+    const summaryRowIndex = dataStartRow + data.length + 1
+    const summaryCell = XLSX.utils.encode_cell({ r: summaryRowIndex, c: 0 })
+    worksheet[summaryCell] = { v: grandTotals.summary }
+    worksheet[summaryCell].s = {
+      font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
+      fill: { fgColor: { rgb: 'F3F4F6' } },
+      alignment: { horizontal: 'left', vertical: 'center' }
+    }
+    
+    // Merge the summary across all columns
+    if (!worksheet['!merges']) worksheet['!merges'] = []
+    worksheet['!merges'].push({ 
+      s: { r: summaryRowIndex, c: 0 }, 
+      e: { r: summaryRowIndex, c: columns.length - 1 } 
+    })
   }
   
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
