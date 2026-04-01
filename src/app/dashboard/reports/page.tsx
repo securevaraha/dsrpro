@@ -89,7 +89,22 @@ export default function Reports() {
       const { exportToExcel, reportColumns } = require('@/lib/excelExport')
       // Use allItems for export (all data) instead of filtered paginated items
       const dataToExport = reportData.allItems || reportData.items || []
-      const mappedData = dataToExport.map((r: any) => {
+      
+      // Group data by agent
+      const agentGroups = dataToExport.reduce((groups: any, record: any) => {
+        const agentName = record.agent || 'System Agent'
+        if (!groups[agentName]) {
+          groups[agentName] = []
+        }
+        groups[agentName].push(record)
+        return groups
+      }, {})
+      
+      // Prepare data for multi-sheet export
+      const sheetsData = []
+      
+      // Create summary sheet with all data
+      const allMappedData = dataToExport.map((r: any) => {
         const amt = r.amount || 0
         const marginAmt = r.marginAmount || 0
         const bankAmt = r.bankChargesAmount || 0
@@ -125,8 +140,8 @@ export default function Reports() {
         }
       })
       
-      // Calculate grand totals
-      const grandTotals = {
+      // Calculate overall grand totals
+      const overallGrandTotals = {
         totalRecords: dataToExport.length,
         totalPosReceiptAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.amount) || 0), 0),
         totalMarginAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.marginAmount) || 0), 0),
@@ -139,47 +154,145 @@ export default function Reports() {
         totalBalance: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.balance) || parseFloat(r.toPayAmount) || 0), 0)
       }
       
-      // Add grand total row to the data
-      const grandTotalRow = {
-        batchId: 'GRAND TOTAL',
+      // Add overall grand total row
+      const overallGrandTotalRow = {
+        batchId: 'OVERALL GRAND TOTAL',
         date: '',
         agent: '',
         posMachine: '',
-        posReceiptAmount: grandTotals.totalPosReceiptAmount.toFixed(0),
+        posReceiptAmount: overallGrandTotals.totalPosReceiptAmount.toFixed(0),
         marginPercent: '',
-        marginAmount: grandTotals.totalMarginAmount.toFixed(2),
+        marginAmount: overallGrandTotals.totalMarginAmount.toFixed(2),
         bankChargesPercent: '',
-        bankChargesAmount: grandTotals.totalBankChargesAmount.toFixed(0),
+        bankChargesAmount: overallGrandTotals.totalBankChargesAmount.toFixed(0),
         vatPercent: '',
-        vatAmount: grandTotals.totalVatAmount.toFixed(2),
-        netReceived: grandTotals.totalNetReceived.toFixed(2),
-        toPayAmount: grandTotals.totalToPayAmount.toFixed(2),
-        finalMargin: grandTotals.totalFinalMargin.toFixed(2),
-        paid: grandTotals.totalPaid > 0 ? grandTotals.totalPaid.toFixed(2) : '',
-        balance: grandTotals.totalBalance.toFixed(2),
+        vatAmount: overallGrandTotals.totalVatAmount.toFixed(2),
+        netReceived: overallGrandTotals.totalNetReceived.toFixed(2),
+        toPayAmount: overallGrandTotals.totalToPayAmount.toFixed(2),
+        finalMargin: overallGrandTotals.totalFinalMargin.toFixed(2),
+        paid: overallGrandTotals.totalPaid > 0 ? overallGrandTotals.totalPaid.toFixed(2) : '',
+        balance: overallGrandTotals.totalBalance.toFixed(2),
         createdBy: '',
         updatedBy: '',
         createdAtDate: '',
         updatedAtDate: '',
-        description: `Total of ${grandTotals.totalRecords} records`
+        description: `Overall total of ${overallGrandTotals.totalRecords} records from ${Object.keys(agentGroups).length} agents`
       }
       
-      // Add the grand total row at the end
-      mappedData.push(grandTotalRow)
+      allMappedData.push(overallGrandTotalRow)
       
-      exportToExcel({
-        filename: `${reportType}_report`,
-        sheetName: reportType.charAt(0).toUpperCase() + reportType.slice(1),
-        columns: isAdmin ? reportColumns.reportsAdmin(t) : reportColumns.reportsAgent(t),
-        data: mappedData,
-        title: `${reportType.toUpperCase()} Report - ${dateRange} (${dataToExport.length} records)`,
-        isRTL: false,
+      // Add summary sheet
+      sheetsData.push({
+        sheetName: 'All Agents Summary',
+        data: allMappedData,
+        title: `${reportType.toUpperCase()} Report - All Agents - ${dateRange}`,
         grandTotals: {
           enabled: true,
-          summary: `Grand Total: AED ${grandTotals.totalPosReceiptAmount.toFixed(2)} | Net Received: AED ${grandTotals.totalNetReceived.toFixed(2)} | Final Margin: AED ${grandTotals.totalFinalMargin.toFixed(2)}`
+          summary: `Overall Grand Total: AED ${overallGrandTotals.totalPosReceiptAmount.toFixed(2)} | Net Received: AED ${overallGrandTotals.totalNetReceived.toFixed(2)} | Final Margin: AED ${overallGrandTotals.totalFinalMargin.toFixed(2)}`
         }
       })
-      toast.success(`Report exported to Excel with grand totals (${dataToExport.length} records)`)
+      
+      // Create individual agent sheets
+      Object.entries(agentGroups).forEach(([agentName, agentData]: [string, any]) => {
+        const agentMappedData = agentData.map((r: any) => {
+          const amt = r.amount || 0
+          const marginAmt = r.marginAmount || 0
+          const bankAmt = r.bankChargesAmount || 0
+          const vatAmt = r.vatAmount || 0
+          const netRec = r.netReceived || 0
+          const toPay = r.toPayAmount || 0
+          const finalMarg = r.finalMargin || 0
+          const bal = r.balance || toPay
+          const paid = r.paid || 0
+          
+          return {
+            batchId: r.batchId || r.receiptNumber || r.transactionId,
+            date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy') : ''),
+            agent: r.agent || 'System Agent',
+            posMachine: r.posMachine || 'No POS',
+            posReceiptAmount: amt.toFixed(0),
+            marginPercent: r.marginPercent ? r.marginPercent.toFixed(2) : '0',
+            marginAmount: marginAmt.toFixed(2),
+            bankChargesPercent: r.bankChargesPercent ? r.bankChargesPercent.toFixed(2) : '0',
+            bankChargesAmount: bankAmt.toFixed(0),
+            vatPercent: r.vatPercent ? r.vatPercent.toFixed(0) : '0',
+            vatAmount: vatAmt.toFixed(2),
+            netReceived: netRec.toFixed(2),
+            toPayAmount: toPay.toFixed(2),
+            finalMargin: finalMarg.toFixed(2),
+            paid: paid > 0 ? paid.toFixed(2) : '',
+            balance: bal.toFixed(2),
+            createdBy: r.createdBy || 'System',
+            updatedBy: r.updatedBy || 'System',
+            createdAtDate: r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy HH:mm') : '',
+            updatedAtDate: r.updatedDate ? format(new Date(r.updatedDate), 'dd-MMM-yyyy HH:mm') : '',
+            description: r.description || ''
+          }
+        })
+        
+        // Calculate agent-specific grand totals
+        const agentGrandTotals = {
+          totalRecords: agentData.length,
+          totalPosReceiptAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.amount) || 0), 0),
+          totalMarginAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.marginAmount) || 0), 0),
+          totalBankChargesAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.bankChargesAmount) || 0), 0),
+          totalVatAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.vatAmount) || 0), 0),
+          totalNetReceived: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.netReceived) || 0), 0),
+          totalToPayAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.toPayAmount) || 0), 0),
+          totalFinalMargin: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.finalMargin) || 0), 0),
+          totalPaid: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.paid) || 0), 0),
+          totalBalance: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.balance) || parseFloat(r.toPayAmount) || 0), 0)
+        }
+        
+        // Add agent grand total row
+        const agentGrandTotalRow = {
+          batchId: `${agentName.toUpperCase()} - TOTAL`,
+          date: '',
+          agent: agentName,
+          posMachine: '',
+          posReceiptAmount: agentGrandTotals.totalPosReceiptAmount.toFixed(0),
+          marginPercent: '',
+          marginAmount: agentGrandTotals.totalMarginAmount.toFixed(2),
+          bankChargesPercent: '',
+          bankChargesAmount: agentGrandTotals.totalBankChargesAmount.toFixed(0),
+          vatPercent: '',
+          vatAmount: agentGrandTotals.totalVatAmount.toFixed(2),
+          netReceived: agentGrandTotals.totalNetReceived.toFixed(2),
+          toPayAmount: agentGrandTotals.totalToPayAmount.toFixed(2),
+          finalMargin: agentGrandTotals.totalFinalMargin.toFixed(2),
+          paid: agentGrandTotals.totalPaid > 0 ? agentGrandTotals.totalPaid.toFixed(2) : '',
+          balance: agentGrandTotals.totalBalance.toFixed(2),
+          createdBy: '',
+          updatedBy: '',
+          createdAtDate: '',
+          updatedAtDate: '',
+          description: `${agentName} total: ${agentGrandTotals.totalRecords} records`
+        }
+        
+        agentMappedData.push(agentGrandTotalRow)
+        
+        // Add agent sheet
+        sheetsData.push({
+          sheetName: agentName.length > 25 ? agentName.substring(0, 25) + '...' : agentName,
+          data: agentMappedData,
+          title: `${reportType.toUpperCase()} Report - ${agentName} - ${dateRange}`,
+          grandTotals: {
+            enabled: true,
+            summary: `${agentName} Total: AED ${agentGrandTotals.totalPosReceiptAmount.toFixed(2)} | Net Received: AED ${agentGrandTotals.totalNetReceived.toFixed(2)} | Final Margin: AED ${agentGrandTotals.totalFinalMargin.toFixed(2)}`
+          }
+        })
+      })
+      
+      // Export multi-sheet Excel
+      const { exportMultiSheetExcel } = require('@/lib/excelExport')
+      exportMultiSheetExcel({
+        filename: `${reportType}_report_by_agents`,
+        sheets: sheetsData,
+        columns: isAdmin ? reportColumns.reportsAdmin(t) : reportColumns.reportsAgent(t),
+        isRTL: false
+      })
+      
+      toast.success(`Multi-sheet report exported with ${Object.keys(agentGroups).length} agent sheets + summary (${dataToExport.length} total records)`)
     } else {
       toast.success('PDF export functionality coming soon')
     }
