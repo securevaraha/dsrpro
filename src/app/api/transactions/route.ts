@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100)
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 500)
     const status = searchParams.get('status')
     const type = searchParams.get('type')
     const agentId = searchParams.get('agentId')
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       attachments,
       metadata,
       status,
+      date,
     } = await request.json()
     
     // Use custom transaction ID from metadata if provided (for receipts/payments)
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
       description,
       attachments: attachments || [],
       metadata,
-      status: status || 'completed'
+      status: status || 'completed',
+      ...(date ? { date: new Date(date) } : {}),
     }, auth.userId)
     
     // Calculate commissions only if client exists

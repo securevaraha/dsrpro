@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const brands = await Brand.find({})
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
-      .sort({ name: 1 })
+      .sort({ createdAt: -1 })
 
     return NextResponse.json({ brands })
   } catch (error) {

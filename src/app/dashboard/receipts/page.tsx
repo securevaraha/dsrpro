@@ -37,6 +37,7 @@ export default function Receipts() {
   const { user } = useCurrentUser()
   const isAdmin = user?.role === 'admin'
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadAreaRef = useRef<HTMLDivElement>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
@@ -68,24 +69,43 @@ export default function Receipts() {
     if (isAdmin) fetchAgents()
   }, [user, isAdmin])
 
+  // Paste image support
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      if (!showModal) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      const imageItem = Array.from(items).find(i => i.type.startsWith('image/'))
+      if (!imageItem) return
+      const file = imageItem.getAsFile()
+      if (!file) return
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      handleFileUpload(dt.files)
+    }
+    document.addEventListener('paste', handler)
+    return () => document.removeEventListener('paste', handler)
+  }, [showModal, uploadedFiles])
+
   const fetchReceipts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/transactions?type=receipt')
+      const response = await fetch('/api/transactions?type=receipt&limit=500')
       if (response.ok) {
         const data = await response.json()
         const formattedReceipts = data.transactions.map((t: any) => ({
           _id: t._id,
           receiptNumber: t.transactionId,
-          date: t.createdAt,
+          date: t.date || t.createdAt,
           posMachine: t.posMachine || null,
           amount: t.amount,
           description: t.description || 'Transaction',
           attachments: t.attachments || [],
           createdBy: t.createdBy?.name || '—',
           updatedBy: t.updatedBy?.name || '—',
-          updatedAt: t.updatedAt
-        }))
+          updatedAt: t.updatedAt,
+          createdAt: t.createdAt
+        })).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         setReceipts(formattedReceipts)
       }
     } catch (error) {
@@ -190,8 +210,14 @@ export default function Receipts() {
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesBatchId = !filters.batchId || receipt.receiptNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesPOS = !filters.posMachine || filters.posMachine === 'all' || receipt.posMachine?._id === filters.posMachine
-    return matchesSearch && matchesBatchId && matchesPOS
+    const matchesAgent = !filters.agent || filters.agent === 'all' || (receipt as any).agentId === filters.agent
+    const rDate = new Date(receipt.date)
+    const matchesFrom = !filters.dateFrom || rDate >= new Date(filters.dateFrom)
+    const matchesTo = !filters.dateTo || rDate <= new Date(filters.dateTo + 'T23:59:59')
+    return matchesSearch && matchesBatchId && matchesPOS && matchesAgent && matchesFrom && matchesTo
   })
+
+  const grandTotal = filteredReceipts.reduce((s, r) => s + r.amount, 0)
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
@@ -201,6 +227,12 @@ export default function Receipts() {
       { value: 'all', label: 'All POS Machines' },
       ...posMachines.map(m => ({ value: m._id, label: `${m.segment} / ${m.brand} — ${m.terminalId}` }))
     ]},
+    ...(isAdmin ? [{ key: 'agent', label: 'Agent', type: 'select' as const, options: [
+      { value: 'all', label: 'All Agents' },
+      ...agents.map(a => ({ value: a._id, label: a.name }))
+    ]}] : []),
+    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
+    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -226,6 +258,7 @@ export default function Receipts() {
           agentId: isAdmin ? (formData.agentId || null) : undefined,
           description: formData.description,
           attachments: uploadedFiles,
+          date: formData.date,
           metadata: {
             receiptNumber: formData.receiptNumber
           }
@@ -474,6 +507,12 @@ export default function Receipts() {
                   </div>
                 </div>
               ))}
+              <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</span>
+                  <span className="text-base font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
             </div>
 
             {/* Desktop table view */}
@@ -618,6 +657,13 @@ export default function Receipts() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
+                  <tr>
+                    <td colSpan={isAdmin ? 3 : 3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td colSpan={isAdmin ? 9 : 2} />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </>
@@ -711,8 +757,8 @@ export default function Receipts() {
                 >
                   <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { if (e.target.files) handleFileUpload(e.target.files) }} />
                   <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{uploading ? 'Uploading...' : 'Click or drag & drop to upload'}</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF or PDF — max 5MB</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{uploading ? 'Uploading...' : 'Click, drag & drop, or paste to upload'}</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF or PDF — max 5MB • Ctrl+V to paste</p>
                 </div>
                 {uploadedFiles.length > 0 && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">

@@ -141,7 +141,7 @@ export default function POSMachines() {
       const response = await fetch('/api/pos-machines')
       if (response.ok) {
         const data = await response.json()
-        setMachines(data.machines || [])
+        setMachines((data.machines || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
         setStats(data.stats || { total: 0, active: 0, inactive: 0, maintenance: 0 })
       } else {
         const errorData = await response.json()

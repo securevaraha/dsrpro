@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useRef } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
+import { DatePicker } from '@/components/ui/date-picker'
 
 export interface FilterField {
   key: string
   label: string
-  type: 'text' | 'select'
+  type: 'text' | 'select' | 'date'
   placeholder?: string
   options?: { value: string; label: string }[]
 }
@@ -97,6 +98,12 @@ export function FilterPanel({ open, onClose, fields, values, onChange, onReset, 
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+              ) : field.type === 'date' ? (
+                <DatePicker
+                  value={values[field.key] ?? ''}
+                  onChange={(value) => onChange(field.key, value)}
+                  placeholder={field.placeholder || 'Select date'}
+                />
               ) : (
                 <input
                   type="text"

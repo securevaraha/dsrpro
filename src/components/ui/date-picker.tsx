@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { format, isValid, startOfMonth, endOfMonth, eachDayOfInterval,
-  getDay, addMonths, subMonths, isSameDay, isSameMonth, isToday, parseISO } from 'date-fns'
+  getDay, addMonths, subMonths, isSameDay, isToday } from 'date-fns'
 
 interface DatePickerProps {
   value: string           // yyyy-MM-dd
@@ -19,6 +19,15 @@ const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const MONTHS = ['January','February','March','April','May','June',
                  'July','August','September','October','November','December']
 
+// Parse yyyy-MM-dd as LOCAL date (avoids UTC off-by-one)
+function parseLocalDate(str: string): Date | null {
+  if (!str) return null
+  const [y, m, d] = str.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const date = new Date(y, m - 1, d)
+  return isValid(date) ? date : null
+}
+
 export function DatePicker({
   value,
   onChange,
@@ -30,23 +39,30 @@ export function DatePicker({
   maxDate,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
-  const [viewDate, setViewDate] = useState<Date>(() => {
-    if (value && isValid(parseISO(value))) return parseISO(value)
-    return new Date()
-  })
+  const [viewDate, setViewDate] = useState<Date>(() => parseLocalDate(value) ?? new Date())
   const containerRef = useRef<HTMLDivElement>(null)
+  const [dropUp, setDropUp] = useState(false)
 
-  const selected = value && isValid(parseISO(value)) ? parseISO(value) : null
+  const selected = parseLocalDate(value)
   const displayValue = selected ? format(selected, 'dd MMM yyyy') : ''
 
   // Sync viewDate when value changes externally
   useEffect(() => {
-    if (value && isValid(parseISO(value))) setViewDate(parseISO(value))
+    const d = parseLocalDate(value)
+    if (d) setViewDate(d)
   }, [value])
 
-  // Close on outside click
+  // Decide drop direction and close on outside click
   useEffect(() => {
     if (!open) return
+
+    // Check if there's enough space below
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      setDropUp(spaceBelow < 340)
+    }
+
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
@@ -59,11 +75,11 @@ export function DatePicker({
   const monthStart = startOfMonth(viewDate)
   const monthEnd = endOfMonth(viewDate)
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-  const startPad = getDay(monthStart) // 0=Sun
+  const startPad = getDay(monthStart)
 
   const isDisabled = (day: Date) => {
-    if (minDate && day < parseISO(minDate)) return true
-    if (maxDate && day > parseISO(maxDate)) return true
+    if (minDate) { const mn = parseLocalDate(minDate); if (mn && day < mn) return true }
+    if (maxDate) { const mx = parseLocalDate(maxDate); if (mx && day > mx) return true }
     return false
   }
 
@@ -129,9 +145,12 @@ export function DatePicker({
         />
       )}
 
-      {/* Calendar Dropdown */}
+      {/* Calendar Dropdown — rendered in a portal-like fixed position */}
       {open && (
-        <div className="absolute z-50 mt-1.5 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+        <div
+          className={`absolute ${dropUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} left-0 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden`}
+          style={{ zIndex: 9999 }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-dubai-gradient">
             <button
@@ -164,7 +183,6 @@ export function DatePicker({
 
           {/* Days grid */}
           <div className="grid grid-cols-7 px-3 pb-3 gap-y-0.5">
-            {/* Leading empty cells */}
             {Array.from({ length: startPad }).map((_, i) => (
               <div key={`pad-${i}`} />
             ))}

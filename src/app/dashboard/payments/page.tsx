@@ -69,13 +69,13 @@ export default function Payments() {
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/transactions?type=payment')
+      const response = await fetch('/api/transactions?type=payment&limit=500')
       if (response.ok) {
         const data = await response.json()
         const formattedPayments = data.transactions.map((t: any) => ({
           _id: t._id,
           paymentNumber: t.transactionId,
-          date: t.createdAt,
+          date: t.date || t.createdAt,
           agentId: t.agentId?._id || '',
           agentName: t.agentId?.name || 'Unknown',
           paymentMethod: t.paymentMethod,
@@ -84,7 +84,7 @@ export default function Payments() {
           status: t.status || 'completed',
           createdBy: t.createdBy,
           createdAt: t.createdAt
-        }))
+        })).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         setPayments(formattedPayments)
       }
     } catch (error) {
@@ -107,6 +107,7 @@ export default function Payments() {
           type: 'payment',
           agentId: formData.agentId,
           amount: parseFloat(formData.amount),
+          date: formData.date,
           paymentMethod: formData.paymentMethod,
           description: formData.description,
           status: formData.status,
@@ -192,8 +193,13 @@ export default function Payments() {
       p.agentName.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesBatchId = !filters.batchId || p.paymentNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId === filters.agent
-    return matchesSearch && matchesBatchId && matchesAgent
+    const pDate = new Date(p.date)
+    const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
+    const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
+    return matchesSearch && matchesBatchId && matchesAgent && matchesFrom && matchesTo
   })
+
+  const grandTotal = filteredPayments.reduce((s, p) => s + p.amount, 0)
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
@@ -203,6 +209,8 @@ export default function Payments() {
       { value: 'all', label: 'All Agents' },
       ...agents.map(a => ({ value: a._id, label: a.name }))
     ]},
+    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
+    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   return (
@@ -327,6 +335,12 @@ export default function Payments() {
                   </div>
                 </div>
               ))}
+              <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredPayments.length} records)</span>
+                  <span className="text-base font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
             </div>
 
             {/* Desktop table view */}
@@ -426,6 +440,13 @@ export default function Payments() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
+                  <tr>
+                    <td colSpan={5} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredPayments.length} records)</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td colSpan={3} />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </>

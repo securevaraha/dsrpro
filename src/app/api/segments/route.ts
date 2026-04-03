@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const segments = await Segment.find({})
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
-      .sort({ name: 1 })
+      .sort({ createdAt: -1 })
 
     return NextResponse.json({ segments })
   } catch (error) {

@@ -62,6 +62,10 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     required: false
   }],
+  date: {
+    type: Date,
+    required: false
+  },
   metadata: {
     cardType: String,
     bankName: String,

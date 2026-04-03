@@ -53,7 +53,7 @@ export default function BrandsPage() {
       const response = await fetch('/api/brands')
       if (response.ok) {
         const data = await response.json()
-        setBrands(data.brands || [])
+        setBrands((data.brands || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
       } else {
         toast.error('Failed to load brands')
       }

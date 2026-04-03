@@ -67,7 +67,7 @@ export default function Settlements() {
         ...(d1.transactions || []),
         ...(d2.transactions || []),
         ...(d3.transactions || []),
-      ]
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       setPayments(all)
     } catch {
       toast.error('Failed to load settlements')
@@ -131,6 +131,8 @@ export default function Settlements() {
       { value: 'all', label: 'All Agents' },
       ...agents.map(a => ({ value: a._id, label: a.name })),
     ]},
+    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
+    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   const filtered = payments.filter(p => {
@@ -140,7 +142,10 @@ export default function Settlements() {
       p.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !filters.status || filters.status === 'all' || p.status === filters.status
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId?._id === filters.agent
-    return matchesSearch && matchesStatus && matchesAgent
+    const pDate = new Date(p.createdAt)
+    const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
+    const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
+    return matchesSearch && matchesStatus && matchesAgent && matchesFrom && matchesTo
   })
 
   const totalAmount = filtered.reduce((s, p) => s + p.amount, 0)
@@ -262,6 +267,12 @@ export default function Settlements() {
                     </div>
                   )
                 })}
+                <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length} records)</span>
+                    <span className="text-base font-bold text-primary">AED {filtered.reduce((s, p) => s + p.amount, 0).toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Desktop table */}
@@ -314,6 +325,15 @@ export default function Settlements() {
                       )
                     })}
                   </tbody>
+                  <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length} records)</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">
+                        AED {filtered.reduce((s, p) => s + p.amount, 0).toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td colSpan={4} />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </>

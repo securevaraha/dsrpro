@@ -16,6 +16,21 @@ function formatAED(value: number): string {
   return `AED ${value.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+function getItemAmount(item: any): number {
+  return Number(item.amount ?? item.posReceiptAmount ?? item.toPayAmount ?? item.netReceived ?? 0)
+}
+
+function getItemType(item: any, reportType: string): string {
+  if (reportType === 'payments') return 'payment'
+  if (reportType === 'receipts') return 'receipt'
+  if (reportType === 'settlements') return 'settlement'
+  return String(item.type || '').toLowerCase()
+}
+
+function getStatus(item: any): string {
+  return String(item.status || '').toLowerCase()
+}
+
 export default function Reports() {
   const { t } = useLanguage()
   const { user } = useCurrentUser()
@@ -57,6 +72,9 @@ export default function Reports() {
         const data = await res.json()
         setReportData(data)
         setTotalPages(Math.ceil((data.total || data.items?.length || 0) / itemsPerPage))
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Failed to load report data')
       }
     } catch {
       toast.error('Failed to load report data')
@@ -120,44 +138,6 @@ export default function Reports() {
     }
   }
 
-  const summaryCards = [
-    {
-      label: 'Total Revenue',
-      value: formatAED(reportData?.totalRevenue || 0),
-      icon: TrendingUp,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-    },
-    {
-      label: 'Total Transactions',
-      value: String(reportData?.totalTransactions || 0),
-      icon: Calendar,
-      color: 'text-primary',
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-    },
-    {
-      label: 'Total Bank Charges',
-      value: formatAED(reportData?.totalBankCharges || 0),
-      icon: Calculator,
-      color: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-900/20',
-    },
-    {
-      label: 'Total Margin',
-      value: formatAED(reportData?.totalMargin || 0),
-      icon: FileText,
-      color: 'text-blue-600 dark:text-blue-400',
-      bg: 'bg-blue-50 dark:bg-blue-900/20',
-    },
-    {
-      label: 'Total VAT',
-      value: formatAED(reportData?.totalVAT || 0),
-      icon: Calculator,
-      color: 'text-purple-600 dark:text-purple-400',
-      bg: 'bg-purple-50 dark:bg-purple-900/20',
-    },
-  ]
-
   // Generate dynamic heading
   const getDynamicHeading = () => {
     const now = new Date()
@@ -190,12 +170,132 @@ export default function Reports() {
     return `${reportType.toUpperCase()} Report - ${dateRangeText}`
   }
 
-  const filteredItems = (reportData?.items || []).filter((item: any) => {
+  const sourceItems = reportData?.allItems || reportData?.items || []
+
+  const filteredItems = sourceItems.filter((item: any) => {
     const matchBatchId = !filters.batchId || (item.receiptNumber || item.transactionId || '').toLowerCase().includes(filters.batchId.toLowerCase())
     const matchAgent = !filters.agent || filters.agent === 'all' || item.agentId === filters.agent || item.agent === agents.find(a => a._id === filters.agent)?.name
     const matchPOS = !filters.posMachine || filters.posMachine === 'all' || item.posMachineId === filters.posMachine
-    return matchBatchId && matchAgent && matchPOS
+    const iDate = item.date ? new Date(item.date) : null
+    const matchFrom = !filters.dateFrom || !iDate || iDate >= new Date(filters.dateFrom)
+    const matchTo = !filters.dateTo || !iDate || iDate <= new Date(filters.dateTo + 'T23:59:59')
+    return matchBatchId && matchAgent && matchPOS && matchFrom && matchTo
   })
+
+  const filteredStats = filteredItems.reduce((acc: any, item: any) => {
+    const amount = getItemAmount(item)
+    const itemType = getItemType(item, reportType)
+    const status = getStatus(item)
+    const marginAmount = Number(item.marginAmount || 0)
+    const bankChargesAmount = Number(item.bankChargesAmount || 0)
+    const vatAmount = Number(item.vatAmount || 0)
+
+    acc.totalRevenue += amount
+    acc.totalTransactions += 1
+    acc.totalMargin += marginAmount
+    acc.totalBankCharges += bankChargesAmount
+    acc.totalVAT += vatAmount
+
+    if (itemType === 'payment') acc.paymentAmount += amount
+    if (itemType === 'settlement') acc.settlementAmount += amount
+    if (status === 'pending' || status === 'failed' || status === 'due') acc.dueAmount += amount
+
+    return acc
+  }, {
+    totalRevenue: 0,
+    totalTransactions: 0,
+    totalMargin: 0,
+    totalBankCharges: 0,
+    totalVAT: 0,
+    paymentAmount: 0,
+    settlementAmount: 0,
+    dueAmount: 0,
+  })
+
+  if (reportType === 'payments' && filteredStats.paymentAmount === 0) {
+    filteredStats.paymentAmount = filteredStats.totalRevenue
+  }
+  if (reportType === 'settlements' && filteredStats.settlementAmount === 0) {
+    filteredStats.settlementAmount = filteredStats.totalRevenue
+  }
+
+  const summaryCards = isAdmin
+    ? [
+        {
+          label: 'Total Revenue',
+          value: formatAED(filteredStats.totalRevenue),
+          icon: TrendingUp,
+          color: 'text-emerald-600 dark:text-emerald-400',
+          bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+        },
+        {
+          label: 'Total Transactions',
+          value: String(filteredStats.totalTransactions),
+          icon: Calendar,
+          color: 'text-primary',
+          bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+        },
+        {
+          label: 'Total Bank Charges',
+          value: formatAED(filteredStats.totalBankCharges),
+          icon: Calculator,
+          color: 'text-red-600 dark:text-red-400',
+          bg: 'bg-red-50 dark:bg-red-900/20',
+        },
+        {
+          label: 'Total Margin',
+          value: formatAED(filteredStats.totalMargin),
+          icon: FileText,
+          color: 'text-blue-600 dark:text-blue-400',
+          bg: 'bg-blue-50 dark:bg-blue-900/20',
+        },
+        {
+          label: 'Total VAT',
+          value: formatAED(filteredStats.totalVAT),
+          icon: Calculator,
+          color: 'text-purple-600 dark:text-purple-400',
+          bg: 'bg-purple-50 dark:bg-purple-900/20',
+        },
+      ]
+    : [
+        {
+          label: 'Total Revenue',
+          value: formatAED(filteredStats.totalRevenue),
+          icon: TrendingUp,
+          color: 'text-emerald-600 dark:text-emerald-400',
+          bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+        },
+        {
+          label: 'Total Transaction',
+          value: String(filteredStats.totalTransactions),
+          icon: Calendar,
+          color: 'text-primary',
+          bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+        },
+        {
+          label: 'Payment Amount',
+          value: formatAED(filteredStats.paymentAmount),
+          icon: Calculator,
+          color: 'text-blue-600 dark:text-blue-400',
+          bg: 'bg-blue-50 dark:bg-blue-900/20',
+        },
+        {
+          label: 'Settlement Amount',
+          value: formatAED(filteredStats.settlementAmount),
+          icon: FileText,
+          color: 'text-indigo-600 dark:text-indigo-400',
+          bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        },
+        {
+          label: 'Due Amount',
+          value: formatAED(filteredStats.dueAmount),
+          icon: TrendingUp,
+          color: 'text-red-600 dark:text-red-400',
+          bg: 'bg-red-50 dark:bg-red-900/20',
+        },
+      ]
+
+  const reportGrandTotal = filteredItems.reduce((s: number, item: any) => s + (item.amount || 0), 0)
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
@@ -209,6 +309,8 @@ export default function Reports() {
       { value: 'all', label: 'All POS Machines' },
       ...posMachines.map(m => ({ value: m._id, label: `${m.segment} / ${m.brand} — ${m.terminalId}` }))
     ]},
+    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
+    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   return (
@@ -242,19 +344,17 @@ export default function Reports() {
 
       {/* Filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {isAdmin && (
-          <div className="col-span-2 md:col-span-1">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Report Type
-            </label>
-            <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
-              <option value="settlements">Settlements Report</option>
-              <option value="receipts">Receipts Report</option>
-              <option value="payments">Payments Report</option>
-              <option value="summary">Summary Report</option>
-            </select>
-          </div>
-        )}
+        <div className="col-span-2 md:col-span-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Report Type
+          </label>
+          <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+            <option value="summary">Summary Report</option>
+            <option value="receipts">Receipts Report</option>
+            <option value="payments">Payments Report</option>
+            <option value="settlements">Settlements Report</option>
+          </select>
+        </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Date Range
@@ -630,6 +730,19 @@ export default function Reports() {
                   </tr>
                 )}
               </tbody>
+              {filteredItems.length > 0 && (
+                <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
+                  <tr>
+                    <td colSpan={reportType === 'settlements' || reportType === 'summary' ? (isAdmin ? 4 : 3) : 3} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                      Grand Total ({filteredItems.length} records)
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-primary">
+                      {reportGrandTotal.toFixed(2)}
+                    </td>
+                    <td colSpan={reportType === 'settlements' || reportType === 'summary' ? (isAdmin ? 16 : 2) : 2} />
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}

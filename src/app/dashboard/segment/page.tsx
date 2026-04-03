@@ -53,7 +53,7 @@ export default function SegmentsPage() {
       const response = await fetch('/api/segments')
       if (response.ok) {
         const data = await response.json()
-        setSegments(data.segments || [])
+        setSegments((data.segments || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
       } else {
         toast.error('Failed to load segments')
       }

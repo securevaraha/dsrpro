@@ -112,7 +112,7 @@ export default function AdminPanel() {
       setLoadingUsers(true)
       const response = await fetch('/api/users?includeAdmins=true')
       const data = await response.json()
-      setUsers(data.users || [])
+      setUsers((data.users || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
     } catch {
       toast.error('Failed to fetch users')
     } finally {
