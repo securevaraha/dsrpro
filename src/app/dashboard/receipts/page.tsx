@@ -14,6 +14,7 @@ import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 interface Receipt {
   _id: string
   receiptNumber: string
+  agent?: string
   date: string
   posMachine: {
     _id: string
@@ -30,6 +31,7 @@ interface Receipt {
   createdBy?: string
   updatedBy?: string
   updatedAt?: string
+  createdAt?: string
 }
 
 export default function Receipts() {
@@ -96,6 +98,7 @@ export default function Receipts() {
         const formattedReceipts = data.transactions.map((t: any) => ({
           _id: t._id,
           receiptNumber: t.transactionId,
+          agent: t.agentId?.name || '—',
           date: t.date || t.createdAt,
           posMachine: t.posMachine || null,
           amount: t.amount,
@@ -235,12 +238,49 @@ export default function Receipts() {
     { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
+  const availablePosMachines = posMachines.filter((m: any) => {
+    const isCurrent = m._id === formData.posMachine
+    const isActive = m.status === 'active'
+    if (!isCurrent && !isActive) return false
+
+    if (isAdmin && !editingReceipt && !formData.agentId) return false
+    if (!isAdmin || !formData.agentId) return true
+
+    const assignedId = typeof m.assignedAgent === 'string'
+      ? m.assignedAgent
+      : m.assignedAgent?._id
+
+    return assignedId === formData.agentId
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validate that at least one file is uploaded
+
+    // Mandatory fields for receipt creation
+    if (!formData.receiptNumber.trim()) {
+      toast.error('Batch ID is mandatory')
+      return
+    }
+
+    if (isAdmin && !editingReceipt && !formData.agentId) {
+      toast.error('Agent is mandatory')
+      return
+    }
+
+    if (!formData.posMachine) {
+      toast.error('POS Machine is mandatory')
+      return
+    }
+
+    const amountValue = parseFloat(formData.amount)
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      toast.error('Amount must be greater than 0')
+      return
+    }
+
+    // Validate that at least one receipt file is uploaded
     if (uploadedFiles.length === 0) {
-      toast.error('Please upload at least one attachment before submitting the receipt')
+      toast.error('Receipt attachment is mandatory')
       return
     }
     
@@ -253,8 +293,8 @@ export default function Receipts() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'receipt',
-          amount: parseFloat(formData.amount),
-          posMachine: formData.posMachine || null,
+          amount: amountValue,
+          posMachine: formData.posMachine,
           agentId: isAdmin ? (formData.agentId || null) : undefined,
           description: formData.description,
           attachments: uploadedFiles,
@@ -330,26 +370,36 @@ export default function Receipts() {
       filename: 'receipts_report',
       sheetName: 'Receipts',
       columns: isAdmin ? reportColumns.receiptsAdmin(t) : reportColumns.receiptsAgent(t),
-      data: filteredReceipts.map(r => {
-        const marginAmt = r.posMachine?.commissionPercentage != null ? (r.amount * r.posMachine.commissionPercentage / 100) : null
-        const bankChargesAmt = r.posMachine?.bankCharges != null ? (r.amount * r.posMachine.bankCharges / 100) : null
-        const vatAmt = r.posMachine?.vatPercentage != null && bankChargesAmt != null ? (bankChargesAmt * r.posMachine.vatPercentage / 100) : null
+      data: [
+        ...filteredReceipts.map(r => {
+          const marginAmt = r.posMachine?.commissionPercentage != null ? (r.amount * r.posMachine.commissionPercentage / 100) : null
+          const bankChargesAmt = r.posMachine?.bankCharges != null ? (r.amount * r.posMachine.bankCharges / 100) : null
+          // VAT on full receipt amount
+          const vatAmt = r.posMachine?.vatPercentage != null ? (r.amount * r.posMachine.vatPercentage / 100) : null
 
-        return {
-          ...r,
-          date: format(new Date(r.date), 'dd-MMM-yyyy'),
-          posMachineInfo: r.posMachine ? `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
-          margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.posMachine!.commissionPercentage}%)` : '',
-          bankCharges: bankChargesAmt != null ? `AED ${bankChargesAmt.toFixed(2)} (${r.posMachine!.bankCharges}%)` : '',
-          vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.posMachine!.vatPercentage}%)` : '',
-          amount: `AED ${r.amount.toLocaleString()}`,
-          createdBy: r.createdBy || '',
-          updatedBy: r.updatedBy || '',
-          createdAtDate: r.date ? format(new Date(r.date), 'dd-MMM-yyyy HH:mm') : '',
-          updatedAtDate: r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : ''
+          return {
+            ...r,
+            agent: r.agent || '—',
+            date: format(new Date(r.date), 'dd-MMM-yyyy'),
+            posMachineInfo: r.posMachine ? `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
+            margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.posMachine!.commissionPercentage}%)` : '',
+            bankCharges: bankChargesAmt != null ? `AED ${bankChargesAmt.toFixed(2)} (${r.posMachine!.bankCharges}%)` : '',
+            vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.posMachine!.vatPercentage}%)` : '',
+            amount: `AED ${r.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            createdByDate: `${r.createdBy || '—'} | ${r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}`,
+            updatedByDate: `${r.updatedBy || '—'} | ${r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}`
+          }
+        }),
+        {
+          receiptNumber: `Grand Total (${filteredReceipts.length} records)`,
+          amount: `AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         }
-      }),
+      ],
       title: t('receiptsReport'),
+      grandTotals: {
+        enabled: true,
+        summary: `Grand Total: AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      },
       isRTL: false
     })
   }
@@ -520,8 +570,8 @@ export default function Receipts() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    {['Batch ID', t('date'), 'POS Machine', t('amount'),
-                      ...(isAdmin ? ['Margin', 'Bank Charges', 'VAT', 'Created By', 'Updated By', 'Created Date', 'Updated Date'] : []),
+                    {['Batch ID', ...(isAdmin ? ['Agent'] : []), 'POS Machine', t('date'), 'Receipt Amount',
+                      ...(isAdmin ? ['Bank Charges', 'VAT', 'Margin', 'Created By / Date', 'Updated By / Date'] : []),
                       t('description'), 'Preview', t('actions')
                     ].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -534,13 +584,18 @@ export default function Receipts() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {receipt.receiptNumber}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                        {format(new Date(receipt.date), 'dd-MMM-yyyy')}
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                          {receipt.agent || '—'}
+                        </td>
+                      )}
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
                           {receipt.posMachine ? `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {format(new Date(receipt.date), 'dd-MMM-yyyy')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
                         AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -548,27 +603,31 @@ export default function Receipts() {
                       {isAdmin && (
                         <>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {receipt.posMachine?.commissionPercentage != null
-                              ? `AED ${(receipt.amount * receipt.posMachine.commissionPercentage / 100).toFixed(2)} (${receipt.posMachine.commissionPercentage}%)`
-                              : '—'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {receipt.posMachine?.bankCharges != null
                               ? `AED ${(receipt.amount * receipt.posMachine.bankCharges / 100).toFixed(2)} (${receipt.posMachine.bankCharges}%)`
                               : '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {receipt.posMachine?.vatPercentage != null && receipt.posMachine?.bankCharges != null
-                              ? `AED ${((receipt.amount * receipt.posMachine.bankCharges / 100) * receipt.posMachine.vatPercentage / 100).toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
+                            {receipt.posMachine?.vatPercentage != null
+                              ? `AED ${(receipt.amount * receipt.posMachine.vatPercentage / 100).toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
                               : '—'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{receipt.createdBy || '—'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{receipt.updatedBy || '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {receipt.date ? format(new Date(receipt.date), 'dd-MMM-yyyy HH:mm') : '—'}
+                            {receipt.posMachine?.commissionPercentage != null
+                              ? `AED ${(receipt.amount * receipt.posMachine.commissionPercentage / 100).toFixed(2)} (${receipt.posMachine.commissionPercentage}%)`
+                              : '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {receipt.updatedAt ? format(new Date(receipt.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}
+                            <div className="meta-compact">
+                              <div className="meta-compact-name">{receipt.createdBy || '—'}</div>
+                              <div className="meta-compact-date">{receipt.createdAt ? format(new Date(receipt.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            <div className="meta-compact">
+                              <div className="meta-compact-name">{receipt.updatedBy || '—'}</div>
+                              <div className="meta-compact-date">{receipt.updatedAt ? format(new Date(receipt.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                            </div>
                           </td>
                         </>
                       )}
@@ -659,9 +718,9 @@ export default function Receipts() {
                 </tbody>
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                   <tr>
-                    <td colSpan={isAdmin ? 3 : 3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
+                    <td colSpan={isAdmin ? 4 : 3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td colSpan={isAdmin ? 9 : 2} />
+                    <td colSpan={isAdmin ? 8 : 3} />
                   </tr>
                 </tfoot>
               </table>
@@ -694,25 +753,27 @@ export default function Receipts() {
                 {isAdmin && (
                   <div>
                     <label className="form-label">Agent *</label>
-                    <select required className="form-select" value={formData.agentId} onChange={(e) => setFormData({...formData, agentId: e.target.value})}>
+                    <select required className="form-select" value={formData.agentId} onChange={(e) => setFormData({...formData, agentId: e.target.value, posMachine: ''})}>
                       <option value="">Select Agent</option>
                       {agents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
                     </select>
                   </div>
                 )}
                 <div>
-                  <label className="form-label">POS Machine</label>
-                  <select className="form-select" value={formData.posMachine} onChange={(e) => setFormData({...formData, posMachine: e.target.value})}>
+                  <label className="form-label">POS Machine *</label>
+                  <select required className="form-select" value={formData.posMachine} onChange={(e) => setFormData({...formData, posMachine: e.target.value})}>
                     <option value="">Select POS Machine</option>
-                    {posMachines
-                      .filter(m => m.status === 'active' || m._id === formData.posMachine)
-                      .map(m => (
+                    {availablePosMachines.map(m => (
                         <option key={m._id} value={m._id}>
                           {m.segment} / {m.brand} — {m.terminalId}{m.status !== 'active' ? ` (${m.status})` : ''}
                         </option>
                       ))}
                   </select>
-                  {posMachines.length === 0 && <p className="text-xs text-red-500 mt-1">No POS machines available</p>}
+                  {isAdmin && !editingReceipt && !formData.agentId
+                    ? <p className="text-xs text-amber-500 mt-1">Select an agent first to view assigned POS machines</p>
+                    : availablePosMachines.length === 0
+                      ? <p className="text-xs text-red-500 mt-1">No POS machines available for the selected agent</p>
+                      : null}
                 </div>
               </div>
 
@@ -732,7 +793,7 @@ export default function Receipts() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="form-label">{t('amount')} (AED)</label>
-                    <input type="number" placeholder="0.00" required className="form-input"
+                    <input type="number" placeholder="0.00" required min="0.01" step="0.01" className="form-input"
                       value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})}
                     />
                   </div>
@@ -789,7 +850,15 @@ export default function Receipts() {
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="btn-secondary w-full sm:w-auto">{t('cancel')}</button>
                 <button type="submit"
-                  disabled={!formData.receiptNumber.trim() || !formData.amount || !formData.date || (isAdmin && !formData.agentId) || uploadedFiles.length === 0}
+                  disabled={
+                    !formData.receiptNumber.trim()
+                    || !formData.amount
+                    || !formData.date
+                    || !formData.posMachine
+                    || (isAdmin && !editingReceipt && !formData.agentId)
+                    || uploadedFiles.length === 0
+                    || (parseFloat(formData.amount) || 0) <= 0
+                  }
                   className="dubai-button w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingReceipt ? 'Update Receipt' : t('addReceipt')}

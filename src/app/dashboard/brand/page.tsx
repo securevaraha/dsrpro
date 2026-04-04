@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Tag, Search } from 'lucide-react'
+import { Plus, Edit, Trash2, Tag, Search, Download } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
@@ -134,13 +134,43 @@ export default function BrandsPage() {
             <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Brands</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage POS machine brands</p>
           </div>
-          <button
-            onClick={() => { setEditingBrand(null); setFormData({ name: '', description: '', isActive: true }); setShowModal(true) }}
-            className="dubai-button inline-flex items-center justify-center"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Brand
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const { exportToExcel } = require('@/lib/excelExport')
+                exportToExcel({
+                  filename: 'brands_report',
+                  sheetName: 'Brands',
+                  columns: [
+                    { key: 'name', label: 'Name', width: 24 },
+                    { key: 'description', label: 'Description', width: 36 },
+                    { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+                    { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
+                    { key: 'status', label: 'Status', width: 14 },
+                  ],
+                  data: filteredBrands.map(b => ({
+                    ...b,
+                    status: b.isActive ? 'Active' : 'Inactive',
+                    createdByDate: `${b.createdBy?.name || '—'} | ${format(new Date(b.createdAt), 'dd-MMM-yyyy HH:mm')}`,
+                    updatedByDate: `${b.updatedBy?.name || '—'} | ${format(new Date(b.updatedAt), 'dd-MMM-yyyy HH:mm')}`,
+                  })),
+                  title: 'Brands Report',
+                  isRTL: false
+                })
+              }}
+              className="btn-secondary inline-flex items-center justify-center"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </button>
+            <button
+              onClick={() => { setEditingBrand(null); setFormData({ name: '', description: '', isActive: true }); setShowModal(true) }}
+              className="dubai-button inline-flex items-center justify-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Brand
+            </button>
+          </div>
         </div>
 
         {/* Search + Filter */}
@@ -189,9 +219,8 @@ export default function BrandsPage() {
                   <tr className="bg-gray-50 dark:bg-gray-800/50">
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created Date</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated Date</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By / Date</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated By / Date</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-5 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -205,14 +234,17 @@ export default function BrandsPage() {
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">
                         {brand.description || '—'}
                       </td>
-                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300">
-                        {brand.createdBy?.name || '—'}
+                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        <div className="meta-compact">
+                          <div className="meta-compact-name">{brand.createdBy?.name || '—'}</div>
+                          <div className="meta-compact-date">{format(new Date(brand.createdAt), 'dd-MMM-yyyy HH:mm')}</div>
+                        </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {format(new Date(brand.createdAt), 'dd-MMM-yyyy')}
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {format(new Date(brand.updatedAt), 'dd-MMM-yyyy')}
+                        <div className="meta-compact">
+                          <div className="meta-compact-name">{brand.updatedBy?.name || '—'}</div>
+                          <div className="meta-compact-date">{format(new Date(brand.updatedAt), 'dd-MMM-yyyy HH:mm')}</div>
+                        </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${

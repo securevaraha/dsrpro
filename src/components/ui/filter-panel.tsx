@@ -50,7 +50,7 @@ export function FilterPanel({ open, onClose, fields, values, onChange, onReset, 
       {/* Panel */}
       <div
         ref={panelRef}
-        className="relative w-full sm:w-80 bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom sm:slide-in-from-top duration-200"
+        className="relative w-full sm:w-80 max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom sm:slide-in-from-top duration-200"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100 dark:border-gray-700">
@@ -82,7 +82,7 @@ export function FilterPanel({ open, onClose, fields, values, onChange, onReset, 
         </div>
 
         {/* Fields */}
-        <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 space-y-3 overflow-visible">
           {fields.map((field) => (
             <div key={field.key}>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">

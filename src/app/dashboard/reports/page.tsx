@@ -31,13 +31,17 @@ function getStatus(item: any): string {
   return String(item.status || '').toLowerCase()
 }
 
+function formatAmountWithPercent(amount: number, percent: number): string {
+  return `AED ${amount.toFixed(2)} (${percent.toFixed(2)}%)`
+}
+
 export default function Reports() {
   const { t } = useLanguage()
   const { user } = useCurrentUser()
   const isAdmin = user?.role === 'admin'
   const [loading, setLoading] = useState(true)
   const [reportType, setReportType] = useState('summary')
-  const [dateRange, setDateRange] = useState('month')
+  const [dateRange, setDateRange] = useState('today')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [reportData, setReportData] = useState<any>(null)
@@ -86,213 +90,217 @@ export default function Reports() {
   const exportReport = (exportFormat: 'excel' | 'pdf') => {
     if (!reportData) return
     if (exportFormat === 'excel') {
-      const { exportToExcel, reportColumns } = require('@/lib/excelExport')
-      // Use allItems for export (all data) instead of filtered paginated items
-      const dataToExport = reportData.allItems || reportData.items || []
-      
-      // Group data by agent
-      const agentGroups = dataToExport.reduce((groups: any, record: any) => {
-        const agentName = record.agent || 'System Agent'
-        if (!groups[agentName]) {
-          groups[agentName] = []
-        }
-        groups[agentName].push(record)
-        return groups
-      }, {})
-      
-      // Prepare data for multi-sheet export
-      const sheetsData = []
-      
-      // Create summary sheet with all data
-      const allMappedData = dataToExport.map((r: any) => {
-        const amt = r.amount || 0
-        const marginAmt = r.marginAmount || 0
-        const bankAmt = r.bankChargesAmount || 0
-        const vatAmt = r.vatAmount || 0
-        const netRec = r.netReceived || 0
-        const toPay = r.toPayAmount || 0
-        const finalMarg = r.finalMargin || 0
-        const bal = r.balance || toPay
-        const paid = r.paid || 0
-        
-        return {
-          batchId: r.batchId || r.receiptNumber || r.transactionId,
-          date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy') : ''),
-          agent: r.agent || 'System Agent',
-          posMachine: r.posMachine || 'No POS',
-          posReceiptAmount: amt.toFixed(0),
-          marginPercent: r.marginPercent ? r.marginPercent.toFixed(2) : '0',
-          marginAmount: marginAmt.toFixed(2),
-          bankChargesPercent: r.bankChargesPercent ? r.bankChargesPercent.toFixed(2) : '0',
-          bankChargesAmount: bankAmt.toFixed(0),
-          vatPercent: r.vatPercent ? r.vatPercent.toFixed(0) : '0',
-          vatAmount: vatAmt.toFixed(2),
-          netReceived: netRec.toFixed(2),
-          toPayAmount: toPay.toFixed(2),
-          finalMargin: finalMarg.toFixed(2),
-          paid: paid > 0 ? paid.toFixed(2) : '',
-          balance: bal.toFixed(2),
-          createdBy: r.createdBy || 'System',
-          updatedBy: r.updatedBy || 'System',
-          createdAtDate: r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy HH:mm') : '',
-          updatedAtDate: r.updatedDate ? format(new Date(r.updatedDate), 'dd-MMM-yyyy HH:mm') : '',
-          description: r.description || ''
-        }
-      })
-      
-      // Calculate overall grand totals
-      const overallGrandTotals = {
-        totalRecords: dataToExport.length,
-        totalPosReceiptAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.amount) || 0), 0),
-        totalMarginAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.marginAmount) || 0), 0),
-        totalBankChargesAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.bankChargesAmount) || 0), 0),
-        totalVatAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.vatAmount) || 0), 0),
-        totalNetReceived: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.netReceived) || 0), 0),
-        totalToPayAmount: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.toPayAmount) || 0), 0),
-        totalFinalMargin: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.finalMargin) || 0), 0),
-        totalPaid: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.paid) || 0), 0),
-        totalBalance: dataToExport.reduce((sum: number, r: any) => sum + (parseFloat(r.balance) || parseFloat(r.toPayAmount) || 0), 0)
-      }
-      
-      // Add overall grand total row
-      const overallGrandTotalRow = {
-        batchId: 'OVERALL GRAND TOTAL',
-        date: '',
-        agent: '',
-        posMachine: '',
-        posReceiptAmount: overallGrandTotals.totalPosReceiptAmount.toFixed(0),
-        marginPercent: '',
-        marginAmount: overallGrandTotals.totalMarginAmount.toFixed(2),
-        bankChargesPercent: '',
-        bankChargesAmount: overallGrandTotals.totalBankChargesAmount.toFixed(0),
-        vatPercent: '',
-        vatAmount: overallGrandTotals.totalVatAmount.toFixed(2),
-        netReceived: overallGrandTotals.totalNetReceived.toFixed(2),
-        toPayAmount: overallGrandTotals.totalToPayAmount.toFixed(2),
-        finalMargin: overallGrandTotals.totalFinalMargin.toFixed(2),
-        paid: overallGrandTotals.totalPaid > 0 ? overallGrandTotals.totalPaid.toFixed(2) : '',
-        balance: overallGrandTotals.totalBalance.toFixed(2),
-        createdBy: '',
-        updatedBy: '',
-        createdAtDate: '',
-        updatedAtDate: '',
-        description: `Overall total of ${overallGrandTotals.totalRecords} records from ${Object.keys(agentGroups).length} agents`
-      }
-      
-      allMappedData.push(overallGrandTotalRow)
-      
-      // Add summary sheet
-      sheetsData.push({
-        sheetName: 'All Agents Summary',
-        data: allMappedData,
-        title: `${reportType.toUpperCase()} Report - All Agents - ${dateRange}`,
-        grandTotals: {
-          enabled: true,
-          summary: `Overall Grand Total: AED ${overallGrandTotals.totalPosReceiptAmount.toFixed(2)} | Net Received: AED ${overallGrandTotals.totalNetReceived.toFixed(2)} | Final Margin: AED ${overallGrandTotals.totalFinalMargin.toFixed(2)}`
-        }
-      })
-      
-      // Create individual agent sheets
-      Object.entries(agentGroups).forEach(([agentName, agentData]: [string, any]) => {
-        const agentMappedData = agentData.map((r: any) => {
-          const amt = r.amount || 0
-          const marginAmt = r.marginAmount || 0
-          const bankAmt = r.bankChargesAmount || 0
-          const vatAmt = r.vatAmount || 0
-          const netRec = r.netReceived || 0
-          const toPay = r.toPayAmount || 0
-          const finalMarg = r.finalMargin || 0
-          const bal = r.balance || toPay
-          const paid = r.paid || 0
-          
-          return {
-            batchId: r.batchId || r.receiptNumber || r.transactionId,
-            date: r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : (r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy') : ''),
-            agent: r.agent || 'System Agent',
-            posMachine: r.posMachine || 'No POS',
-            posReceiptAmount: amt.toFixed(0),
-            marginPercent: r.marginPercent ? r.marginPercent.toFixed(2) : '0',
-            marginAmount: marginAmt.toFixed(2),
-            bankChargesPercent: r.bankChargesPercent ? r.bankChargesPercent.toFixed(2) : '0',
-            bankChargesAmount: bankAmt.toFixed(0),
-            vatPercent: r.vatPercent ? r.vatPercent.toFixed(0) : '0',
-            vatAmount: vatAmt.toFixed(2),
-            netReceived: netRec.toFixed(2),
-            toPayAmount: toPay.toFixed(2),
-            finalMargin: finalMarg.toFixed(2),
-            paid: paid > 0 ? paid.toFixed(2) : '',
-            balance: bal.toFixed(2),
-            createdBy: r.createdBy || 'System',
-            updatedBy: r.updatedBy || 'System',
-            createdAtDate: r.createdDate ? format(new Date(r.createdDate), 'dd-MMM-yyyy HH:mm') : '',
-            updatedAtDate: r.updatedDate ? format(new Date(r.updatedDate), 'dd-MMM-yyyy HH:mm') : '',
-            description: r.description || ''
-          }
-        })
-        
-        // Calculate agent-specific grand totals
-        const agentGrandTotals = {
-          totalRecords: agentData.length,
-          totalPosReceiptAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.amount) || 0), 0),
-          totalMarginAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.marginAmount) || 0), 0),
-          totalBankChargesAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.bankChargesAmount) || 0), 0),
-          totalVatAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.vatAmount) || 0), 0),
-          totalNetReceived: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.netReceived) || 0), 0),
-          totalToPayAmount: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.toPayAmount) || 0), 0),
-          totalFinalMargin: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.finalMargin) || 0), 0),
-          totalPaid: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.paid) || 0), 0),
-          totalBalance: agentData.reduce((sum: number, r: any) => sum + (parseFloat(r.balance) || parseFloat(r.toPayAmount) || 0), 0)
-        }
-        
-        // Add agent grand total row
-        const agentGrandTotalRow = {
-          batchId: `${agentName.toUpperCase()} - TOTAL`,
-          date: '',
-          agent: agentName,
-          posMachine: '',
-          posReceiptAmount: agentGrandTotals.totalPosReceiptAmount.toFixed(0),
-          marginPercent: '',
-          marginAmount: agentGrandTotals.totalMarginAmount.toFixed(2),
-          bankChargesPercent: '',
-          bankChargesAmount: agentGrandTotals.totalBankChargesAmount.toFixed(0),
-          vatPercent: '',
-          vatAmount: agentGrandTotals.totalVatAmount.toFixed(2),
-          netReceived: agentGrandTotals.totalNetReceived.toFixed(2),
-          toPayAmount: agentGrandTotals.totalToPayAmount.toFixed(2),
-          finalMargin: agentGrandTotals.totalFinalMargin.toFixed(2),
-          paid: agentGrandTotals.totalPaid > 0 ? agentGrandTotals.totalPaid.toFixed(2) : '',
-          balance: agentGrandTotals.totalBalance.toFixed(2),
-          createdBy: '',
-          updatedBy: '',
-          createdAtDate: '',
-          updatedAtDate: '',
-          description: `${agentName} total: ${agentGrandTotals.totalRecords} records`
-        }
-        
-        agentMappedData.push(agentGrandTotalRow)
-        
-        // Add agent sheet
-        sheetsData.push({
-          sheetName: agentName.length > 25 ? agentName.substring(0, 25) + '...' : agentName,
-          data: agentMappedData,
-          title: `${reportType.toUpperCase()} Report - ${agentName} - ${dateRange}`,
-          grandTotals: {
-            enabled: true,
-            summary: `${agentName} Total: AED ${agentGrandTotals.totalPosReceiptAmount.toFixed(2)} | Net Received: AED ${agentGrandTotals.totalNetReceived.toFixed(2)} | Final Margin: AED ${agentGrandTotals.totalFinalMargin.toFixed(2)}`
-          }
-        })
-      })
-      
-      // Export multi-sheet Excel
       const { exportMultiSheetExcel } = require('@/lib/excelExport')
-      exportMultiSheetExcel({
-        filename: `${reportType}_report_by_agents`,
-        sheets: sheetsData,
-        columns: isAdmin ? reportColumns.reportsAdmin(t) : reportColumns.reportsAgent(t),
-        isRTL: false
-      })
-      
-      toast.success(`Multi-sheet report exported with ${Object.keys(agentGroups).length} agent sheets + summary (${dataToExport.length} total records)`)
+      const { exportToExcel } = require('@/lib/excelExport')
+
+      const dataToExport = filteredItems.length ? filteredItems : (reportData.allItems || reportData.items || [])
+      const toMoney = (n: number) => `AED ${Number(n || 0).toFixed(2)}`
+      const fmtDate = (d: any) => d ? format(new Date(d), 'dd-MMM-yyyy') : '—'
+      const fmtDateTime = (d: any) => d ? format(new Date(d), 'dd-MMM-yyyy HH:mm') : '—'
+
+      const normalizeRow = (r: any) => {
+        const amount = Number(r.amount ?? r.posReceiptAmount ?? 0)
+        const marginPercent = Number(r.marginPercent ?? r.commissionPercentage ?? 0)
+        const bankChargesPercent = Number(r.bankChargesPercent ?? r.bankCharges ?? 0)
+        const vatPercent = Number(r.vatPercent ?? r.vatPercentage ?? 0)
+        const marginAmount = Number(r.marginAmount ?? ((amount * marginPercent) / 100))
+        const bankChargesAmount = Number(r.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
+        const vatAmount = Number(r.vatAmount ?? ((amount * vatPercent) / 100))
+        const netReceived = Number(r.netReceived ?? (amount - bankChargesAmount - vatAmount))
+        const toReceive = Number(r.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+        const received = Number(r.paid ?? r.paidAmount ?? 0)
+        const settled = Number(r.settlementAmount ?? 0)
+        const remaining = Math.max(0, Number(r.balance ?? r.dueAmount ?? (toReceive - received - settled)))
+        const batchId = r.batchId || r.receiptNumber || r.transactionId || '—'
+        const posMachine = r.posMachine || (r.posMachineSegment && r.posMachineBrand ? `${r.posMachineSegment}/${r.posMachineBrand}` : 'No POS')
+        const date = r.date || r.createdDate || r.createdAt
+
+        return {
+          batchId,
+          agent: r.agent || 'System Agent',
+          posMachine,
+          date: fmtDate(date),
+          description: r.description || '—',
+          receiptAmount: toMoney(amount),
+          amount: toMoney(amount),
+          bankCharges: `${toMoney(bankChargesAmount)} (${bankChargesPercent.toFixed(2)}%)`,
+          vat: `${toMoney(vatAmount)} (${vatPercent.toFixed(2)}%)`,
+          margin: `${toMoney(marginAmount)} (${marginPercent.toFixed(2)}%)`,
+          netReceived: toMoney(netReceived),
+          toReceive: toMoney(toReceive),
+          received: toMoney(received),
+          settlementAmount: toMoney(settled),
+          remainingReceive: remaining > 0.01 ? toMoney(remaining) : '0.00',
+          due: remaining > 0.01 ? toMoney(remaining) : '0.00',
+          netProfit: toMoney(isAdmin ? marginAmount : received),
+          method: (r.paymentMethod || '').toUpperCase(),
+          status: r.status ? String(r.status).charAt(0).toUpperCase() + String(r.status).slice(1) : 'Completed',
+          createdByDate: `${r.createdBy || 'System'} | ${fmtDateTime(r.createdDate || r.createdAt)}`,
+          updatedByDate: `${r.updatedBy || 'System'} | ${fmtDateTime(r.updatedDate || r.updatedAt)}`,
+        }
+      }
+
+      let columns: any[] = []
+      if (reportType === 'summary') {
+        columns = isAdmin
+          ? [
+              { key: 'batchId', label: 'Batch ID', width: 22 },
+              { key: 'agent', label: 'Agent', width: 22 },
+              { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'date', label: 'Date', width: 16 },
+              { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'bankCharges', label: 'Bank Charges', width: 24 },
+              { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'margin', label: 'Margin', width: 20 },
+              { key: 'toReceive', label: 'To Pay', width: 18 },
+              { key: 'received', label: 'Paid', width: 18 },
+              { key: 'due', label: 'Due', width: 18 },
+              { key: 'netProfit', label: 'Net Profit', width: 18 },
+              { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+              { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
+              { key: 'description', label: 'Description', width: 40 },
+            ]
+          : [
+              { key: 'batchId', label: 'Batch ID', width: 22 },
+              { key: 'date', label: 'Date', width: 16 },
+              { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'netReceived', label: 'Net Received', width: 18 },
+              { key: 'toReceive', label: 'To Receive', width: 18 },
+              { key: 'received', label: 'Received', width: 18 },
+              { key: 'settlementAmount', label: 'Settlement Amount', width: 20 },
+              { key: 'remainingReceive', label: 'Remaining Receive', width: 20 },
+              { key: 'description', label: 'Description', width: 40 },
+            ]
+      } else if (reportType === 'receipts') {
+        columns = isAdmin
+          ? [
+              { key: 'batchId', label: 'Batch ID', width: 22 },
+              { key: 'agent', label: 'Agent', width: 22 },
+              { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'date', label: 'Date', width: 16 },
+              { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'bankCharges', label: 'Bank Charges', width: 24 },
+              { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'margin', label: 'Margin', width: 20 },
+              { key: 'toReceive', label: 'To Pay', width: 18 },
+              { key: 'received', label: 'Paid', width: 18 },
+              { key: 'due', label: 'Due', width: 18 },
+              { key: 'netProfit', label: 'Net Profit', width: 18 },
+              { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+              { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
+              { key: 'description', label: 'Description', width: 40 },
+            ]
+          : [
+              { key: 'batchId', label: 'Batch ID', width: 22 },
+              { key: 'date', label: 'Date', width: 16 },
+              { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'amount', label: 'Amount', width: 18 },
+              { key: 'toReceive', label: 'To Receive', width: 18 },
+              { key: 'received', label: 'Received', width: 18 },
+              { key: 'settlementAmount', label: 'Settlement Amount', width: 20 },
+              { key: 'remainingReceive', label: 'Remaining Receive', width: 20 },
+              { key: 'description', label: 'Description', width: 40 },
+            ]
+      } else if (reportType === 'settlements') {
+        columns = isAdmin
+          ? [
+              { key: 'batchId', label: 'Batch ID', width: 22 },
+              { key: 'agent', label: 'Agent', width: 22 },
+              { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'date', label: 'Date', width: 16 },
+              { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'bankCharges', label: 'Bank Charges', width: 24 },
+              { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'margin', label: 'Margin', width: 20 },
+              { key: 'toReceive', label: 'To Pay', width: 18 },
+              { key: 'received', label: 'Paid', width: 18 },
+              { key: 'due', label: 'Due', width: 18 },
+              { key: 'netProfit', label: 'Net Profit', width: 18 },
+              { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+              { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
+              { key: 'description', label: 'Description', width: 40 },
+            ]
+          : [
+              { key: 'batchId', label: 'Batch ID', width: 22 },
+              { key: 'date', label: 'Date', width: 16 },
+              { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'receiptAmount', label: 'POS/Receipt Amount', width: 20 },
+              { key: 'netReceived', label: 'Net Received', width: 18 },
+              { key: 'description', label: 'Description', width: 40 },
+            ]
+      } else {
+        columns = [
+          { key: 'batchId', label: 'Batch ID', width: 22 },
+          { key: 'date', label: 'Date', width: 16 },
+          { key: 'agent', label: 'Agent', width: 22 },
+          { key: 'amount', label: 'Amount', width: 18 },
+          { key: 'status', label: 'Status', width: 14 },
+          { key: 'description', label: 'Description', width: 40 },
+        ]
+      }
+
+      const mapped = dataToExport.map(normalizeRow)
+      const moneyKey = ['receiptAmount', 'amount', 'toReceive', 'received', 'remainingReceive'].find(k => columns.some((c: any) => c.key === k))
+
+      const withGrandTotal = (rows: any[]) => {
+        if (!moneyKey) return rows
+        const total = rows.reduce((sum: number, row: any) => {
+          const value = Number(String(row[moneyKey] || 0).replace(/[^0-9.-]/g, '') || 0)
+          return sum + value
+        }, 0)
+        const totalRow: any = { batchId: `Grand Total (${rows.length} records)` }
+        totalRow[moneyKey] = `AED ${total.toFixed(2)}`
+        return [...rows, totalRow]
+      }
+
+      const mappedWithTotal = withGrandTotal(mapped)
+
+      if (isAdmin) {
+        const grouped: Record<string, any[]> = mapped.reduce((acc: Record<string, any[]>, row: any) => {
+          const key = row.agent || 'System Agent'
+          if (!acc[key]) acc[key] = []
+          acc[key].push(row)
+          return acc
+        }, {})
+        const groupedEntries = Object.entries(grouped) as [string, any[]][]
+
+        const sheets = [
+          {
+            sheetName: 'All Agents Summary',
+            data: mappedWithTotal,
+            title: `${reportType.toUpperCase()} Report - All Agents - ${dateRange}`,
+            grandTotals: { enabled: !!moneyKey }
+          },
+          ...groupedEntries.map(([agentName, rows]) => ({
+            sheetName: agentName.length > 25 ? `${agentName.slice(0, 25)}...` : agentName,
+            data: withGrandTotal(rows),
+            title: `${reportType.toUpperCase()} Report - ${agentName} - ${dateRange}`,
+            grandTotals: { enabled: !!moneyKey }
+          })),
+        ]
+
+        exportMultiSheetExcel({
+          filename: `${reportType}_report_by_agents`,
+          sheets,
+          columns,
+          isRTL: false,
+        })
+      } else {
+        exportToExcel({
+          filename: `${reportType}_report`,
+          sheetName: `${reportType.toUpperCase()} Report`,
+          columns,
+          data: mappedWithTotal,
+          title: `${reportType.toUpperCase()} Report - ${dateRange}`,
+          grandTotals: {
+            enabled: !!moneyKey,
+          },
+          isRTL: false,
+        })
+      }
+
+      toast.success(`Report exported (${mapped.length} records)`)
     } else {
       toast.success('PDF export functionality coming soon')
     }
@@ -379,6 +387,36 @@ export default function Reports() {
     filteredStats.settlementAmount = filteredStats.totalRevenue
   }
 
+  const agentCardTotals = filteredItems.reduce((acc: any, item: any) => {
+    const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
+    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+    const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
+    const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
+    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+    const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
+    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
+    const netReceived = Number(item.netReceived ?? (amount - bankChargesAmount - vatAmount))
+    const toReceive = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+    const received = Number(item.paid ?? item.paidAmount ?? 0)
+    const settled = Number(item.settlementAmount ?? 0)
+    const remainingReceive = Math.max(0, Number(item.balance ?? item.dueAmount ?? (toReceive - received - settled)))
+
+    acc.totalReceiptAmount += amount
+    acc.netReceived += netReceived
+    acc.toReceive += toReceive
+    acc.received += received
+    acc.settled += settled
+    acc.remainingReceive += remainingReceive
+    return acc
+  }, {
+    totalReceiptAmount: 0,
+    netReceived: 0,
+    toReceive: 0,
+    received: 0,
+    settled: 0,
+    remainingReceive: 0,
+  })
+
   const summaryCards = isAdmin
     ? [
         {
@@ -416,11 +454,18 @@ export default function Reports() {
           color: 'text-purple-600 dark:text-purple-400',
           bg: 'bg-purple-50 dark:bg-purple-900/20',
         },
+        {
+          label: 'Net Profit',
+          value: formatAED(filteredStats.totalMargin),
+          icon: TrendingUp,
+          color: 'text-cyan-600 dark:text-cyan-400',
+          bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+        },
       ]
     : [
         {
-          label: 'Total Revenue',
-          value: formatAED(filteredStats.totalRevenue),
+          label: 'Total Receipt Amount',
+          value: formatAED(agentCardTotals.totalReceiptAmount),
           icon: TrendingUp,
           color: 'text-emerald-600 dark:text-emerald-400',
           bg: 'bg-emerald-50 dark:bg-emerald-900/20',
@@ -433,29 +478,107 @@ export default function Reports() {
           bg: 'bg-yellow-50 dark:bg-yellow-900/20',
         },
         {
-          label: 'Payment Amount',
-          value: formatAED(filteredStats.paymentAmount),
+          label: 'Net Received',
+          value: formatAED(agentCardTotals.netReceived),
           icon: Calculator,
           color: 'text-blue-600 dark:text-blue-400',
           bg: 'bg-blue-50 dark:bg-blue-900/20',
         },
         {
-          label: 'Settlement Amount',
-          value: formatAED(filteredStats.settlementAmount),
+          label: 'To Receive',
+          value: formatAED(agentCardTotals.toReceive),
           icon: FileText,
           color: 'text-indigo-600 dark:text-indigo-400',
           bg: 'bg-indigo-50 dark:bg-indigo-900/20',
         },
         {
-          label: 'Due Amount',
-          value: formatAED(filteredStats.dueAmount),
+          label: 'Received',
+          value: formatAED(agentCardTotals.received),
           icon: TrendingUp,
+          color: 'text-emerald-600 dark:text-emerald-400',
+          bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+        },
+        {
+          label: 'Settlement Amount',
+          value: formatAED(agentCardTotals.settled),
+          icon: FileText,
+          color: 'text-indigo-600 dark:text-indigo-400',
+          bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        },
+        {
+          label: 'Remaining Receive',
+          value: formatAED(agentCardTotals.remainingReceive),
+          icon: ArrowRight,
           color: 'text-red-600 dark:text-red-400',
           bg: 'bg-red-50 dark:bg-red-900/20',
+        },
+        {
+          label: 'Net Profit',
+          value: formatAED(agentCardTotals.received),
+          icon: TrendingUp,
+          color: 'text-cyan-600 dark:text-cyan-400',
+          bg: 'bg-cyan-50 dark:bg-cyan-900/20',
         },
       ]
 
   const reportGrandTotal = filteredItems.reduce((s: number, item: any) => s + (item.amount || 0), 0)
+
+  const adminGrandTotals = filteredItems.reduce((acc: any, item: any) => {
+    const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
+    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+    const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
+    const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
+    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+    const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
+    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
+    const toPayAmount = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+    const paidAmount = Number(item.paid ?? item.paidAmount ?? 0)
+    const dueAmount = Number(item.balance ?? item.dueAmount ?? (toPayAmount - paidAmount))
+
+    acc.receiptAmount += amount
+    acc.bankCharges += bankChargesAmount
+    acc.vat += vatAmount
+    acc.margin += marginAmount
+    acc.toPay += toPayAmount
+    acc.paid += paidAmount
+    acc.due += Math.max(0, dueAmount)
+    acc.netProfit += marginAmount
+    return acc
+  }, {
+    receiptAmount: 0,
+    bankCharges: 0,
+    vat: 0,
+    margin: 0,
+    toPay: 0,
+    paid: 0,
+    due: 0,
+    netProfit: 0,
+  })
+
+  const agentGrandTotals = filteredItems.reduce((acc: any, item: any) => {
+    const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
+    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+    const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
+    const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
+    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+    const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
+    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
+    const toReceive = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+    const received = Number(item.paid ?? item.paidAmount ?? 0)
+    const settled = Number(item.settlementAmount ?? 0)
+    const remainingReceive = Math.max(0, Number(item.balance ?? item.dueAmount ?? (toReceive - received - settled)))
+
+    acc.toReceive += toReceive
+    acc.received += received
+    acc.settled += settled
+    acc.remainingReceive += remainingReceive
+    return acc
+  }, {
+    toReceive: 0,
+    received: 0,
+    settled: 0,
+    remainingReceive: 0,
+  })
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
@@ -568,21 +691,22 @@ export default function Reports() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="kpi-grid">
         {summaryCards.map((card) => {
           const Icon = card.icon
           return (
-            <div key={card.label} className="dubai-card p-4 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className={`p-2.5 rounded-xl flex-shrink-0 ${card.bg}`}>
-                  <Icon className={`h-5 w-5 ${card.color}`} />
-                </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 truncate">{card.label}</p>
-                  <p className="text-sm sm:text-base font-bold text-gray-900 dark:text-white break-words leading-snug">
-                    {loading ? <span className="inline-block h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /> : card.value}
-                  </p>
-                </div>
+            <div key={card.label} className="kpi-card">
+              <div className={`kpi-card-icon ${card.bg}`}>
+                <Icon className={`h-5 w-5 ${card.color}`} />
+              </div>
+              <div className="kpi-card-body">
+                <span className="kpi-card-label">{card.label}</span>
+                <span className="kpi-card-value">
+                  {loading
+                    ? <span className="inline-block h-5 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    : card.value
+                  }
+                </span>
               </div>
             </div>
           )
@@ -601,7 +725,7 @@ export default function Reports() {
         </div>
 
         {loading ? (
-          <div className="p-5"><TableSkeleton rows={5} columns={isAdmin ? 11 : 6} /></div>
+          <div className="p-5"><TableSkeleton rows={5} columns={isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? 15 : 6} /></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -609,21 +733,27 @@ export default function Reports() {
                 <tr>
                   {(reportType === 'settlements' ? (
                     isAdmin ? [
-                      'Batch ID', 'Date', 'Agent', 'POS Machine', 'POS/Receipt Amount', 
-                      'Margin %', 'Margin Amount', 'Bank Charges %', 'Bank Charges Amount',
-                      'VAT %', 'VAT Amount', 'Net Received', 'To Pay Amount', 'Margin',
-                      'Paid', 'Balance', 'Created By', 'Updated By', 'Created Date', 'Updated Date', 'Description'
+                      'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
+                      'Bank Charges', 'Vat', 'Margin', 'To Pay', 'Paid', 'Due', 'Net Profit',
+                      'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
                       'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
                     ]
                   ) : reportType === 'summary' ? (
                     isAdmin ? [
-                      'Batch ID', 'Date', 'Agent', 'POS Machine', 'POS/Receipt Amount', 
-                      'Margin %', 'Margin Amount', 'Bank Charges %', 'Bank Charges Amount',
-                      'VAT %', 'VAT Amount', 'Net Received', 'To Pay Amount', 'Margin',
-                      'Paid', 'Balance', 'Created By', 'Updated By', 'Created Date', 'Updated Date', 'Description'
+                      'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
+                      'Bank Charges', 'Vat', 'Margin', 'To Pay', 'Paid', 'Due', 'Net Profit',
+                      'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
-                      'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
+                      'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'Net Received', 'To Receive', 'Received', 'Remaining Receive', 'Description'
+                    ]
+                  ) : reportType === 'receipts' ? (
+                    isAdmin ? [
+                      'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
+                      'Bank Charges', 'Vat', 'Margin', 'To Pay', 'Paid', 'Due', 'Net Profit',
+                      'Created By / Date', 'Updated By / Date', 'Description'
+                    ] : [
+                      'Batch ID', 'Date', 'POS Machine', 'Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
                     ]
                   ) : [
                     'Batch ID', 'Date', 'Agent', 'Amount', 'Status', 'Description'
@@ -636,6 +766,61 @@ export default function Reports() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredItems.length > 0 ? filteredItems.map((item: any, i: number) => {
+                  if (isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements')) {
+                    const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
+                    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+                    const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
+                    const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
+                    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+                    const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
+                    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
+                    const toPayAmount = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+                    const paidAmount = Number(item.paid ?? item.paidAmount ?? 0)
+                    const dueAmount = Number(item.balance ?? item.dueAmount ?? (toPayAmount - paidAmount))
+                    const netProfit = marginAmount
+                    const isFullyPaid = paidAmount >= toPayAmount - 0.01
+                    const paidDisplay = isFullyPaid ? 'Paid' : (paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—')
+                    const batchId = item.batchId || item.receiptNumber || item.transactionId || '—'
+                    const posMachine = item.posMachine
+                      || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')
+
+                    return (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || 'System Agent'}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{posMachine}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-amber-500 dark:text-amber-300 whitespace-nowrap">AED {amount.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmountWithPercent(bankChargesAmount, bankChargesPercent)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmountWithPercent(vatAmount, vatPercent)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmountWithPercent(marginAmount, marginPercent)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-sky-600 dark:text-sky-300 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{paidDisplay}</td>
+                        <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
+                          <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>
+                            {dueAmount > 0.01 ? `AED ${dueAmount.toFixed(2)}` : '✓ Paid'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {netProfit.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          <div className="meta-compact">
+                            <div className="meta-compact-name">{item.createdBy || 'System'}</div>
+                            <div className="meta-compact-date">{item.createdDate || item.createdAt ? format(new Date(item.createdDate || item.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          <div className="meta-compact">
+                            <div className="meta-compact-name">{item.updatedBy || 'System'}</div>
+                            <div className="meta-compact-date">{item.updatedDate || item.updatedAt ? format(new Date(item.updatedDate || item.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">{item.description || '—'}</td>
+                      </tr>
+                    )
+                  }
+
                   if (reportType === 'settlements') {
                     // Generate sample data with exact calculations as requested
                     const batchId = item.batchId || `${Math.floor(Math.random() * 9000000) + 1000000}`
@@ -741,27 +926,89 @@ export default function Reports() {
                         </tr>
                       )
                     }
+                  } else if (reportType === 'receipts') {
+                    const amount = item.amount || 0
+                    // Use flat fields sent directly from the API
+                    const marginPercent = item.commissionPercentage ?? 0
+                    const bankChargesPercent = item.bankCharges ?? 0
+                    const vatPercent = item.vatPercentage ?? 0
+                    const marginAmount = (amount * marginPercent) / 100
+                    const bankChargesAmount = (amount * bankChargesPercent) / 100
+                    const vatAmount = (amount * vatPercent) / 100  // VAT on full amount
+                    const netReceived = amount - bankChargesAmount - vatAmount
+                    const toPayAmount = amount - bankChargesAmount - vatAmount - marginAmount
+                    const paidAmount = item.paidAmount || 0
+                    const settledAmount = item.settlementAmount || 0
+                    const dueAmount = item.dueAmount != null ? item.dueAmount : toPayAmount - paidAmount - settledAmount
+                    const payStatus = paidAmount >= toPayAmount - 0.01 ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid'
+
+                    if (isAdmin) {
+                      return (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.receiptNumber || item.transactionId}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS'}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">AED {amount.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{marginPercent > 0 ? `${marginPercent}%` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{marginAmount > 0 ? `AED ${marginAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesPercent > 0 ? `${bankChargesPercent}%` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesAmount > 0 ? `AED ${bankChargesAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{vatPercent > 0 ? `${vatPercent}%` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{vatAmount > 0 ? `AED ${vatAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-emerald-600 whitespace-nowrap">AED {netReceived.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
+                            <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>
+                              {dueAmount > 0.01 ? `AED ${dueAmount.toFixed(2)}` : '✓ Paid'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-sm whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                              payStatus === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                              payStatus === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
+                              'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+                            }`}>{payStatus === 'paid' ? 'Paid' : payStatus === 'partial' ? 'Partial' : 'Unpaid'}</span>
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">{item.description || '—'}</td>
+                        </tr>
+                      )
+                    } else {
+                      // Agent view: show To Receive (toPayAmount), Paid, Due
+                      return (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.receiptNumber || item.transactionId}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">AED {amount.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
+                            <span className={dueAmount > 0 ? 'text-red-600' : 'text-green-600'}>
+                              {dueAmount > 0 ? `AED ${dueAmount.toFixed(2)}` : (settledAmount > 0.01 && paidAmount < toPayAmount - 0.01 ? '✓ Settled' : '✓ Received')}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">{item.description || '—'}</td>
+                        </tr>
+                      )
+                    }
                   } else if (reportType === 'summary') {
-                    // Summary report - use same calculation approach as receipts page
+                    // Use pre-calculated values sent directly from the API — no re-calculation needed
                     const batchId = item.batchId || item.receiptNumber || item.transactionId
                     const posAmount = item.amount || 0
-                    const posMachine = item.posMachineData || {}
-                    
-                    // Calculate using actual POS machine data (same as receipts page)
-                    const marginPercent = posMachine.commissionPercentage || 0
-                    const marginAmount = marginPercent > 0 ? (posAmount * marginPercent / 100) : 0
-                    const bankChargesPercent = posMachine.bankCharges || 0
-                    const bankChargesAmount = bankChargesPercent > 0 ? (posAmount * bankChargesPercent / 100) : 0
-                    const vatPercent = posMachine.vatPercentage || 0
-                    // VAT calculated on bank charges amount
-                    const vatAmount = vatPercent > 0 && bankChargesAmount > 0 ? (bankChargesAmount * vatPercent / 100) : 0
-                    // FIXED: Net Received = POS Amount - Bank Charges - VAT
-                    const netReceived = posAmount - bankChargesAmount - vatAmount
-                    // FIXED: To Pay Amount = POS Amount - Margin
-                    const toPayAmount = posAmount - marginAmount
-                    const finalMargin = marginAmount - bankChargesAmount - vatAmount
+                    const marginPercent = item.marginPercent || 0
+                    const marginAmount = item.marginAmount || 0
+                    const bankChargesPercent = item.bankChargesPercent || 0
+                    const bankChargesAmount = item.bankChargesAmount || 0
+                    const vatPercent = item.vatPercent || 0
+                    const vatAmount = item.vatAmount || 0
+                    const netReceived = item.netReceived ?? (posAmount - bankChargesAmount - vatAmount)
+                    const toPayAmount = item.toPayAmount ?? (posAmount - bankChargesAmount - vatAmount - marginAmount)
                     const paid = item.paid || 0
-                    const balance = toPayAmount - paid
+                    const settled = item.settlementAmount || 0
+                    const due = item.balance ?? (toPayAmount - paid - settled)
                     
                     if (isAdmin) {
                       return (
@@ -800,17 +1047,16 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {netReceived.toFixed(2)}
                           </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">
                             {toPayAmount.toFixed(2)}
                           </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {finalMargin.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
                             {paid > 0 ? paid.toFixed(2) : '—'}
                           </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {balance.toFixed(2)}
+                          <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
+                            <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>
+                              {due > 0.01 ? due.toFixed(2) : '✓ Paid'}
+                            </span>
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.createdBy || 'System'}
@@ -845,6 +1091,17 @@ export default function Reports() {
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
                             {netReceived.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">
+                            AED {toPayAmount.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
+                            {paid > 0 ? `AED ${paid.toFixed(2)}` : '—'}
+                          </td>
+                          <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
+                            <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>
+                              {due > 0.01 ? `AED ${due.toFixed(2)}` : (settled > 0.01 && paid < toPayAmount - 0.01 ? '✓ Settled' : '✓ Received')}
+                            </span>
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
                             {item.description || '—'}
@@ -885,7 +1142,7 @@ export default function Reports() {
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' || reportType === 'summary' ? (isAdmin ? 21 : 6) : 6} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 15 : 6) : reportType === 'summary' ? (isAdmin ? 15 : 9) : reportType === 'receipts' ? (isAdmin ? 15 : 8) : 6} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -894,15 +1151,42 @@ export default function Reports() {
               </tbody>
               {filteredItems.length > 0 && (
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
-                  <tr>
-                    <td colSpan={reportType === 'settlements' || reportType === 'summary' ? (isAdmin ? 4 : 3) : 3} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
-                      Grand Total ({filteredItems.length} records)
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-primary">
-                      {reportGrandTotal.toFixed(2)}
-                    </td>
-                    <td colSpan={reportType === 'settlements' || reportType === 'summary' ? (isAdmin ? 16 : 2) : 2} />
-                  </tr>
+                  {isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                        Grand Total ({filteredItems.length} records)
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-amber-500 dark:text-amber-300">AED {adminGrandTotals.receiptAmount.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.bankCharges.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.vat.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.margin.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">AED {adminGrandTotals.toPay.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.paid.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.due.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.netProfit.toFixed(2)}</td>
+                      <td colSpan={3} />
+                    </tr>
+                  ) : !isAdmin && (reportType === 'summary' || reportType === 'receipts') ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                        Agent Grand Total ({filteredItems.length} records)
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">AED {agentGrandTotals.toReceive.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {agentGrandTotals.received.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {agentGrandTotals.remainingReceive.toFixed(2)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td colSpan={reportType === 'settlements' ? 3 : reportType === 'summary' ? 3 : reportType === 'receipts' ? 3 : 3} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                        Grand Total ({filteredItems.length} records)
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-primary">
+                        {reportGrandTotal.toFixed(2)}
+                      </td>
+                      <td colSpan={reportType === 'settlements' ? 2 : reportType === 'summary' ? 5 : reportType === 'receipts' ? 3 : 2} />
+                    </tr>
+                  )}
                 </tfoot>
               )}
             </table>

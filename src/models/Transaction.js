@@ -58,6 +58,9 @@ const transactionSchema = new mongoose.Schema({
     required: false
   },
   description: String,
+  paidAmount: { type: Number, default: 0 },
+  settlementAmount: { type: Number, default: 0 },
+  dueAmount: { type: Number, default: 0 },
   attachments: [{
     type: String,
     required: false
@@ -71,7 +74,10 @@ const transactionSchema = new mongoose.Schema({
     bankName: String,
     upiId: String,
     receiptNumber: String,
-    paymentNumber: String
+    paymentNumber: String,
+    source: String,
+    outstandingDueBefore: Number,
+    outstandingDueAfter: Number
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

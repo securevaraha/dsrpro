@@ -299,40 +299,27 @@ export default function Dashboard() {
 
         {/* ── Admin KPI Cards ── */}
         {role === 'admin' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="kpi-grid">
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="dubai-card p-5 animate-pulse">
-                    <div className="flex items-start gap-3">
-                      <div className="w-11 h-11 bg-gray-200 dark:bg-gray-700 rounded-xl flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
-                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                      </div>
+                  <div key={i} className="kpi-card animate-pulse">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-xl flex-shrink-0" />
+                    <div className="flex flex-col gap-2 flex-1">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32" />
                     </div>
                   </div>
                 ))
               : adminCards.map((card) => {
                   const Icon = card.icon
                   return (
-                    <Link
-                      key={card.label}
-                      href={card.href}
-                      className="dubai-card p-5 hover:shadow-lg transition-all duration-200 group cursor-pointer block"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2.5 rounded-xl flex-shrink-0 ${card.bg}`}>
-                          <Icon className={`h-5 w-5 ${card.color}`} />
-                        </div>
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 leading-tight truncate">
-                            {card.label}
-                          </p>
-                          <p className="text-base sm:text-lg font-bold text-gray-900 dark:text-white break-words leading-snug w-full">
-                            {card.value}
-                          </p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
+                    <Link key={card.label} href={card.href} className="kpi-card hover:shadow-lg group">
+                      <div className={`kpi-card-icon ${card.bg}`}>
+                        <Icon className={`h-5 w-5 ${card.color}`} />
+                      </div>
+                      <div className="kpi-card-body">
+                        <span className="kpi-card-label">{card.label}</span>
+                        <span className="kpi-card-value">{card.value}</span>
                       </div>
                     </Link>
                   )

@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx-js-style'
 interface ExcelColumn {
   key: string
   label: string
+  header?: string
   width?: number
 }
 
@@ -31,11 +32,14 @@ export const exportToExcel = ({
   const workbook = XLSX.utils.book_new()
   
   // Prepare headers
-  const headers = columns.map(col => col.label)
+  const headers = columns.map(col => col.label || col.header || col.key)
   
   // Prepare data rows
-  const rows = data.map(item => 
-    columns.map(col => item[col.key] || '')
+  const rows = data.map(item =>
+    columns.map(col => {
+      const value = item[col.key]
+      return value ?? ''
+    })
   )
   
   // Create worksheet data
@@ -123,9 +127,9 @@ export const exportToExcel = ({
           right: { style: 'thin', color: { rgb: 'E5E7EB' } }
         },
         alignment: { 
-          horizontal: 'center',
+          horizontal: 'left',
           vertical: 'center',
-          wrapText: true
+          wrapText: false
         }
       }
     })
@@ -187,11 +191,14 @@ export const exportMultiSheetExcel = ({
   
   sheets.forEach((sheet, sheetIndex) => {
     // Prepare headers
-    const headers = columns.map(col => col.label)
+    const headers = columns.map(col => col.label || col.header || col.key)
     
     // Prepare data rows
-    const rows = sheet.data.map(item => 
-      columns.map(col => item[col.key] || '')
+    const rows = sheet.data.map(item =>
+      columns.map(col => {
+        const value = item[col.key]
+        return value ?? ''
+      })
     )
     
     // Create worksheet data
@@ -246,7 +253,7 @@ export const exportMultiSheetExcel = ({
       if (titleCell) {
         titleCell.s = {
           font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
-          fill: { fgColor: { rgb: sheetIndex === 0 ? 'D4AF37' : '2563EB' } }, // Gold for summary, blue for agents
+          fill: { fgColor: { rgb: 'D4AF37' } },
           alignment: { horizontal: 'center', vertical: 'center' }
         }
       }
@@ -267,21 +274,21 @@ export const exportMultiSheetExcel = ({
         
         worksheet[cellAddress].s = {
           fill: isGrandTotalRow 
-            ? { fgColor: { rgb: sheetIndex === 0 ? 'FEF3C7' : 'DBEAFE' } } // Yellow for summary, blue for agents
+            ? { fgColor: { rgb: 'FEF3C7' } }
             : isAlternate 
               ? { fgColor: { rgb: 'F9FAFB' } } 
               : { fgColor: { rgb: 'FFFFFF' } },
-          font: isGrandTotalRow ? { bold: true, color: { rgb: sheetIndex === 0 ? '92400E' : '1E40AF' } } : {},
+          font: isGrandTotalRow ? { bold: true, color: { rgb: '92400E' } } : {},
           border: {
-            top: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? (sheetIndex === 0 ? '92400E' : '1E40AF') : 'E5E7EB' } },
-            bottom: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? (sheetIndex === 0 ? '92400E' : '1E40AF') : 'E5E7EB' } },
+            top: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
+            bottom: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
             left: { style: 'thin', color: { rgb: 'E5E7EB' } },
             right: { style: 'thin', color: { rgb: 'E5E7EB' } }
           },
           alignment: { 
-            horizontal: 'center',
+            horizontal: 'left',
             vertical: 'center',
-            wrapText: true
+            wrapText: false
           }
         }
       })
@@ -324,11 +331,13 @@ export const exportMultiSheetExcel = ({
 // Predefined column configurations for different reports
 export const reportColumns = {
   payments: (t: (key: string) => string) => [
-    { key: 'paymentNumber', label: t('paymentId'), width: 22 },
-    { key: 'date', label: t('date'), width: 18 },
+    { key: 'paymentNumber', label: 'Batch ID', width: 24 },
     { key: 'agentName', label: t('agent'), width: 25 },
+    { key: 'date', label: t('date'), width: 18 },
     { key: 'paymentMethod', label: t('paymentMethod'), width: 18 },
+    { key: 'status', label: 'Status', width: 14 },
     { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'createdByDate', label: 'Created By / Date', width: 36 },
     { key: 'description', label: t('description'), width: 40 }
   ],
   
@@ -342,25 +351,24 @@ export const reportColumns = {
   ],
   
   receiptsAgent: (t: (key: string) => string) => [
-    { key: 'receiptNumber', label: 'Receipt No.', width: 22 },
-    { key: 'date', label: t('date'), width: 18 },
+    { key: 'receiptNumber', label: 'Batch ID', width: 22 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
-    { key: 'amount', label: t('amount'), width: 20 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'amount', label: 'Receipt Amount', width: 20 },
     { key: 'description', label: t('description'), width: 40 }
   ],
 
   receiptsAdmin: (t: (key: string) => string) => [
-    { key: 'receiptNumber', label: 'Receipt No.', width: 22 },
-    { key: 'date', label: t('date'), width: 18 },
+    { key: 'receiptNumber', label: 'Batch ID', width: 22 },
+    { key: 'agent', label: 'Agent', width: 22 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'date', label: t('date'), width: 18 },
+    { key: 'amount', label: 'Receipt Amount', width: 20 },
+    { key: 'bankCharges', label: 'Bank Charges', width: 22 },
+    { key: 'vat', label: 'VAT', width: 20 },
     { key: 'margin', label: 'Margin', width: 20 },
-    { key: 'bankCharges', label: 'Bank Charges', width: 20 },
-    { key: 'vat', label: 'VAT', width: 18 },
-    { key: 'amount', label: t('amount'), width: 20 },
-    { key: 'createdBy', label: 'Created By', width: 25 },
-    { key: 'updatedBy', label: 'Updated By', width: 25 },
-    { key: 'createdAtDate', label: 'Created Date', width: 22 },
-    { key: 'updatedAtDate', label: 'Updated Date', width: 22 },
+    { key: 'createdByDate', label: 'Created By / Date', width: 36 },
+    { key: 'updatedByDate', label: 'Updated By / Date', width: 36 },
     { key: 'description', label: t('description'), width: 40 }
   ],
 

@@ -9,6 +9,18 @@ import Notification from '@/models/Notification'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 
+function calcToPayAmount(amount: number, pos: any) {
+  const marginPercent = pos?.commissionPercentage || 0
+  const bankChargesPercent = pos?.bankCharges || 0
+  const vatPercent = pos?.vatPercentage || 0
+
+  const marginAmount = (amount * marginPercent) / 100
+  const bankChargesAmount = (amount * bankChargesPercent) / 100
+  const vatAmount = (amount * vatPercent) / 100
+
+  return amount - bankChargesAmount - vatAmount - marginAmount
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = requireAuth(request)
@@ -97,11 +109,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate POS Machine
+    let posDoc: any = null
     if (posMachine) {
       if (!mongoose.Types.ObjectId.isValid(posMachine)) {
         return NextResponse.json({ error: 'Invalid POS Machine ID' }, { status: 400 })
       }
-      const posDoc = await POSMachine.findById(posMachine)
+      posDoc = await POSMachine.findById(posMachine)
       if (!posDoc) {
         return NextResponse.json({ error: 'POS Machine not found' }, { status: 404 })
       }
@@ -128,6 +141,14 @@ export async function POST(request: NextRequest) {
       status: status || 'completed',
       ...(date ? { date: new Date(date) } : {}),
     }, auth.userId)
+
+    if (transactionData.type === 'receipt') {
+      const toPay = calcToPayAmount(parsedAmount, posDoc)
+      const safeToPay = Number.isFinite(toPay) ? Math.max(0, toPay) : parsedAmount
+      transactionData.paidAmount = 0
+      transactionData.settlementAmount = 0
+      transactionData.dueAmount = safeToPay
+    }
     
     // Calculate commissions only if client exists
     if (clientId) {

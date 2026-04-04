@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { CheckCircle, Clock, XCircle, AlertCircle, Search, FileText } from 'lucide-react'
+import { CheckCircle, Clock, XCircle, AlertCircle, Search, FileText, Download } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
@@ -8,7 +8,7 @@ import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 
-type PaymentStatus = 'pending' | 'failed' | 'due'
+type PaymentStatus = 'due'
 
 interface UnsettledPayment {
   _id: string
@@ -23,8 +23,6 @@ interface UnsettledPayment {
 }
 
 const statusConfig = {
-  pending: { label: 'Pending', icon: Clock, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
-  failed:  { label: 'Failed',  icon: XCircle, color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
   due:     { label: 'Due',     icon: AlertCircle, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
 }
 
@@ -56,18 +54,10 @@ export default function Settlements() {
   const fetchUnsettled = async () => {
     try {
       setLoading(true)
-      // Fetch pending, failed, due payments in parallel
-      const [r1, r2, r3] = await Promise.all([
-        fetch('/api/transactions?type=payment&status=pending&limit=100'),
-        fetch('/api/transactions?type=payment&status=failed&limit=100'),
-        fetch('/api/transactions?type=payment&status=due&limit=100'),
-      ])
-      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()])
-      const all = [
-        ...(d1.transactions || []),
-        ...(d2.transactions || []),
-        ...(d3.transactions || []),
-      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const res = await fetch('/api/payments/settle')
+      if (!res.ok) throw new Error('Failed to load unsettled items')
+      const data = await res.json()
+      const all = (data.transactions || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       setPayments(all)
     } catch {
       toast.error('Failed to load settlements')
@@ -96,18 +86,17 @@ export default function Settlements() {
     if (!selectedPayment) return
     setSettling(true)
     try {
-      const res = await fetch(`/api/transactions/${selectedPayment._id}`, {
-        method: 'PUT',
+      const res = await fetch('/api/payments/settle', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          status: 'completed',
-          description: settleNote
-            ? `${selectedPayment.description} | Settlement note: ${settleNote}`
-            : selectedPayment.description,
+          agentId: selectedPayment.agentId?._id,
+          note: settleNote,
         }),
       })
       if (!res.ok) throw new Error()
-      toast.success(`Payment ${selectedPayment.transactionId} marked as settled`)
+      const data = await res.json()
+      toast.success(`Settlement completed for ${data.settledReceipts || 0} receipt(s), AED ${(data.settledAmount || 0).toFixed(2)} cleared`)
       setShowSettleModal(false)
       setSelectedPayment(null)
       fetchUnsettled()
@@ -140,19 +129,18 @@ export default function Settlements() {
       p.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.agentId?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = !filters.status || filters.status === 'all' || p.status === filters.status
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId?._id === filters.agent
     const pDate = new Date(p.createdAt)
     const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
     const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesStatus && matchesAgent && matchesFrom && matchesTo
+    return matchesSearch && matchesAgent && matchesFrom && matchesTo
   })
 
   const totalAmount = filtered.reduce((s, p) => s + p.amount, 0)
   const counts = {
-    pending: payments.filter(p => p.status === 'pending').length,
+    pending: 0,
     due: payments.filter(p => p.status === 'due').length,
-    failed: payments.filter(p => p.status === 'failed').length,
+    failed: 0,
   }
 
   return (
@@ -166,30 +154,71 @@ export default function Settlements() {
               Payments requiring follow-up — pending, due, or failed
             </p>
           </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const { exportToExcel } = require('@/lib/excelExport')
+                exportToExcel({
+                  filename: 'settlements_report',
+                  sheetName: 'Settlements',
+                  columns: [
+                    { key: 'transactionId', label: 'Batch ID', width: 24 },
+                    { key: 'agentName', label: 'Agent', width: 24 },
+                    { key: 'date', label: 'Date', width: 16 },
+                    { key: 'amount', label: 'Amount', width: 18 },
+                    { key: 'paymentMethod', label: 'Method', width: 16 },
+                    { key: 'status', label: 'Status', width: 14 },
+                    { key: 'createdByDate', label: 'Created By / Date', width: 28 },
+                    { key: 'description', label: 'Description', width: 40 },
+                  ],
+                  data: [
+                    ...filtered.map(p => ({
+                      ...p,
+                      agentName: p.agentId?.name || '—',
+                      date: format(new Date(p.createdAt), 'dd-MMM-yyyy'),
+                      amount: `AED ${p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      paymentMethod: (p.paymentMethod || '').toUpperCase(),
+                      status: p.status === 'due' ? 'Due' : p.status,
+                      createdByDate: `${p.createdBy?.name || '—'} | ${format(new Date(p.createdAt), 'dd-MMM-yyyy HH:mm')}`,
+                    })),
+                    {
+                      transactionId: `Grand Total (${filtered.length} records)`,
+                      amount: `AED ${totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    }
+                  ],
+                  title: 'Settlements Report',
+                  grandTotals: {
+                    enabled: true,
+                    summary: `Grand Total: AED ${totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  },
+                  isRTL: false
+                })
+              }}
+              className="btn-secondary inline-flex items-center justify-center"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </button>
+          </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Outstanding</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">AED {totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pending</p>
-            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{counts.pending}</p>
-          </div>
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Due</p>
-            <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{counts.due}</p>
-          </div>
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Failed</p>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{counts.failed}</p>
-          </div>
+        <div className="mt-5 stat-grid">
+          {[
+            { label: 'Total Outstanding', value: `AED ${totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: 'text-gray-900 dark:text-white' },
+            { label: 'Pending', value: String(counts.pending), color: 'text-yellow-500 dark:text-yellow-400' },
+            { label: 'Due',     value: String(counts.due),     color: 'text-orange-500 dark:text-orange-400' },
+            { label: 'Failed',  value: String(counts.failed),  color: 'text-red-500 dark:text-red-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="stat-card">
+              <span className="stat-card-label">{label}</span>
+              <span className={`stat-card-value ${color}`}>{value}</span>
+            </div>
+          ))}
         </div>
 
         {/* Search + Filter */}
-        <div className="mt-6 flex gap-2">
+        <div className="mt-5 flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -280,7 +309,7 @@ export default function Settlements() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                      {['Batch ID', 'Date', 'Agent', 'Method', 'Amount', 'Description', 'Status', 'Created By', 'Action'].map(h => (
+                      {['Batch ID', 'Agent', 'Date', 'Amount', 'Method', 'Status', 'Created By / Date', 'Description', 'Action'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -292,26 +321,28 @@ export default function Settlements() {
                       return (
                         <tr key={p._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{p.transactionId}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(p.createdAt), 'dd-MMM-yyyy')}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.agentId?.name || '—'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(p.createdAt), 'dd-MMM-yyyy')}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
+                            AED {p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
                             <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${methodColor[p.paymentMethod] || 'bg-gray-100 text-gray-700'}`}>
                               {p.paymentMethod?.toUpperCase()}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
-                            AED {p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">{p.description}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${cfg.color}`}>
                               <Icon className="h-3 w-3" />{cfg.label}
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            <div>{p.createdBy?.name || '—'}</div>
-                            <div className="text-xs text-gray-400">{format(new Date(p.createdAt), 'dd-MMM HH:mm')}</div>
+                            <div className="meta-compact">
+                              <div className="meta-compact-name">{p.createdBy?.name || '—'}</div>
+                              <div className="meta-compact-date">{format(new Date(p.createdAt), 'dd-MMM-yyyy HH:mm')}</div>
+                            </div>
                           </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">{p.description}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <button
                               onClick={() => openSettle(p)}
@@ -327,11 +358,11 @@ export default function Settlements() {
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                     <tr>
-                      <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length} records)</td>
+                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length} records)</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">
                         AED {filtered.reduce((s, p) => s + p.amount, 0).toLocaleString('en-AE', { minimumFractionDigits: 2 })}
                       </td>
-                      <td colSpan={4} />
+                      <td colSpan={5} />
                     </tr>
                   </tfoot>
                 </table>

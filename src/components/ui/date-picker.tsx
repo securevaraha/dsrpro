@@ -41,7 +41,8 @@ export function DatePicker({
   const [open, setOpen] = useState(false)
   const [viewDate, setViewDate] = useState<Date>(() => parseLocalDate(value) ?? new Date())
   const containerRef = useRef<HTMLDivElement>(null)
-  const [dropUp, setDropUp] = useState(false)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0, above: false })
 
   const selected = parseLocalDate(value)
   const displayValue = selected ? format(selected, 'dd MMM yyyy') : ''
@@ -52,19 +53,27 @@ export function DatePicker({
     if (d) setViewDate(d)
   }, [value])
 
-  // Decide drop direction and close on outside click
+  // Compute fixed position and close on outside click
   useEffect(() => {
     if (!open) return
 
-    // Check if there's enough space below
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom
-      setDropUp(spaceBelow < 340)
+      const above = spaceBelow < 340
+      setDropPos({
+        top: above ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 288),
+        above,
+      })
     }
 
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current && !containerRef.current.contains(e.target as Node) &&
+        calendarRef.current && !calendarRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }
@@ -145,11 +154,18 @@ export function DatePicker({
         />
       )}
 
-      {/* Calendar Dropdown — rendered in a portal-like fixed position */}
+      {/* Calendar Dropdown — fixed portal to avoid clipping */}
       {open && (
         <div
-          className={`absolute ${dropUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} left-0 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden`}
-          style={{ zIndex: 9999 }}
+          ref={calendarRef}
+          className="fixed w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden"
+          style={{
+            zIndex: 99999,
+            top: dropPos.above ? undefined : dropPos.top,
+            bottom: dropPos.above ? window.innerHeight - dropPos.top : undefined,
+            left: dropPos.left,
+            minWidth: dropPos.width,
+          }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-dubai-gradient">

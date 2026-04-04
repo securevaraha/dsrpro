@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Search, Smartphone, Monitor, MapPin, User, Hash, CreditCard, Wifi } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, Smartphone, Monitor, MapPin, User, Hash, CreditCard, Wifi, Download } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { TableSkeleton, FormSkeleton } from '@/components/ui/skeleton'
@@ -360,7 +360,44 @@ export default function POSMachines() {
             </div>
           </div>
           {isAdmin && (
-            <div className="mt-4 sm:mt-0">
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const { exportToExcel } = require('@/lib/excelExport')
+                  exportToExcel({
+                    filename: 'pos_machines_report',
+                    sheetName: 'POS Machines',
+                    columns: [
+                      { key: 'segment', label: 'Segment', width: 18 },
+                      { key: 'brand', label: 'Brand', width: 18 },
+                      { key: 'terminalId', label: 'Terminal', width: 18 },
+                      { key: 'merchantId', label: 'Merchant', width: 18 },
+                      { key: 'agentName', label: 'Agent Name', width: 24 },
+                      { key: 'deviceType', label: 'Device', width: 18 },
+                      { key: 'commissionPercentage', label: 'Margin', width: 14 },
+                      { key: 'bankCharges', label: 'Bank Charges', width: 14 },
+                      { key: 'vatPercentage', label: 'VAT', width: 12 },
+                      { key: 'location', label: 'Location', width: 20 },
+                      { key: 'status', label: 'Status', width: 14 },
+                    ],
+                    data: filteredMachines.map(m => ({
+                      ...m,
+                      agentName: m.assignedAgent?.name || 'Unassigned',
+                      deviceType: m.deviceType === 'android_pos' ? 'Android POS' : 'Traditional POS',
+                      commissionPercentage: `${(m.commissionPercentage || 0).toFixed(2)}%`,
+                      bankCharges: `${(m.bankCharges || 0).toFixed(2)}%`,
+                      vatPercentage: `${m.vatPercentage || 5}%`,
+                      status: m.status.charAt(0).toUpperCase() + m.status.slice(1),
+                    })),
+                    title: 'POS Machines Report',
+                    isRTL: false
+                  })
+                }}
+                className="btn-secondary inline-flex items-center justify-center"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </button>
               <LoadingButton
                 onClick={() => { resetForm(); setShowModal(true) }}
                 loading={optimisticLoading}
@@ -374,23 +411,18 @@ export default function POSMachines() {
         </div>
 
         {/* Stats Cards */}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
-          </div>
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Active</p>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.active}</p>
-          </div>
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inactive</p>
-            <p className="text-2xl font-bold text-red-500 dark:text-red-400 mt-1">{stats.inactive}</p>
-          </div>
-          <div className="dubai-card p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Maintenance</p>
-            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{stats.maintenance}</p>
-          </div>
+        <div className="mt-5 stat-grid">
+          {[
+            { label: 'Total',       value: String(stats.total),       color: 'text-gray-900 dark:text-white' },
+            { label: 'Active',      value: String(stats.active),      color: 'text-green-500 dark:text-green-400' },
+            { label: 'Inactive',    value: String(stats.inactive),    color: 'text-red-500 dark:text-red-400' },
+            { label: 'Maintenance', value: String(stats.maintenance), color: 'text-yellow-500 dark:text-yellow-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="stat-card">
+              <span className="stat-card-label">{label}</span>
+              <span className={`stat-card-value ${color}`}>{value}</span>
+            </div>
+          ))}
         </div>
 
         {/* Filters */}

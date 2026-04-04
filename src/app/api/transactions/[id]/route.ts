@@ -2,8 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
+import POSMachine from '@/models/POSMachine'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
+
+function calcToPayAmount(amount: number, pos: any) {
+  const marginPercent = pos?.commissionPercentage || 0
+  const bankChargesPercent = pos?.bankCharges || 0
+  const vatPercent = pos?.vatPercentage || 0
+
+  const marginAmount = (amount * marginPercent) / 100
+  const bankChargesAmount = (amount * bankChargesPercent) / 100
+  const vatAmount = (amount * vatPercent) / 100
+
+  return amount - bankChargesAmount - vatAmount - marginAmount
+}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -34,6 +47,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const auditedData = addAuditFields(updateData, auth.userId, true)
+
+    if (transaction.type === 'receipt' || updateData.type === 'receipt') {
+      const effectiveAmount = Number(updateData.amount ?? transaction.amount ?? 0)
+      const effectivePosMachineId = updateData.posMachine ?? transaction.posMachine
+      const effectivePaidRaw = Number(updateData.paidAmount ?? transaction.paidAmount ?? 0)
+      const effectiveSettlementRaw = Number(updateData.settlementAmount ?? transaction.settlementAmount ?? 0)
+
+      let posMachineDoc: any = null
+      if (effectivePosMachineId && mongoose.Types.ObjectId.isValid(String(effectivePosMachineId))) {
+        posMachineDoc = await POSMachine.findById(effectivePosMachineId).select('bankCharges vatPercentage commissionPercentage')
+      }
+
+      const toPayAmount = Math.max(0, calcToPayAmount(effectiveAmount, posMachineDoc))
+      const paidAmount = Math.max(0, Math.min(effectivePaidRaw, toPayAmount))
+      const settlementAmount = Math.max(0, Math.min(effectiveSettlementRaw, Math.max(0, toPayAmount - paidAmount)))
+      const dueAmount = Math.max(0, toPayAmount - paidAmount - settlementAmount)
+
+      auditedData.paidAmount = paidAmount
+      auditedData.settlementAmount = settlementAmount
+      auditedData.dueAmount = dueAmount
+    }
     
     const updated = await Transaction.findByIdAndUpdate(
       id,

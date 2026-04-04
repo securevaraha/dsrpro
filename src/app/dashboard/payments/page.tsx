@@ -41,25 +41,49 @@ export default function Payments() {
     bankAccount: '',
     amount: '',
     description: '',
-    status: 'completed' as 'completed' | 'pending' | 'failed' | 'due',
   })
 
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
+  const [agentDueMap, setAgentDueMap] = useState<Record<string, number>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [filters, setFilters] = useState<Record<string, string>>({})  
+  const [agentBalance, setAgentBalance] = useState<{ totalToPay: number; totalNetReceived: number; totalPaid: number; totalDue: number } | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
 
   useEffect(() => {
     fetchPayments()
     fetchAgents()
   }, [])
 
+  const fetchAgentDueMap = async (agentList: {_id: string, name: string}[]) => {
+    const entries = await Promise.all(agentList.map(async (agent) => {
+      try {
+        const res = await fetch(`/api/payments/agent-balance?agentId=${agent._id}`)
+        if (!res.ok) return [agent._id, 0] as const
+        const data = await res.json()
+        return [agent._id, Number(data.totalDue || 0)] as const
+      } catch {
+        return [agent._id, 0] as const
+      }
+    }))
+
+    const dueMap = entries.reduce((acc, [id, due]) => {
+      acc[id] = due
+      return acc
+    }, {} as Record<string, number>)
+
+    setAgentDueMap(dueMap)
+  }
+
   const fetchAgents = async () => {
     try {
       const response = await fetch('/api/users?role=agent')
       if (response.ok) {
         const data = await response.json()
-        setAgents(data.users || [])
+        const users = data.users || []
+        setAgents(users)
+        await fetchAgentDueMap(users)
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error)
@@ -100,8 +124,54 @@ export default function Payments() {
       const isEditing = !!editingPayment
       const url = isEditing ? `/api/transactions/${editingPayment._id}` : '/api/transactions'
       
+      // Use smart send endpoint for new payments (distributes across receipts)
+      if (!isEditing) {
+        const payAmount = parseFloat(formData.amount)
+        const totalDue = agentBalance?.totalDue ?? 0
+        if (!Number.isFinite(payAmount) || payAmount <= 0) {
+          throw new Error('Pay Amount must be greater than 0')
+        }
+        if (totalDue <= 0) {
+          throw new Error('No due amount available for this agent')
+        }
+        if (payAmount > totalDue) {
+          throw new Error(`Pay Amount cannot exceed total due (AED ${totalDue.toFixed(2)})`)
+        }
+
+        const sendRes = await fetch('/api/payments/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: formData.agentId,
+            amount: payAmount,
+            paymentMethod: formData.paymentMethod,
+            description: formData.description,
+            date: formData.date,
+          })
+        })
+        if (sendRes.ok) {
+          const sendData = await sendRes.json()
+          if ((sendData.unappliedAmount || 0) > 0.01) {
+            toast.success(`Applied AED ${sendData.appliedAmount.toFixed(2)}. AED ${sendData.unappliedAmount.toFixed(2)} was not applied (no pending due). Remaining due: AED ${sendData.outstandingDueAfter.toFixed(2)}`)
+          } else if ((sendData.outstandingDueAfter || 0) > 0.01) {
+            toast.success(`Payment sent. Remaining due: AED ${sendData.outstandingDueAfter.toFixed(2)}`)
+          } else {
+            toast.success('Payment sent successfully. All dues are cleared.')
+          }
+          setShowModal(false)
+          resetForm()
+          fetchAgentBalance(formData.agentId)
+          fetchAgents()
+          fetchPayments()
+        } else {
+          const err = await sendRes.json()
+          throw new Error(err.error || 'Failed to send payment')
+        }
+        return
+      }
+
       const response = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'payment',
@@ -110,7 +180,6 @@ export default function Payments() {
           date: formData.date,
           paymentMethod: formData.paymentMethod,
           description: formData.description,
-          status: formData.status,
           metadata: {
             paymentNumber: formData.paymentNumber,
             bankAccount: formData.bankAccount
@@ -142,7 +211,6 @@ export default function Payments() {
       bankAccount: '',
       amount: payment.amount.toString(),
       description: payment.description,
-      status: payment.status || 'completed',
     })
     setShowModal(true)
   }
@@ -176,17 +244,35 @@ export default function Payments() {
       bankAccount: '', 
       amount: '', 
       description: '',
-      status: 'completed',
     })
     setEditingPayment(null)
   }
 
+  const fetchAgentBalance = async (agentId: string) => {
+    if (!agentId) { setAgentBalance(null); return }
+    setBalanceLoading(true)
+    try {
+      const res = await fetch(`/api/payments/agent-balance?agentId=${agentId}`)
+      if (res.ok) setAgentBalance(await res.json())
+    } catch {}
+    finally { setBalanceLoading(false) }
+  }
+
   const openAddModal = () => {
     const id = `P${Date.now().toString().slice(-6)}${Math.random().toString(36).slice(2,4).toUpperCase()}`
-    setFormData({ paymentNumber: id, date: format(new Date(), 'yyyy-MM-dd'), agentId: '', paymentMethod: 'cash', bankAccount: '', amount: '', description: '', status: 'completed' })
+    setFormData({ paymentNumber: id, date: format(new Date(), 'yyyy-MM-dd'), agentId: '', paymentMethod: 'cash', bankAccount: '', amount: '', description: '' })
     setEditingPayment(null)
+    setAgentBalance(null)
     setShowModal(true)
   }
+
+  const enteredPayAmount = parseFloat(formData.amount)
+  const safePayAmount = Number.isFinite(enteredPayAmount) ? Math.max(0, enteredPayAmount) : 0
+  const totalDueAmount = agentBalance?.totalDue ?? 0
+  const computedDueAfterPay = Math.max(0, totalDueAmount - safePayAmount)
+  const payableAgents = editingPayment
+    ? agents
+    : agents.filter((a) => (agentDueMap[a._id] || 0) > 0.001)
 
   const filteredPayments = payments.filter(p => {
     const matchesSearch = p.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -221,6 +307,40 @@ export default function Payments() {
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('managePayments')}</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => {
+              const { exportToExcel, reportColumns } = require('@/lib/excelExport')
+              exportToExcel({
+                filename: 'payments_report',
+                sheetName: 'Payments',
+                columns: reportColumns.payments(t),
+                data: [
+                  ...filteredPayments.map(p => ({
+                    ...p,
+                    date: format(new Date(p.date), 'dd-MMM-yyyy'),
+                    paymentMethod: p.paymentMethod.toUpperCase(),
+                    status: p.status === 'due' ? 'Due' : p.status.charAt(0).toUpperCase() + p.status.slice(1),
+                    amount: `AED ${p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    createdByDate: `${p.createdBy?.name || 'System'} | ${format(new Date(p.createdAt || p.date), 'dd-MMM-yyyy HH:mm')}`
+                  })),
+                  {
+                    paymentNumber: `Grand Total (${filteredPayments.length} records)`,
+                    amount: `AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  }
+                ],
+                title: t('paymentsReport'),
+                grandTotals: {
+                  enabled: true,
+                  summary: `Grand Total: AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                },
+                isRTL: false
+              })
+            }}
+            className="btn-secondary inline-flex items-center justify-center"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </button>
           <button
             onClick={openAddModal}
             className="dubai-button inline-flex items-center justify-center"
@@ -305,26 +425,6 @@ export default function Payments() {
                     </button>
                     <button
                       onClick={() => {
-                        const { exportToExcel, reportColumns } = require('@/lib/excelExport')
-                        exportToExcel({
-                          filename: 'payments_report',
-                          sheetName: 'Payments',
-                          columns: reportColumns.payments(t),
-                          data: payments.map(p => ({
-                            ...p,
-                            date: format(new Date(p.date), 'dd-MMM-yyyy'),
-                            amount: `AED ${p.amount.toLocaleString()}`
-                          })),
-                          title: t('paymentsReport'),
-                          isRTL: false
-                        })
-                      }}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => {
                         setDeletingPayment(payment)
                         setShowDeleteDialog(true)
                       }}
@@ -348,7 +448,7 @@ export default function Payments() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    {['Batch ID', t('date'), t('agent'), t('paymentMethod'), 'Status', t('amount'), t('description'), 'Created By', t('actions')].map((h) => (
+                    {['Batch ID', t('agent'), t('date'), t('paymentMethod'), 'Status', t('amount'), 'Created By / Date', t('description'), t('actions')].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -360,10 +460,10 @@ export default function Payments() {
                         {payment.paymentNumber}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                        {format(new Date(payment.date), 'dd-MMM-yyyy')}
+                        {payment.agentName}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                        {payment.agentName}
+                        {format(new Date(payment.date), 'dd-MMM-yyyy')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
@@ -388,12 +488,14 @@ export default function Payments() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
                         AED {payment.amount.toLocaleString()}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        <div className="meta-compact">
+                          <div className="meta-compact-name">{payment.createdBy?.name || 'System'}</div>
+                          <div className="meta-compact-date">{format(new Date(payment.createdAt || payment.date), 'dd-MMM-yyyy HH:mm')}</div>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
                         {payment.description}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                        <div>{payment.createdBy?.name || 'System'}</div>
-                        <div className="text-xs text-gray-400">{format(new Date(payment.createdAt || payment.date), 'dd-MMM HH:mm')}</div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
                         <div className="flex justify-center gap-1">
@@ -403,27 +505,6 @@ export default function Payments() {
                             title={t('edit')}
                           >
                             <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const { exportToExcel, reportColumns } = require('@/lib/excelExport')
-                              exportToExcel({
-                                filename: 'payments_report',
-                                sheetName: 'Payments',
-                                columns: reportColumns.payments(t),
-                                data: payments.map(p => ({
-                                  ...p,
-                                  date: format(new Date(p.date), 'dd-MMM-yyyy'),
-                                  amount: `AED ${p.amount.toLocaleString()}`
-                                })),
-                                title: t('paymentsReport'),
-                                isRTL: false
-                              })
-                            }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => {
@@ -489,10 +570,26 @@ export default function Payments() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="form-label">{t('agent')}</label>
-                    <select required className="form-select" value={formData.agentId} onChange={(e) => setFormData({...formData, agentId: e.target.value})}>
+                    <select required className="form-select" value={formData.agentId} onChange={(e) => {
+                      setFormData({...formData, agentId: e.target.value})
+                      if (!editingPayment) fetchAgentBalance(e.target.value)
+                    }}>
                       <option value="">Select {t('agent')}</option>
-                      {agents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
+                      {payableAgents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
                     </select>
+                    {!editingPayment && payableAgents.length === 0 && (
+                      <p className="text-xs text-amber-500 mt-1">No agents have pending due amount.</p>
+                    )}
+                    {!editingPayment && agentBalance && (
+                      <div className="mt-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs space-y-0.5">
+                        <div className="flex justify-between"><span className="text-gray-500">Net Received (Admin):</span><span className="font-semibold text-emerald-600">AED {agentBalance.totalNetReceived.toFixed(2)}</span></div>
+                        <div className="flex justify-between border-t border-blue-100 dark:border-blue-800 pt-0.5 mt-0.5"><span className="text-gray-500">Total to Pay Agent:</span><span className="font-semibold text-gray-800 dark:text-gray-200">AED {agentBalance.totalToPay.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Already Paid:</span><span className="font-semibold text-green-600">AED {agentBalance.totalPaid.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Current Amount to Pay:</span><span className="font-semibold text-sky-600">AED {agentBalance.totalDue.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">Outstanding Due:</span><span className="font-semibold text-red-600">AED {agentBalance.totalDue.toFixed(2)}</span></div>
+                      </div>
+                    )}
+                    {!editingPayment && balanceLoading && <p className="text-xs text-gray-400 mt-1">Loading balance...</p>}
                   </div>
                   <div>
                     <label className="form-label">{t('paymentMethod')}</label>
@@ -504,24 +601,51 @@ export default function Payments() {
                     </select>
                   </div>
                   <div>
-                    <label className="form-label">{t('amount')} (AED)</label>
+                    <label className="form-label">Pay Amount (AED)</label>
                     <input type="number" placeholder="0.00" required className="form-input"
-                      value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                      value={formData.amount}
+                      min={0.01}
+                      max={!editingPayment && agentBalance ? Number(agentBalance.totalDue.toFixed(2)) : undefined}
+                      step="0.01"
+                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
                     />
+                    {!editingPayment && agentBalance && formData.amount && (() => {
+                      const entered = Math.max(0, parseFloat(formData.amount) || 0)
+                      const due = agentBalance.totalDue
+                      if (entered > due) {
+                        return (
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">Pay Amount cannot exceed AED {due.toFixed(2)}.</p>
+                        )
+                      }
+                      const remaining = due - entered
+                      if (remaining > 0) return (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠ After this payment, AED {remaining.toFixed(2)} will still be due.</p>
+                      )
+                      if (remaining <= 0 && entered > 0) return (
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ This covers the full outstanding amount.</p>
+                      )
+                      return null
+                    })()}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">Payment Status</label>
-                    <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})}>
-                      <option value="completed">Completed</option>
-                      <option value="pending">Pending</option>
-                      <option value="due">Due</option>
-                      <option value="failed">Failed</option>
-                    </select>
-                    {(formData.status === 'pending' || formData.status === 'failed' || formData.status === 'due') && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠ This payment will appear in Settlements for follow-up.</p>
-                    )}
+                    <label className="form-label">Current Amount to Pay (AED)</label>
+                    <input
+                      type="text"
+                      readOnly
+                      className="form-input bg-gray-100 dark:bg-gray-600/50 cursor-not-allowed"
+                      value={!editingPayment && agentBalance ? agentBalance.totalDue.toFixed(2) : '0.00'}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Due Amount (AED)</label>
+                    <input
+                      type="text"
+                      readOnly
+                      className="form-input bg-gray-100 dark:bg-gray-600/50 cursor-not-allowed"
+                      value={!editingPayment && agentBalance ? computedDueAfterPay.toFixed(2) : '0.00'}
+                    />
                   </div>
                   {formData.paymentMethod === 'bank' && (
                     <div>
@@ -543,7 +667,13 @@ export default function Payments() {
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="btn-secondary w-full sm:w-auto">{t('cancel')}</button>
                 <button type="submit"
-                  disabled={!formData.paymentNumber.trim() || !formData.agentId || !formData.amount || !formData.date}
+                  disabled={
+                    !formData.paymentNumber.trim()
+                    || !formData.agentId
+                    || !formData.amount
+                    || !formData.date
+                    || (!editingPayment && (!!agentBalance && ((safePayAmount <= 0) || (safePayAmount > agentBalance.totalDue))))
+                  }
                   className="dubai-button w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingPayment ? 'Update Payment' : t('addPayment')}
