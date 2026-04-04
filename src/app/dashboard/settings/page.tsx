@@ -1,13 +1,16 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Save, User, Bell, Shield, Globe, Palette, Moon, Sun } from 'lucide-react'
+import { Save, User, Bell, Shield, Globe, Palette, Moon, Sun, AlertTriangle, Trash2, UserX, Database } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { useTheme } from '@/components/ThemeProvider'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage()
   const { theme, toggleTheme } = useTheme()
+  const { user } = useCurrentUser()
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
   const [profileData, setProfileData] = useState({
@@ -28,6 +31,14 @@ export default function Settings() {
     newPassword: '',
     confirmPassword: ''
   })
+  const [dangerModalOpen, setDangerModalOpen] = useState(false)
+  const [dangerStep, setDangerStep] = useState<1 | 2>(1)
+  const [dangerAction, setDangerAction] = useState<'delete-account' | 'delete-all-data' | null>(null)
+  const [dangerPassword, setDangerPassword] = useState('')
+  const [dangerConfirmation, setDangerConfirmation] = useState('')
+  const [dangerLoading, setDangerLoading] = useState(false)
+
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     fetchUserProfile()
@@ -121,8 +132,87 @@ export default function Settings() {
     { id: 'notifications', label: t('notifications'), icon: Bell },
     { id: 'security', label: t('security'), icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'language', label: t('language'), icon: Globe }
+    { id: 'language', label: t('language'), icon: Globe },
+    ...(isAdmin ? [{ id: 'danger', label: 'Danger Zone', icon: AlertTriangle }] : [])
   ]
+
+  const closeDangerModal = () => {
+    setDangerModalOpen(false)
+    setDangerStep(1)
+    setDangerAction(null)
+    setDangerPassword('')
+    setDangerConfirmation('')
+    setDangerLoading(false)
+  }
+
+  const openDangerFlow = (action: 'delete-account' | 'delete-all-data') => {
+    setDangerAction(action)
+    setDangerStep(1)
+    setDangerPassword('')
+    setDangerConfirmation('')
+    setDangerModalOpen(true)
+  }
+
+  const getConfirmationPhrase = () => {
+    if (dangerAction === 'delete-account') return 'DELETE ACCOUNT'
+    if (dangerAction === 'delete-all-data') return 'DELETE ALL DATA'
+    return ''
+  }
+
+  const handleDangerContinue = () => {
+    if (!dangerPassword.trim()) {
+      toast.error('Password is required')
+      return
+    }
+    setDangerStep(2)
+  }
+
+  const handleDangerSubmit = async () => {
+    if (!dangerAction) return
+
+    const expectedPhrase = getConfirmationPhrase()
+    if (dangerConfirmation.trim() !== expectedPhrase) {
+      toast.error(`Type ${expectedPhrase} to confirm`)
+      return
+    }
+
+    try {
+      setDangerLoading(true)
+      const endpoint = dangerAction === 'delete-account'
+        ? '/api/settings/danger/delete-account'
+        : '/api/settings/danger/delete-all-data'
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: dangerPassword,
+          confirmation: dangerConfirmation,
+        })
+      })
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Action failed')
+      }
+
+      if (dangerAction === 'delete-account') {
+        toast.success('Account deleted. Redirecting to sign in...')
+        closeDangerModal()
+        window.location.href = '/auth/signin'
+        return
+      }
+
+      toast.success('All non-user data deleted successfully')
+      closeDangerModal()
+      window.location.reload()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to complete action')
+    } finally {
+      setDangerLoading(false)
+    }
+  }
 
   return (
     <div>
@@ -142,12 +232,16 @@ export default function Settings() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'bg-primary text-white'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    activeTab === tab.id && tab.id === 'danger'
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : activeTab === tab.id
+                        ? 'bg-primary text-white'
+                        : tab.id === 'danger'
+                          ? 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <Icon className="h-[18px] w-[18px] mr-2.5" />
+                  <Icon className={`h-[18px] w-[18px] mr-2.5 ${tab.id === 'danger' && activeTab !== tab.id ? 'text-red-600 dark:text-red-400' : ''}`} />
                   {tab.label}
                 </button>
               )
@@ -382,9 +476,145 @@ export default function Settings() {
                 </div>
               </div>
             )}
+
+            {activeTab === 'danger' && isAdmin && (
+              <div>
+                <h3 className="text-base font-semibold text-red-700 dark:text-red-400 mb-5">Danger Zone</h3>
+                <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-4 sm:p-5 mb-5">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-800 dark:text-red-300">These actions are irreversible.</p>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                        Deleting account or deleting all data cannot be undone. You will be asked for your password and a final confirmation message.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-red-300/80 dark:border-red-900/50 bg-red-50/40 dark:bg-red-900/10 p-4 sm:p-5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+                        <UserX className="h-4 w-4 text-red-700 dark:text-red-300" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Delete Account</h4>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Permanently delete your admin account and end your session.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openDangerFlow('delete-account')}
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-800 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Account
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-red-300/80 dark:border-red-900/50 bg-red-50/40 dark:bg-red-900/10 p-4 sm:p-5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+                        <Database className="h-4 w-4 text-red-700 dark:text-red-300" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Delete All Data</h4>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Delete all database information except users, including receipts, payments, brands, POS machines, segments, transactions, notifications, and sessions.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openDangerFlow('delete-all-data')}
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-800 rounded-lg transition-colors"
+                    >
+                      <Database className="h-4 w-4" />
+                      Delete All Data
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <Dialog open={dangerModalOpen} onOpenChange={(open) => !open && closeDangerModal()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{dangerAction === 'delete-account' ? 'Delete Account' : 'Delete All Data'}</DialogTitle>
+            <DialogDescription>
+              {dangerStep === 1
+                ? 'Step 1 of 2: Verify your password before continuing.'
+                : 'Step 2 of 2: Final confirmation. This action cannot be undone.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-3 mb-4">
+            <p className="text-sm font-medium text-red-800 dark:text-red-300">
+              {dangerAction === 'delete-account'
+                ? 'Warning: Your admin account will be permanently removed.'
+                : 'Warning: All non-user data will be permanently deleted from the database.'}
+            </p>
+          </div>
+
+          {dangerStep === 1 ? (
+            <div>
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Enter your password"
+                value={dangerPassword}
+                onChange={(e) => setDangerPassword(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="form-label">
+                Type <strong>{getConfirmationPhrase()}</strong> to confirm
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder={getConfirmationPhrase()}
+                value={dangerConfirmation}
+                onChange={(e) => setDangerConfirmation(e.target.value.toUpperCase())}
+              />
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={closeDangerModal}
+              disabled={dangerLoading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            {dangerStep === 1 ? (
+              <button
+                type="button"
+                onClick={handleDangerContinue}
+                disabled={dangerLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Continue
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleDangerSubmit}
+                disabled={dangerLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                {dangerLoading ? 'Processing...' : dangerAction === 'delete-account' ? 'Delete Account' : 'Delete All Data'}
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
