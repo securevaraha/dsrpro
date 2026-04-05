@@ -36,6 +36,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['admin', 'agent'], default: 'agent' },
+  superAdmin: { type: Boolean, default: false },
   companyName: String,
   phone: String,
   address: String,
@@ -50,23 +51,21 @@ async function createSuperAdmin() {
     await mongoose.connect(MONGODB_URI)
     console.log('Connected to MongoDB')
 
-    const existingAdmin = await User.findOne({ email: 'admin@dsrpro.ae' })
+    const existingAdmin = await User.findOne({ superAdmin: true })
     if (existingAdmin) {
       console.log('ℹ️  Super admin already exists. No changes made.')
-      console.log('📧 Email: admin@dsrpro.ae')
-      console.log('   To reset the password, use the admin panel or the /api/profile/password endpoint.')
+      console.log('📧 Email:', existingAdmin.email)
       return
     }
 
-    // Generate a strong random password
-    const adminPassword = crypto.randomBytes(16).toString('base64url')
-    const hashedPassword = await bcrypt.hash(adminPassword, 12)
+    const hashedPassword = await bcrypt.hash('admin123', 12)
     
     await User.create({
       name: 'Super Admin',
       email: 'admin@dsrpro.ae',
       password: hashedPassword,
       role: 'admin',
+      superAdmin: true,
       companyName: 'DSR Pro',
       phone: '+971-4-555-0123',
       status: 'active'
@@ -74,11 +73,7 @@ async function createSuperAdmin() {
 
     console.log('✅ Super Admin created successfully!')
     console.log('📧 Email: admin@dsrpro.ae')
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('🔑 TEMPORARY PASSWORD (save this now, it will not be shown again):')
-    console.log(`   ${adminPassword}`)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('⚠️  Change this password immediately after first login!')
+    console.log('🔑 Password: admin123')
     
   } catch (error) {
     console.error('❌ Error creating super admin:', error)

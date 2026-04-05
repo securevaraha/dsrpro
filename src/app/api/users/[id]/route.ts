@@ -120,6 +120,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Protect super admin from deletion
+    if (user.superAdmin) {
+      return NextResponse.json({ error: 'The super admin account cannot be deleted' }, { status: 403 })
+    }
+
     // Check for assigned POS machines
     const POSMachine = (await import('@/models/POSMachine')).default
     const machineCount = await POSMachine.countDocuments({ assignedAgent: id })

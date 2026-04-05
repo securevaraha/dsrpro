@@ -627,19 +627,17 @@ export default function Reports() {
 
       {/* Filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {isAdmin && (
-          <div className="col-span-2 md:col-span-1">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Report Type
-            </label>
-            <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
-              <option value="summary">Monthly Summary Report</option>
-              <option value="settlements">Settlements Report</option>
-              <option value="receipts">Receipts Report</option>
-              <option value="payments">Payments Report</option>
-            </select>
-          </div>
-        )}
+        <div className="col-span-2 md:col-span-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Report Type
+          </label>
+          <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+            <option value="summary">Summary Report</option>
+            <option value="receipts">Receipts Report</option>
+            <option value="payments">Payments Report</option>
+            <option value="settlements">Settlements Report</option>
+          </select>
+        </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Date Range

@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       return NextResponse.json({ error: 'User already exists' }, { status: 409 })
     }
+
+    // Block creating another admin if a super admin already exists
+    if (role === 'admin') {
+      const superAdmin = await User.findOne({ superAdmin: true })
+      if (superAdmin) {
+        return NextResponse.json({ error: 'Only one super admin is allowed' }, { status: 403 })
+      }
+    }
     
     const userPassword = password || randomBytes(8).toString('base64url')
     const hashedPassword = await bcrypt.hash(userPassword, 12)

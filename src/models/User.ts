@@ -12,6 +12,7 @@ const UserSchema = new mongoose.Schema({
   },
   password: { type: String, required: true, select: false },
   role: { type: String, enum: ['admin', 'agent'], default: 'agent' },
+  superAdmin: { type: Boolean, default: false },
   companyName: { type: String, trim: true, maxlength: 200 },
   phone: { type: String, trim: true, maxlength: 20 },
   address: String,
@@ -22,5 +23,6 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 UserSchema.index({ role: 1, status: 1 });
+UserSchema.index({ superAdmin: 1 }, { unique: true, sparse: true });
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);
