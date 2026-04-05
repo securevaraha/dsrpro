@@ -39,6 +39,22 @@ export async function POST(request: NextRequest) {
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
+
+    // Repair legacy index shape if present (older builds created a global unique index on superAdmin).
+    try {
+      const indexes = await User.collection.indexes()
+      const superAdminIdx = indexes.find((idx: any) => idx.name === 'superAdmin_1')
+      const isLegacyBadIndex = superAdminIdx?.unique && !superAdminIdx?.partialFilterExpression
+      if (isLegacyBadIndex) {
+        await User.collection.dropIndex('superAdmin_1')
+      }
+      await User.collection.createIndex(
+        { superAdmin: 1 },
+        { name: 'superAdmin_1', unique: true, partialFilterExpression: { superAdmin: true } }
+      )
+    } catch {
+      // Index repair is best-effort; continue request path.
+    }
     
     const { name, email, phone, role, companyName, address, bankDetails, password } = await request.json()
     

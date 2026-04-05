@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { format } from 'date-fns'
 import { Plus, Edit, Trash2, Search, Smartphone, Monitor, MapPin, User, Hash, CreditCard, Wifi, Download } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
@@ -36,6 +37,9 @@ interface POSMachine {
   status: 'active' | 'inactive' | 'maintenance'
   notes: string
   createdAt: string
+  updatedAt?: string
+  createdBy?: { name?: string } | null
+  updatedBy?: { name?: string } | null
 }
 
 interface Stats {
@@ -66,6 +70,7 @@ export default function POSMachines() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
   const [showModal, setShowModal] = useState(false)
   const [editingMachine, setEditingMachine] = useState<POSMachine | null>(null)
   const [loading, setLoading] = useState(true)
@@ -177,7 +182,7 @@ export default function POSMachines() {
     const matchesStatus = !filters.status || filters.status === 'all' || machine.status === filters.status
     const matchesBrand = !filters.brand || filters.brand === 'all' || machine.brand === filters.brand
     const matchesSegment = !filters.segment || filters.segment === 'all' || machine.segment === filters.segment
-    const matchesAgent = !filters.agent || filters.agent === 'all' || machine.assignedAgent?._id === filters.agent
+    const matchesAgent = !isAdmin || !filters.agent || filters.agent === 'all' || machine.assignedAgent?._id === filters.agent
     const matchesDevice = !filters.device || filters.device === 'all' || machine.deviceType === filters.device
     return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice
   })
@@ -193,10 +198,10 @@ export default function POSMachines() {
       { value: 'all', label: 'All Brands' },
       ...brands.map(b => ({ value: b.name, label: b.name }))
     ]},
-    { key: 'agent', label: 'Agent Name', type: 'select' as const, options: [
+    ...(isAdmin ? [{ key: 'agent', label: 'Agent Name', type: 'select' as const, options: [
       { value: 'all', label: 'All Agents' },
       ...agents.map(a => ({ value: a._id, label: a.name }))
-    ]},
+    ]}] : []),
     { key: 'device', label: 'Device Type', type: 'select' as const, options: [
       { value: 'all', label: 'All Devices' },
       { value: 'traditional_pos', label: 'Traditional POS' },
@@ -344,6 +349,7 @@ export default function POSMachines() {
   }
 
   const deviceTypeLabel = (type: string) => type === 'android_pos' ? 'Android POS' : 'Traditional POS'
+  const formatAudit = (name?: string, date?: string) => `${name || '—'} | ${date ? format(new Date(date), 'dd-MMM-yyyy HH:mm') : '—'}`
 
   return (
     <RoleGuard allowedRoles={['admin', 'agent']}>
@@ -379,6 +385,8 @@ export default function POSMachines() {
                       { key: 'vatPercentage', label: 'VAT', width: 12 },
                       { key: 'location', label: 'Location', width: 20 },
                       { key: 'status', label: 'Status', width: 14 },
+                      { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+                      { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
                     ],
                     data: filteredMachines.map(m => ({
                       ...m,
@@ -388,6 +396,8 @@ export default function POSMachines() {
                       bankCharges: `${(m.bankCharges || 0).toFixed(2)}%`,
                       vatPercentage: `${m.vatPercentage || 5}%`,
                       status: m.status.charAt(0).toUpperCase() + m.status.slice(1),
+                      createdByDate: formatAudit(m.createdBy?.name, m.createdAt),
+                      updatedByDate: formatAudit(m.updatedBy?.name, m.updatedAt || m.createdAt),
                     })),
                     title: 'POS Machines Report',
                     isRTL: false
@@ -437,16 +447,17 @@ export default function POSMachines() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
+          <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
         </div>
 
         <FilterPanel
           open={showFilter}
-          onClose={() => setShowFilter(false)}
+          onClose={() => { setTempFilters(filters); setShowFilter(false) }}
           fields={filterFields}
-          values={filters}
-          onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-          onReset={() => setFilters({})}
+          values={tempFilters}
+          onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
+          onApply={() => setFilters(tempFilters)}
+          onReset={() => { setTempFilters({}); setFilters({}) }}
           activeCount={activeFilterCount}
         />
 
@@ -475,7 +486,7 @@ export default function POSMachines() {
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Brand</div></th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Terminal</div></th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Merchant</div></th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Agent Name</div></th>
+                      {isAdmin && <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Agent Name</div></th>}
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Device</div></th>
                       {isAdmin && (
                         <>
@@ -486,6 +497,8 @@ export default function POSMachines() {
                       )}
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Location</div></th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Status</div></th>
+                      {isAdmin && <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Created By / Date</div></th>}
+                      {isAdmin && <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Updated By / Date</div></th>}
                       {isAdmin && <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Actions</div></th>}
                     </tr></thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -508,15 +521,17 @@ export default function POSMachines() {
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className="text-sm text-gray-900 dark:text-gray-100">{machine.merchantId}</span>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          {machine.assignedAgent ? (
-                            <div className="flex items-center gap-2 whitespace-nowrap">
-                              <span className="text-sm font-medium">{machine.assignedAgent.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic whitespace-nowrap">Unassigned</span>
-                          )}
-                        </td>
+                        {isAdmin && (
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            {machine.assignedAgent ? (
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                <span className="text-sm font-medium">{machine.assignedAgent.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic whitespace-nowrap">Unassigned</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
                             {machine.deviceType === 'android_pos'
@@ -560,6 +575,22 @@ export default function POSMachines() {
                             {machine.status}
                           </span>
                         </td>
+                        {isAdmin && (
+                          <td className="px-5 py-3.5 whitespace-nowrap text-xs text-gray-600 dark:text-gray-300">
+                            <div className="meta-compact">
+                              <div className="meta-compact-name">{machine.createdBy?.name || '—'}</div>
+                              <div className="meta-compact-date">{machine.createdAt ? format(new Date(machine.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                            </div>
+                          </td>
+                        )}
+                        {isAdmin && (
+                          <td className="px-5 py-3.5 whitespace-nowrap text-xs text-gray-600 dark:text-gray-300">
+                            <div className="meta-compact">
+                              <div className="meta-compact-name">{machine.updatedBy?.name || '—'}</div>
+                              <div className="meta-compact-date">{(machine.updatedAt || machine.createdAt) ? format(new Date(machine.updatedAt || machine.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                            </div>
+                          </td>
+                        )}
                         {isAdmin && (
                           <td className="px-5 py-3.5 whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
@@ -631,7 +662,7 @@ export default function POSMachines() {
                           </div>
                         </>
                       )}
-                      {machine.assignedAgent && (
+                      {isAdmin && machine.assignedAgent && (
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-400">Agent</span>
                           <div className="flex items-center gap-1.5">

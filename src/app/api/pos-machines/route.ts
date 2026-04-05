@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
 
     const machines = await POSMachine.find(query)
       .populate('assignedAgent', 'name email companyName')
+      .populate('createdBy', 'name')
+      .populate('updatedBy', 'name')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -106,7 +108,10 @@ export async function POST(request: NextRequest) {
     const machine = new POSMachine(machineData)
     await machine.save()
 
-    const populated = await POSMachine.findById(machine._id).populate('assignedAgent', 'name email companyName')
+    const populated = await POSMachine.findById(machine._id)
+      .populate('assignedAgent', 'name email companyName')
+      .populate('createdBy', 'name')
+      .populate('updatedBy', 'name')
 
     if (machine.assignedAgent) {
       try {

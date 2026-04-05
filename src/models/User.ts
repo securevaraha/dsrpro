@@ -23,6 +23,10 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 UserSchema.index({ role: 1, status: 1 });
-UserSchema.index({ superAdmin: 1 }, { unique: true, sparse: true });
+// Enforce uniqueness only for documents where superAdmin is true.
+UserSchema.index(
+  { superAdmin: 1 },
+  { unique: true, partialFilterExpression: { superAdmin: true } }
+);
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);

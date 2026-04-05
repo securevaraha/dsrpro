@@ -53,6 +53,7 @@ export default function Receipts() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [previewImage, setPreviewImage] = useState({ url: '', fileName: '' })
@@ -466,16 +467,17 @@ export default function Receipts() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
+        <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
       </div>
 
       <FilterPanel
         open={showFilter}
-        onClose={() => setShowFilter(false)}
+        onClose={() => { setTempFilters(filters); setShowFilter(false) }}
         fields={filterFields}
-        values={filters}
-        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-        onReset={() => setFilters({})}
+        values={tempFilters}
+        onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
+        onApply={() => setFilters(tempFilters)}
+        onReset={() => { setTempFilters({}); setFilters({}) }}
         activeCount={activeFilterCount}
       />
 
