@@ -702,7 +702,7 @@ export default function POSMachines() {
         {/* Add/Edit Modal */}
         {showModal && (
           <div className="modal-overlay">
-            <div className="modal-content">
+            <div className="modal-content form-modal">
               <div className="modal-header">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -776,7 +776,7 @@ export default function POSMachines() {
                   {/* Section: Financial */}
                   <div className="form-section">
                     <p className="form-section-title">Financial Settings</p>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="form-label">Charges (%)</label>
                         <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="0.00"
