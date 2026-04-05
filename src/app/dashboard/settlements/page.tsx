@@ -33,6 +33,26 @@ const methodColor: Record<string, string> = {
   card: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
 }
 
+function safeAmount(value: number): number {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatAEDFull(value: number): string {
+  const amount = safeAmount(value)
+  return `AED ${amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatAEDCompact(value: number): string {
+  const amount = safeAmount(value)
+  const abs = Math.abs(amount)
+  if (abs >= 1_000_000_000_000) return `AED ${(amount / 1_000_000_000_000).toFixed(2)}T`
+  if (abs >= 1_000_000_000) return `AED ${(amount / 1_000_000_000).toFixed(2)}B`
+  if (abs >= 1_000_000) return `AED ${(amount / 1_000_000).toFixed(2)}M`
+  if (abs >= 1_000) return `AED ${(amount / 1_000).toFixed(2)}K`
+  return formatAEDFull(amount)
+}
+
 export default function Settlements() {
   const { t } = useLanguage()
   const [payments, setPayments] = useState<UnsettledPayment[]>([])
@@ -137,6 +157,8 @@ export default function Settlements() {
   })
 
   const totalAmount = filtered.reduce((s, p) => s + p.amount, 0)
+  const totalOutstandingCompact = formatAEDCompact(totalAmount)
+  const totalOutstandingFull = formatAEDFull(totalAmount)
   const counts = {
     pending: 0,
     due: payments.filter(p => p.status === 'due').length,
@@ -205,14 +227,22 @@ export default function Settlements() {
         {/* Summary Cards */}
         <div className="mt-5 stat-grid">
           {[
-            { label: 'Total Outstanding', value: `AED ${totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: 'text-gray-900 dark:text-white' },
+            {
+              label: 'Total Outstanding',
+              value: totalOutstandingCompact,
+              fullValue: totalOutstandingFull,
+              color: 'text-gray-900 dark:text-white',
+            },
             { label: 'Pending', value: String(counts.pending), color: 'text-yellow-500 dark:text-yellow-400' },
             { label: 'Due',     value: String(counts.due),     color: 'text-orange-500 dark:text-orange-400' },
             { label: 'Failed',  value: String(counts.failed),  color: 'text-red-500 dark:text-red-400' },
-          ].map(({ label, value, color }) => (
+          ].map(({ label, value, color, fullValue }) => (
             <div key={label} className="stat-card">
               <span className="stat-card-label">{label}</span>
-              <span className={`stat-card-value ${color}`}>{value}</span>
+              <span className={`stat-card-value ${color}`} title={fullValue || value}>{value}</span>
+              {fullValue && fullValue !== value && (
+                <span className="stat-card-subvalue" title={fullValue}>{fullValue}</span>
+              )}
             </div>
           ))}
         </div>

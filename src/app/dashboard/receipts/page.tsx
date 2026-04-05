@@ -193,15 +193,36 @@ export default function Receipts() {
       setUploading(false)
     }
   }
+
+  const getAttachmentBaseUrl = (url: string) => url.split('?')[0]
+
+  const getAttachmentFileName = (url: string, fallback: string) => {
+    const fileName = getAttachmentBaseUrl(url).split('/').pop() || fallback
+    try {
+      return decodeURIComponent(fileName)
+    } catch {
+      return fileName
+    }
+  }
+
+  const isImageAttachment = (value: string) => /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(getAttachmentBaseUrl(value))
+
+  const getAttachmentViewUrl = (url: string, download = false) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return `/api/upload/file?url=${encodeURIComponent(url)}${download ? '&download=1' : ''}`
+    }
+    return url
+  }
   
   const handleImagePreview = (url: string, fileName: string) => {
-    const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+    const isImage = isImageAttachment(fileName || url)
+    const viewUrl = getAttachmentViewUrl(url)
     if (isImage) {
-      setPreviewImage({ url, fileName })
+      setPreviewImage({ url: viewUrl, fileName })
       setShowImagePreview(true)
     } else {
       // For PDFs, still open in new tab
-      window.open(url, '_blank')
+      window.open(viewUrl, '_blank')
     }
   }
   const removeUploadedFile = (url: string) => {
@@ -374,15 +395,16 @@ export default function Receipts() {
         ...filteredReceipts.map(r => {
           const marginAmt = r.posMachine?.commissionPercentage != null ? (r.amount * r.posMachine.commissionPercentage / 100) : null
           const bankChargesAmt = r.posMachine?.bankCharges != null ? (r.amount * r.posMachine.bankCharges / 100) : null
-          // VAT on full receipt amount
-          const vatAmt = r.posMachine?.vatPercentage != null ? (r.amount * r.posMachine.vatPercentage / 100) : null
+          const vatAmt = (bankChargesAmt != null && r.posMachine?.vatPercentage != null)
+            ? (bankChargesAmt * r.posMachine.vatPercentage / 100)
+            : null
 
           return {
             ...r,
             agent: r.agent || '—',
             date: format(new Date(r.date), 'dd-MMM-yyyy'),
             posMachineInfo: r.posMachine ? `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
-            margin: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.posMachine!.commissionPercentage}%)` : '',
+            charges: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.posMachine!.commissionPercentage}%)` : '',
             bankCharges: bankChargesAmt != null ? `AED ${bankChargesAmt.toFixed(2)} (${r.posMachine!.bankCharges}%)` : '',
             vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.posMachine!.vatPercentage}%)` : '',
             amount: `AED ${r.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -496,25 +518,32 @@ export default function Receipts() {
                       <p className="text-xs text-gray-500 mb-2">Attachment:</p>
                       <div className="flex gap-2">
                         {receipt.attachments.map((url, index) => {
-                          const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
-                          const fileName = url.split('/').pop() || `File ${index + 1}`
+                          const fileName = getAttachmentFileName(url, `File ${index + 1}`)
+                          const isImage = isImageAttachment(fileName)
+                          const viewUrl = getAttachmentViewUrl(url)
                           return (
                             <div key={index} className="relative w-12 h-12">
                               {isImage ? (
                                 <>
                                   <img 
-                                    src={url} 
+                                    src={viewUrl} 
                                     alt={`Receipt ${receipt.receiptNumber}`}
                                     className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
                                     onClick={() => handleImagePreview(url, fileName)}
-                                    onError={(e) => { const t = e.target as HTMLImageElement; t.style.display='none'; t.parentElement?.querySelector('.img-fallback')?.classList.remove('hidden') }}
+                                    onError={(e) => {
+                                      const t = e.target as HTMLImageElement
+                                      t.style.display = 'none'
+                                      const fallback = t.parentElement?.querySelector('.img-fallback')
+                                      fallback?.classList.remove('hidden')
+                                      fallback?.classList.add('flex')
+                                    }}
                                   />
-                                  <button onClick={() => handleImagePreview(url, fileName)} className="img-fallback hidden w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                                  <button onClick={() => handleImagePreview(url, fileName)} className="img-fallback hidden w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded items-center justify-center">
                                     <File className="h-6 w-6 text-gray-400" />
                                   </button>
                                 </>
                               ) : (
-                                <button onClick={() => window.open(url, '_blank')} className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
+                                <button onClick={() => window.open(viewUrl, '_blank')} className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
                                   <File className="h-6 w-6 text-red-500" />
                                 </button>
                               )}
@@ -571,7 +600,7 @@ export default function Receipts() {
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     {['Batch ID', ...(isAdmin ? ['Agent'] : []), 'POS Machine', t('date'), 'Receipt Amount',
-                      ...(isAdmin ? ['Bank Charges', 'VAT', 'Margin', 'Created By / Date', 'Updated By / Date'] : []),
+                      ...(isAdmin ? ['Bank Charges', 'VAT', 'Charges', 'Created By / Date', 'Updated By / Date'] : []),
                       t('description'), 'Preview', t('actions')
                     ].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -609,7 +638,13 @@ export default function Receipts() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {receipt.posMachine?.vatPercentage != null
-                              ? `AED ${(receipt.amount * receipt.posMachine.vatPercentage / 100).toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
+                              ? (() => {
+                                  const bankChargesAmount = receipt.posMachine?.bankCharges != null
+                                    ? (receipt.amount * receipt.posMachine.bankCharges / 100)
+                                    : 0
+                                  const vatAmount = bankChargesAmount * receipt.posMachine.vatPercentage / 100
+                                  return `AED ${vatAmount.toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
+                                })()
                               : '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
@@ -638,23 +673,30 @@ export default function Receipts() {
                         {receipt.attachments && receipt.attachments.length > 0 ? (
                           <div className="flex justify-center gap-1">
                             {receipt.attachments.map((url, index) => {
-                              const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
-                              const fileName = url.split('/').pop() || `File ${index + 1}`
+                              const fileName = getAttachmentFileName(url, `File ${index + 1}`)
+                              const isImage = isImageAttachment(fileName)
+                              const viewUrl = getAttachmentViewUrl(url)
                               return (
                                 <div key={index} className="relative group">
                                   {isImage ? (
                                     <div className="relative w-8 h-8">
                                       <img 
-                                        src={url} 
+                                        src={viewUrl} 
                                         alt={`Receipt ${receipt.receiptNumber}`}
                                         className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:scale-110 transition-transform" 
                                         onClick={() => handleImagePreview(url, fileName)}
                                         title="Click to preview image"
-                                        onError={(e) => { const t = e.target as HTMLImageElement; t.style.display='none'; t.parentElement?.querySelector('.img-fallback')?.classList.remove('hidden') }}
+                                        onError={(e) => {
+                                          const t = e.target as HTMLImageElement
+                                          t.style.display = 'none'
+                                          const fallback = t.parentElement?.querySelector('.img-fallback')
+                                          fallback?.classList.remove('hidden')
+                                          fallback?.classList.add('flex')
+                                        }}
                                       />
                                       <button
                                         onClick={() => handleImagePreview(url, fileName)}
-                                        className="img-fallback hidden w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center"
+                                        className="img-fallback hidden w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded items-center justify-center"
                                         title="Preview unavailable"
                                       >
                                         <File className="h-4 w-4 text-gray-400" />
@@ -662,7 +704,7 @@ export default function Receipts() {
                                     </div>
                                   ) : (
                                     <button
-                                      onClick={() => window.open(url, '_blank')}
+                                      onClick={() => window.open(viewUrl, '_blank')}
                                       className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                                       title="Click to view PDF"
                                     >
@@ -683,7 +725,7 @@ export default function Receipts() {
                             <button
                               onClick={() => {
                                 const firstAttachment = receipt.attachments![0]
-                                const fileName = firstAttachment.split('/').pop() || 'Attachment'
+                                const fileName = getAttachmentFileName(firstAttachment, 'Attachment')
                                 handleImagePreview(firstAttachment, fileName)
                               }}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -824,18 +866,19 @@ export default function Receipts() {
                 {uploadedFiles.length > 0 && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
                     {uploadedFiles.map((url, index) => {
-                      const fileName = url.split('/').pop() || `File ${index + 1}`
-                      const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i)
+                      const fileName = getAttachmentFileName(url, `File ${index + 1}`)
+                      const isImage = isImageAttachment(fileName)
+                      const viewUrl = getAttachmentViewUrl(url)
                       return (
                         <div key={url} className="flex items-center gap-3 flex-1 min-w-0">
                           {isImage
-                            ? <img src={url} alt={fileName} className="w-10 h-10 object-cover rounded-lg border border-gray-200 dark:border-gray-600 flex-shrink-0" />
+                            ? <img src={viewUrl} alt={fileName} className="w-10 h-10 object-cover rounded-lg border border-gray-200 dark:border-gray-600 flex-shrink-0" />
                             : <div className="w-10 h-10 bg-red-50 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0"><File className="h-5 w-5 text-red-500" /></div>
                           }
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{fileName}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
+                              <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
                               <span className="text-xs text-gray-300 dark:text-gray-600">•</span>
                               <button type="button" onClick={() => removeUploadedFile(url)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
                             </div>

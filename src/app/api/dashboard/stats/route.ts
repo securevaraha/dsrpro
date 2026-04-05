@@ -165,9 +165,15 @@ export async function GET(request: NextRequest) {
       const pos = (txn as any).posMachine
       const amt = (txn as any).amount || 0
       if (pos) {
-        totalBankCharges += amt * ((pos.bankCharges || 0) / 100)
-        totalVAT += amt * ((pos.vatPercentage || 0) / 100)
-        totalMargin += amt * ((pos.commissionPercentage || 0) / 100)
+        const chargesAmount = amt * ((pos.commissionPercentage || 0) / 100)
+        const bankChargesAmount = amt * ((pos.bankCharges || 0) / 100)
+        const vatAmount = bankChargesAmount * ((pos.vatPercentage || 0) / 100)
+        const netReceived = amt - bankChargesAmount - vatAmount
+        const toPayAmount = amt - chargesAmount
+
+        totalBankCharges += bankChargesAmount
+        totalVAT += vatAmount
+        totalMargin += netReceived - toPayAmount
       }
     }
 

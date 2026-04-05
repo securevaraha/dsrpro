@@ -360,7 +360,7 @@ export default function AdminPanel() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="equal-card-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
               {[
                 { label: 'Total Users', value: stats.total, icon: Users, color: 'text-gray-600 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-700' },
                 { label: 'Admins', value: stats.admins, icon: Crown, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
@@ -370,7 +370,7 @@ export default function AdminPanel() {
               ].map((stat) => {
                 const Icon = stat.icon
                 return (
-                  <div key={stat.label} className="dubai-card p-4">
+                  <div key={stat.label} className="equal-card">
                     <div className="flex items-center space-x-3">
                       <div className={`p-2 rounded-lg ${stat.bg}`}>
                         <Icon className={`h-4 w-4 ${stat.color}`} />
@@ -386,10 +386,10 @@ export default function AdminPanel() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="equal-card-grid grid-cols-1 sm:grid-cols-3">
               <button
                 onClick={() => { resetForm(); setShowModal(true); setActiveTab('users') }}
-                className="dubai-card p-5 text-left group cursor-pointer"
+                className="equal-card text-left group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -407,7 +407,7 @@ export default function AdminPanel() {
 
               <button
                 onClick={() => setActiveTab('users')}
-                className="dubai-card p-5 text-left group cursor-pointer"
+                className="equal-card text-left group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -425,7 +425,7 @@ export default function AdminPanel() {
 
               <button
                 onClick={() => setActiveTab('sessions')}
-                className="dubai-card p-5 text-left group cursor-pointer"
+                className="equal-card text-left group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -882,7 +882,7 @@ export default function AdminPanel() {
         {/* ────────────────── CREATE/EDIT MODAL ────────────────── */}
         {showModal && (
           <div className="modal-overlay">
-            <div className="modal-content">
+            <div className="modal-content form-modal">
               <div className="modal-header">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">

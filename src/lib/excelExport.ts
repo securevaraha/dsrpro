@@ -29,6 +29,20 @@ export const exportToExcel = ({
   isRTL = false,
   grandTotals
 }: ExcelExportOptions) => {
+  const tableBorder = {
+    top: { style: 'thin', color: { rgb: '000000' } },
+    bottom: { style: 'thin', color: { rgb: '000000' } },
+    left: { style: 'thin', color: { rgb: '000000' } },
+    right: { style: 'thin', color: { rgb: '000000' } }
+  }
+
+  const titleBorder = {
+    top: { style: 'medium', color: { rgb: '000000' } },
+    bottom: { style: 'medium', color: { rgb: '000000' } },
+    left: { style: 'medium', color: { rgb: '000000' } },
+    right: { style: 'medium', color: { rgb: '000000' } }
+  }
+
   const workbook = XLSX.utils.book_new()
   
   // Prepare headers
@@ -78,26 +92,29 @@ export const exportToExcel = ({
     worksheet[cellAddress].s = {
       font: { bold: true, color: { rgb: 'FFFFFF' } },
       fill: { fgColor: { rgb: 'B8960C' } }, // DSR Info gold header
-      border: {
-        top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-        bottom: { style: 'medium', color: { rgb: '4F46E5' } },
-        left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-        right: { style: 'thin', color: { rgb: 'CCCCCC' } }
-      },
+      border: tableBorder,
       alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
     }
   })
   
   // Style title if exists
   if (title) {
-    const titleCell = worksheet['A1']
-    if (titleCell) {
-      titleCell.s = {
+    columns.forEach((_, colIndex) => {
+      const titleAddress = XLSX.utils.encode_cell({ r: 0, c: colIndex })
+      if (!worksheet[titleAddress]) worksheet[titleAddress] = { v: '' }
+      worksheet[titleAddress].s = {
         font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
         fill: { fgColor: { rgb: 'D4AF37' } },
+        border: titleBorder,
         alignment: { horizontal: 'center', vertical: 'center' }
       }
+    })
+
+    const titleCell = worksheet['A1']
+    if (titleCell) {
+      titleCell.v = title
     }
+
     worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }]
   }
   
@@ -120,14 +137,9 @@ export const exportToExcel = ({
             ? { fgColor: { rgb: 'F9FAFB' } } 
             : { fgColor: { rgb: 'FFFFFF' } },
         font: isGrandTotalRow ? { bold: true, color: { rgb: '92400E' } } : {},
-        border: {
-          top: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
-          bottom: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
-          left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-          right: { style: 'thin', color: { rgb: 'E5E7EB' } }
-        },
+        border: tableBorder,
         alignment: { 
-          horizontal: 'left',
+          horizontal: 'center',
           vertical: 'center',
           wrapText: false
         }
@@ -146,7 +158,8 @@ export const exportToExcel = ({
     worksheet[summaryCell].s = {
       font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
       fill: { fgColor: { rgb: 'F3F4F6' } },
-      alignment: { horizontal: 'left', vertical: 'center' }
+      border: tableBorder,
+      alignment: { horizontal: 'center', vertical: 'center' }
     }
     
     // Merge the summary across all columns
@@ -187,6 +200,20 @@ export const exportMultiSheetExcel = ({
   columns,
   isRTL = false
 }: MultiSheetExportOptions) => {
+  const tableBorder = {
+    top: { style: 'thin', color: { rgb: '000000' } },
+    bottom: { style: 'thin', color: { rgb: '000000' } },
+    left: { style: 'thin', color: { rgb: '000000' } },
+    right: { style: 'thin', color: { rgb: '000000' } }
+  }
+
+  const titleBorder = {
+    top: { style: 'medium', color: { rgb: '000000' } },
+    bottom: { style: 'medium', color: { rgb: '000000' } },
+    left: { style: 'medium', color: { rgb: '000000' } },
+    right: { style: 'medium', color: { rgb: '000000' } }
+  }
+
   const workbook = XLSX.utils.book_new()
   
   sheets.forEach((sheet, sheetIndex) => {
@@ -237,26 +264,29 @@ export const exportMultiSheetExcel = ({
       worksheet[cellAddress].s = {
         font: { bold: true, color: { rgb: 'FFFFFF' } },
         fill: { fgColor: { rgb: 'B8960C' } }, // DSR Info gold header
-        border: {
-          top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-          bottom: { style: 'medium', color: { rgb: '4F46E5' } },
-          left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-          right: { style: 'thin', color: { rgb: 'CCCCCC' } }
-        },
+        border: tableBorder,
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
       }
     })
     
     // Style title if exists
     if (sheet.title) {
-      const titleCell = worksheet['A1']
-      if (titleCell) {
-        titleCell.s = {
+      columns.forEach((_, colIndex) => {
+        const titleAddress = XLSX.utils.encode_cell({ r: 0, c: colIndex })
+        if (!worksheet[titleAddress]) worksheet[titleAddress] = { v: '' }
+        worksheet[titleAddress].s = {
           font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
           fill: { fgColor: { rgb: 'D4AF37' } },
+          border: titleBorder,
           alignment: { horizontal: 'center', vertical: 'center' }
         }
+      })
+
+      const titleCell = worksheet['A1']
+      if (titleCell) {
+        titleCell.v = sheet.title
       }
+
       worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }]
     }
     
@@ -279,14 +309,9 @@ export const exportMultiSheetExcel = ({
               ? { fgColor: { rgb: 'F9FAFB' } } 
               : { fgColor: { rgb: 'FFFFFF' } },
           font: isGrandTotalRow ? { bold: true, color: { rgb: '92400E' } } : {},
-          border: {
-            top: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
-            bottom: { style: isGrandTotalRow ? 'medium' : 'thin', color: { rgb: isGrandTotalRow ? '92400E' : 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
-          },
+          border: tableBorder,
           alignment: { 
-            horizontal: 'left',
+            horizontal: 'center',
             vertical: 'center',
             wrapText: false
           }
@@ -306,7 +331,8 @@ export const exportMultiSheetExcel = ({
       worksheet[summaryCell].s = {
         font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
         fill: { fgColor: { rgb: 'F3F4F6' } },
-        alignment: { horizontal: 'left', vertical: 'center' }
+        border: tableBorder,
+        alignment: { horizontal: 'center', vertical: 'center' }
       }
       
       // Merge the summary across all columns
@@ -364,9 +390,9 @@ export const reportColumns = {
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
     { key: 'date', label: t('date'), width: 18 },
     { key: 'amount', label: 'Receipt Amount', width: 20 },
+    { key: 'charges', label: 'Charges', width: 22 },
     { key: 'bankCharges', label: 'Bank Charges', width: 22 },
     { key: 'vat', label: 'VAT', width: 20 },
-    { key: 'margin', label: 'Margin', width: 20 },
     { key: 'createdByDate', label: 'Created By / Date', width: 36 },
     { key: 'updatedByDate', label: 'Updated By / Date', width: 36 },
     { key: 'description', label: t('description'), width: 40 }
@@ -383,19 +409,16 @@ export const reportColumns = {
 
   reportsAdmin: (t: (key: string) => string) => [
     { key: 'batchId', label: 'Batch ID', width: 15 },
-    { key: 'posMachine', label: 'POS Machine', width: 25 },
     { key: 'agent', label: 'Agent', width: 20 },
+    { key: 'posMachine', label: 'POS Machine', width: 25 },
     { key: 'date', label: 'Date', width: 15 },
-    { key: 'posReceiptAmount', label: 'POS/Receipt Amount', width: 20 },
-    { key: 'marginPercent', label: 'Margin %', width: 12 },
-    { key: 'marginAmount', label: 'Margin Amount', width: 15 },
-    { key: 'bankChargesPercent', label: 'Bank Charges %', width: 15 },
-    { key: 'bankChargesAmount', label: 'Bank Charges Amount', width: 18 },
-    { key: 'vatPercent', label: 'VAT %', width: 10 },
-    { key: 'vatAmount', label: 'VAT Amount', width: 12 },
+    { key: 'posReceiptAmount', label: 'Receipt Amount', width: 20 },
+    { key: 'chargesAmount', label: 'Charges', width: 16 },
+    { key: 'bankChargesAmount', label: 'Bank Charges', width: 18 },
+    { key: 'vatAmount', label: 'VAT', width: 12 },
     { key: 'netReceived', label: 'Net Received', width: 15 },
     { key: 'toPayAmount', label: 'To Pay Amount', width: 15 },
-    { key: 'finalMargin', label: 'Margin', width: 12 },
+    { key: 'marginAmount', label: 'Margin', width: 12 },
     { key: 'paid', label: 'Paid', width: 12 },
     { key: 'balance', label: 'Balance', width: 12 },
     { key: 'createdBy', label: 'Created By', width: 15 },

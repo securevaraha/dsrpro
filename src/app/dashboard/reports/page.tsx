@@ -10,10 +10,24 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { Search } from 'lucide-react'
 
+function safeAmount(value: number): number {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatAEDFull(value: number): string {
+  const amount = safeAmount(value)
+  return `AED ${amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 function formatAED(value: number): string {
-  if (value >= 1_000_000_000) return `AED ${(value / 1_000_000_000).toFixed(2)}B`
-  if (value >= 1_000_000) return `AED ${(value / 1_000_000).toFixed(2)}M`
-  return `AED ${value.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const amount = safeAmount(value)
+  const abs = Math.abs(amount)
+  if (abs >= 1_000_000_000_000) return `AED ${(amount / 1_000_000_000_000).toFixed(2)}T`
+  if (abs >= 1_000_000_000) return `AED ${(amount / 1_000_000_000).toFixed(2)}B`
+  if (abs >= 1_000_000) return `AED ${(amount / 1_000_000).toFixed(2)}M`
+  if (abs >= 1_000) return `AED ${(amount / 1_000).toFixed(2)}K`
+  return formatAEDFull(amount)
 }
 
 function getItemAmount(item: any): number {
@@ -47,6 +61,7 @@ export default function Reports() {
   const [reportData, setReportData] = useState<any>(null)
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -100,17 +115,18 @@ export default function Reports() {
 
       const normalizeRow = (r: any) => {
         const amount = Number(r.amount ?? r.posReceiptAmount ?? 0)
-        const marginPercent = Number(r.marginPercent ?? r.commissionPercentage ?? 0)
+        const chargesPercent = Number(r.chargesPercent ?? r.marginPercent ?? r.commissionPercentage ?? 0)
         const bankChargesPercent = Number(r.bankChargesPercent ?? r.bankCharges ?? 0)
         const vatPercent = Number(r.vatPercent ?? r.vatPercentage ?? 0)
-        const marginAmount = Number(r.marginAmount ?? ((amount * marginPercent) / 100))
+        const chargesAmount = Number(r.chargesAmount ?? ((amount * chargesPercent) / 100))
         const bankChargesAmount = Number(r.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
-        const vatAmount = Number(r.vatAmount ?? ((amount * vatPercent) / 100))
+        const vatAmount = Number(r.vatAmount ?? ((bankChargesAmount * vatPercent) / 100))
         const netReceived = Number(r.netReceived ?? (amount - bankChargesAmount - vatAmount))
-        const toReceive = Number(r.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+        const toPay = Number(r.toPayAmount ?? (amount - chargesAmount))
+        const margin = Number(r.marginAmount ?? r.finalMargin ?? (netReceived - toPay))
         const received = Number(r.paid ?? r.paidAmount ?? 0)
         const settled = Number(r.settlementAmount ?? 0)
-        const remaining = Math.max(0, Number(r.balance ?? r.dueAmount ?? (toReceive - received - settled)))
+        const remaining = Math.max(0, Number(r.balance ?? r.dueAmount ?? (toPay - received - settled)))
         const batchId = r.batchId || r.receiptNumber || r.transactionId || '—'
         const posMachine = r.posMachine || (r.posMachineSegment && r.posMachineBrand ? `${r.posMachineSegment}/${r.posMachineBrand}` : 'No POS')
         const date = r.date || r.createdDate || r.createdAt
@@ -123,16 +139,20 @@ export default function Reports() {
           description: r.description || '—',
           receiptAmount: toMoney(amount),
           amount: toMoney(amount),
+          charges: `${toMoney(chargesAmount)} (${chargesPercent.toFixed(2)}%)`,
           bankCharges: `${toMoney(bankChargesAmount)} (${bankChargesPercent.toFixed(2)}%)`,
           vat: `${toMoney(vatAmount)} (${vatPercent.toFixed(2)}%)`,
-          margin: `${toMoney(marginAmount)} (${marginPercent.toFixed(2)}%)`,
+          margin: toMoney(margin),
           netReceived: toMoney(netReceived),
-          toReceive: toMoney(toReceive),
+          toPay: toMoney(toPay),
+          paid: toMoney(received),
+          balance: remaining > 0.01 ? toMoney(remaining) : '0.00',
+          toReceive: toMoney(toPay),
           received: toMoney(received),
           settlementAmount: toMoney(settled),
           remainingReceive: remaining > 0.01 ? toMoney(remaining) : '0.00',
           due: remaining > 0.01 ? toMoney(remaining) : '0.00',
-          netProfit: toMoney(isAdmin ? marginAmount : received),
+          netProfit: toMoney(isAdmin ? margin : received),
           method: (r.paymentMethod || '').toUpperCase(),
           status: r.status ? String(r.status).charAt(0).toUpperCase() + String(r.status).slice(1) : 'Completed',
           createdByDate: `${r.createdBy || 'System'} | ${fmtDateTime(r.createdDate || r.createdAt)}`,
@@ -149,13 +169,14 @@ export default function Reports() {
               { key: 'posMachine', label: 'POS Machine', width: 26 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'charges', label: 'Charges', width: 22 },
               { key: 'bankCharges', label: 'Bank Charges', width: 24 },
               { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'netReceived', label: 'Net Received', width: 18 },
+              { key: 'toPay', label: 'To Pay', width: 18 },
               { key: 'margin', label: 'Margin', width: 20 },
-              { key: 'toReceive', label: 'To Pay', width: 18 },
-              { key: 'received', label: 'Paid', width: 18 },
-              { key: 'due', label: 'Due', width: 18 },
-              { key: 'netProfit', label: 'Net Profit', width: 18 },
+              { key: 'paid', label: 'Paid', width: 18 },
+              { key: 'balance', label: 'Balance', width: 18 },
               { key: 'createdByDate', label: 'Created By / Date', width: 30 },
               { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
               { key: 'description', label: 'Description', width: 40 },
@@ -165,10 +186,8 @@ export default function Reports() {
               { key: 'date', label: 'Date', width: 16 },
               { key: 'posMachine', label: 'POS Machine', width: 26 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
-              { key: 'netReceived', label: 'Net Received', width: 18 },
               { key: 'toReceive', label: 'To Receive', width: 18 },
               { key: 'received', label: 'Received', width: 18 },
-              { key: 'settlementAmount', label: 'Settlement Amount', width: 20 },
               { key: 'remainingReceive', label: 'Remaining Receive', width: 20 },
               { key: 'description', label: 'Description', width: 40 },
             ]
@@ -180,13 +199,14 @@ export default function Reports() {
               { key: 'posMachine', label: 'POS Machine', width: 26 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'charges', label: 'Charges', width: 22 },
               { key: 'bankCharges', label: 'Bank Charges', width: 24 },
               { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'netReceived', label: 'Net Received', width: 18 },
+              { key: 'toPay', label: 'To Pay', width: 18 },
               { key: 'margin', label: 'Margin', width: 20 },
-              { key: 'toReceive', label: 'To Pay', width: 18 },
-              { key: 'received', label: 'Paid', width: 18 },
-              { key: 'due', label: 'Due', width: 18 },
-              { key: 'netProfit', label: 'Net Profit', width: 18 },
+              { key: 'paid', label: 'Paid', width: 18 },
+              { key: 'balance', label: 'Balance', width: 18 },
               { key: 'createdByDate', label: 'Created By / Date', width: 30 },
               { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
               { key: 'description', label: 'Description', width: 40 },
@@ -210,13 +230,14 @@ export default function Reports() {
               { key: 'posMachine', label: 'POS Machine', width: 26 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
+              { key: 'charges', label: 'Charges', width: 22 },
               { key: 'bankCharges', label: 'Bank Charges', width: 24 },
               { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'netReceived', label: 'Net Received', width: 18 },
+              { key: 'toPay', label: 'To Pay', width: 18 },
               { key: 'margin', label: 'Margin', width: 20 },
-              { key: 'toReceive', label: 'To Pay', width: 18 },
-              { key: 'received', label: 'Paid', width: 18 },
-              { key: 'due', label: 'Due', width: 18 },
-              { key: 'netProfit', label: 'Net Profit', width: 18 },
+              { key: 'paid', label: 'Paid', width: 18 },
+              { key: 'balance', label: 'Balance', width: 18 },
               { key: 'createdByDate', label: 'Created By / Date', width: 30 },
               { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
               { key: 'description', label: 'Description', width: 40 },
@@ -389,14 +410,14 @@ export default function Reports() {
 
   const agentCardTotals = filteredItems.reduce((acc: any, item: any) => {
     const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
-    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+    const chargesPercent = Number(item.chargesPercent ?? item.marginPercent ?? item.commissionPercentage ?? 0)
     const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
     const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
-    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+    const chargesAmount = Number(item.chargesAmount ?? ((amount * chargesPercent) / 100))
     const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
-    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
+    const vatAmount = Number(item.vatAmount ?? ((bankChargesAmount * vatPercent) / 100))
     const netReceived = Number(item.netReceived ?? (amount - bankChargesAmount - vatAmount))
-    const toReceive = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+    const toReceive = Number(item.toPayAmount ?? (amount - chargesAmount))
     const received = Number(item.paid ?? item.paidAmount ?? 0)
     const settled = Number(item.settlementAmount ?? 0)
     const remainingReceive = Math.max(0, Number(item.balance ?? item.dueAmount ?? (toReceive - received - settled)))
@@ -422,6 +443,7 @@ export default function Reports() {
         {
           label: 'Total Revenue',
           value: formatAED(filteredStats.totalRevenue),
+          fullValue: formatAEDFull(filteredStats.totalRevenue),
           icon: TrendingUp,
           color: 'text-emerald-600 dark:text-emerald-400',
           bg: 'bg-emerald-50 dark:bg-emerald-900/20',
@@ -436,6 +458,7 @@ export default function Reports() {
         {
           label: 'Total Bank Charges',
           value: formatAED(filteredStats.totalBankCharges),
+          fullValue: formatAEDFull(filteredStats.totalBankCharges),
           icon: Calculator,
           color: 'text-red-600 dark:text-red-400',
           bg: 'bg-red-50 dark:bg-red-900/20',
@@ -443,6 +466,7 @@ export default function Reports() {
         {
           label: 'Total Margin',
           value: formatAED(filteredStats.totalMargin),
+          fullValue: formatAEDFull(filteredStats.totalMargin),
           icon: FileText,
           color: 'text-blue-600 dark:text-blue-400',
           bg: 'bg-blue-50 dark:bg-blue-900/20',
@@ -450,13 +474,15 @@ export default function Reports() {
         {
           label: 'Total VAT',
           value: formatAED(filteredStats.totalVAT),
+          fullValue: formatAEDFull(filteredStats.totalVAT),
           icon: Calculator,
           color: 'text-purple-600 dark:text-purple-400',
           bg: 'bg-purple-50 dark:bg-purple-900/20',
         },
         {
-          label: 'Net Profit',
+          label: 'Total Margin',
           value: formatAED(filteredStats.totalMargin),
+          fullValue: formatAEDFull(filteredStats.totalMargin),
           icon: TrendingUp,
           color: 'text-cyan-600 dark:text-cyan-400',
           bg: 'bg-cyan-50 dark:bg-cyan-900/20',
@@ -466,6 +492,7 @@ export default function Reports() {
         {
           label: 'Total Receipt Amount',
           value: formatAED(agentCardTotals.totalReceiptAmount),
+          fullValue: formatAEDFull(agentCardTotals.totalReceiptAmount),
           icon: TrendingUp,
           color: 'text-emerald-600 dark:text-emerald-400',
           bg: 'bg-emerald-50 dark:bg-emerald-900/20',
@@ -478,46 +505,36 @@ export default function Reports() {
           bg: 'bg-yellow-50 dark:bg-yellow-900/20',
         },
         {
-          label: 'Net Received',
-          value: formatAED(agentCardTotals.netReceived),
+          label: 'To Receive',
+          value: formatAED(agentCardTotals.toReceive),
+          fullValue: formatAEDFull(agentCardTotals.toReceive),
           icon: Calculator,
           color: 'text-blue-600 dark:text-blue-400',
           bg: 'bg-blue-50 dark:bg-blue-900/20',
         },
         {
-          label: 'To Receive',
-          value: formatAED(agentCardTotals.toReceive),
+          label: 'Received',
+          value: formatAED(agentCardTotals.received),
+          fullValue: formatAEDFull(agentCardTotals.received),
           icon: FileText,
           color: 'text-indigo-600 dark:text-indigo-400',
           bg: 'bg-indigo-50 dark:bg-indigo-900/20',
         },
         {
-          label: 'Received',
-          value: formatAED(agentCardTotals.received),
+          label: 'Settlement Amount',
+          value: formatAED(agentCardTotals.settled),
+          fullValue: formatAEDFull(agentCardTotals.settled),
           icon: TrendingUp,
           color: 'text-emerald-600 dark:text-emerald-400',
           bg: 'bg-emerald-50 dark:bg-emerald-900/20',
         },
         {
-          label: 'Settlement Amount',
-          value: formatAED(agentCardTotals.settled),
+          label: 'Remaining Receive',
+          value: formatAED(agentCardTotals.remainingReceive),
+          fullValue: formatAEDFull(agentCardTotals.remainingReceive),
           icon: FileText,
           color: 'text-indigo-600 dark:text-indigo-400',
           bg: 'bg-indigo-50 dark:bg-indigo-900/20',
-        },
-        {
-          label: 'Remaining Receive',
-          value: formatAED(agentCardTotals.remainingReceive),
-          icon: ArrowRight,
-          color: 'text-red-600 dark:text-red-400',
-          bg: 'bg-red-50 dark:bg-red-900/20',
-        },
-        {
-          label: 'Net Profit',
-          value: formatAED(agentCardTotals.received),
-          icon: TrendingUp,
-          color: 'text-cyan-600 dark:text-cyan-400',
-          bg: 'bg-cyan-50 dark:bg-cyan-900/20',
         },
       ]
 
@@ -525,45 +542,49 @@ export default function Reports() {
 
   const adminGrandTotals = filteredItems.reduce((acc: any, item: any) => {
     const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
-    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+    const chargesPercent = Number(item.chargesPercent ?? item.marginPercent ?? item.commissionPercentage ?? 0)
     const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
     const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
-    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+    const chargesAmount = Number(item.chargesAmount ?? ((amount * chargesPercent) / 100))
     const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
-    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
-    const toPayAmount = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+    const vatAmount = Number(item.vatAmount ?? ((bankChargesAmount * vatPercent) / 100))
+    const netReceived = Number(item.netReceived ?? (amount - bankChargesAmount - vatAmount))
+    const toPayAmount = Number(item.toPayAmount ?? (amount - chargesAmount))
+    const marginAmount = Number(item.marginAmount ?? item.finalMargin ?? (netReceived - toPayAmount))
     const paidAmount = Number(item.paid ?? item.paidAmount ?? 0)
     const dueAmount = Number(item.balance ?? item.dueAmount ?? (toPayAmount - paidAmount))
 
     acc.receiptAmount += amount
+    acc.charges += chargesAmount
     acc.bankCharges += bankChargesAmount
     acc.vat += vatAmount
+    acc.netReceived += netReceived
     acc.margin += marginAmount
     acc.toPay += toPayAmount
     acc.paid += paidAmount
-    acc.due += Math.max(0, dueAmount)
-    acc.netProfit += marginAmount
+    acc.balance += Math.max(0, dueAmount)
     return acc
   }, {
     receiptAmount: 0,
+    charges: 0,
     bankCharges: 0,
     vat: 0,
+    netReceived: 0,
     margin: 0,
     toPay: 0,
     paid: 0,
-    due: 0,
-    netProfit: 0,
+    balance: 0,
   })
 
   const agentGrandTotals = filteredItems.reduce((acc: any, item: any) => {
     const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
-    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+    const chargesPercent = Number(item.chargesPercent ?? item.marginPercent ?? item.commissionPercentage ?? 0)
     const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
     const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
-    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+    const chargesAmount = Number(item.chargesAmount ?? ((amount * chargesPercent) / 100))
     const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
-    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
-    const toReceive = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+    const vatAmount = Number(item.vatAmount ?? ((bankChargesAmount * vatPercent) / 100))
+    const toReceive = Number(item.toPayAmount ?? (amount - chargesAmount))
     const received = Number(item.paid ?? item.paidAmount ?? 0)
     const settled = Number(item.settlementAmount ?? 0)
     const remainingReceive = Math.max(0, Number(item.balance ?? item.dueAmount ?? (toReceive - received - settled)))
@@ -611,17 +632,21 @@ export default function Reports() {
             <span className="hidden sm:inline">{t('exportExcel')}</span>
             <span className="sm:hidden">Excel</span>
           </button>
-          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
+          <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
         </div>
       </div>
 
       <FilterPanel
         open={showFilter}
-        onClose={() => setShowFilter(false)}
+        onClose={() => {
+          setTempFilters(filters)
+          setShowFilter(false)
+        }}
         fields={filterFields}
-        values={filters}
-        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-        onReset={() => setFilters({})}
+        values={tempFilters}
+        onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
+        onApply={() => setFilters(tempFilters)}
+        onReset={() => { setTempFilters({}); setFilters({}) }}
         activeCount={activeFilterCount}
       />
 
@@ -690,21 +715,24 @@ export default function Reports() {
 
       {/* Summary Cards */}
       <div className="kpi-grid">
-        {summaryCards.map((card) => {
+        {summaryCards.map((card, index) => {
           const Icon = card.icon
           return (
-            <div key={card.label} className="kpi-card">
+            <div key={`${card.label}-${index}`} className="kpi-card">
               <div className={`kpi-card-icon ${card.bg}`}>
                 <Icon className={`h-5 w-5 ${card.color}`} />
               </div>
               <div className="kpi-card-body">
                 <span className="kpi-card-label">{card.label}</span>
-                <span className="kpi-card-value">
+                <span className="kpi-card-value" title={loading ? '' : (card.fullValue || String(card.value))}>
                   {loading
                     ? <span className="inline-block h-5 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                     : card.value
                   }
                 </span>
+                {!loading && card.fullValue && card.fullValue !== card.value && (
+                  <span className="kpi-card-subvalue" title={card.fullValue}>{card.fullValue}</span>
+                )}
               </div>
             </div>
           )
@@ -723,7 +751,7 @@ export default function Reports() {
         </div>
 
         {loading ? (
-          <div className="p-5"><TableSkeleton rows={5} columns={isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? 15 : 6} /></div>
+          <div className="p-5"><TableSkeleton rows={5} columns={isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? 16 : (reportType === 'summary' || reportType === 'receipts' ? 8 : 6)} /></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -732,7 +760,7 @@ export default function Reports() {
                   {(reportType === 'settlements' ? (
                     isAdmin ? [
                       'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
-                      'Bank Charges', 'Vat', 'Margin', 'To Pay', 'Paid', 'Due', 'Net Profit',
+                      'Charges', 'Bank Charges', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
                       'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
@@ -740,18 +768,18 @@ export default function Reports() {
                   ) : reportType === 'summary' ? (
                     isAdmin ? [
                       'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
-                      'Bank Charges', 'Vat', 'Margin', 'To Pay', 'Paid', 'Due', 'Net Profit',
+                      'Charges', 'Bank Charges', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
-                      'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'Net Received', 'To Receive', 'Received', 'Remaining Receive', 'Description'
+                      'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
                     ]
                   ) : reportType === 'receipts' ? (
                     isAdmin ? [
                       'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
-                      'Bank Charges', 'Vat', 'Margin', 'To Pay', 'Paid', 'Due', 'Net Profit',
+                      'Charges', 'Bank Charges', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
-                      'Batch ID', 'Date', 'POS Machine', 'Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
+                      'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
                     ]
                   ) : [
                     'Batch ID', 'Date', 'Agent', 'Amount', 'Status', 'Description'
@@ -766,16 +794,17 @@ export default function Reports() {
                 {filteredItems.length > 0 ? filteredItems.map((item: any, i: number) => {
                   if (isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements')) {
                     const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
-                    const marginPercent = Number(item.marginPercent ?? item.commissionPercentage ?? 0)
+                    const chargesPercent = Number(item.chargesPercent ?? item.marginPercent ?? item.commissionPercentage ?? 0)
                     const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
                     const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
-                    const marginAmount = Number(item.marginAmount ?? ((amount * marginPercent) / 100))
+                    const chargesAmount = Number(item.chargesAmount ?? ((amount * chargesPercent) / 100))
                     const bankChargesAmount = Number(item.bankChargesAmount ?? ((amount * bankChargesPercent) / 100))
-                    const vatAmount = Number(item.vatAmount ?? ((amount * vatPercent) / 100))
-                    const toPayAmount = Number(item.toPayAmount ?? (amount - bankChargesAmount - vatAmount - marginAmount))
+                    const vatAmount = Number(item.vatAmount ?? ((bankChargesAmount * vatPercent) / 100))
+                    const netReceived = Number(item.netReceived ?? (amount - bankChargesAmount - vatAmount))
+                    const toPayAmount = Number(item.toPayAmount ?? (amount - chargesAmount))
+                    const marginAmount = Number(item.marginAmount ?? item.finalMargin ?? (netReceived - toPayAmount))
                     const paidAmount = Number(item.paid ?? item.paidAmount ?? 0)
                     const dueAmount = Number(item.balance ?? item.dueAmount ?? (toPayAmount - paidAmount))
-                    const netProfit = marginAmount
                     const isFullyPaid = paidAmount >= toPayAmount - 0.01
                     const paidDisplay = isFullyPaid ? 'Paid' : (paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—')
                     const batchId = item.batchId || item.receiptNumber || item.transactionId || '—'
@@ -791,17 +820,18 @@ export default function Reports() {
                           {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-amber-500 dark:text-amber-300 whitespace-nowrap">AED {amount.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmountWithPercent(chargesAmount, chargesPercent)}</td>
                         <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmountWithPercent(bankChargesAmount, bankChargesPercent)}</td>
                         <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmountWithPercent(vatAmount, vatPercent)}</td>
-                        <td className="px-3 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmountWithPercent(marginAmount, marginPercent)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {netReceived.toFixed(2)}</td>
                         <td className="px-3 py-3 text-sm font-semibold text-sky-600 dark:text-sky-300 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {marginAmount.toFixed(2)}</td>
                         <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{paidDisplay}</td>
                         <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
                           <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>
                             {dueAmount > 0.01 ? `AED ${dueAmount.toFixed(2)}` : '✓ Paid'}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {netProfit.toFixed(2)}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           <div className="meta-compact">
                             <div className="meta-compact-name">{item.createdBy || 'System'}</div>
@@ -820,121 +850,51 @@ export default function Reports() {
                   }
 
                   if (reportType === 'settlements') {
-                    // Generate sample data with exact calculations as requested
-                    const batchId = item.batchId || `${Math.floor(Math.random() * 9000000) + 1000000}`
-                    const posAmount = item.amount || 1000
-                    const marginPercent = 3.75
-                    const marginAmount = (posAmount * marginPercent) / 100
-                    const bankChargesPercent = 2.7
-                    const bankChargesAmount = (posAmount * bankChargesPercent) / 100
-                    const vatPercent = 5
-                    const vatAmount = (marginAmount * vatPercent) / 100
-                    const netReceived = posAmount - (marginAmount + bankChargesAmount + vatAmount)
-                    const toPayAmount = posAmount - marginAmount - bankChargesAmount
-                    const finalMargin = marginAmount - bankChargesAmount - vatAmount
-                    const paid = item.paid || 0
-                    const balance = toPayAmount - paid
-                    
-                    if (isAdmin) {
-                      return (
-                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {format(new Date(), 'dd-MMM-yyyy')}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.agent || 'Nitesh'}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.posMachine || 'N/A'}
-                          </td>
-                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
-                            {posAmount.toFixed(0)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {marginPercent}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {marginAmount.toFixed(1)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {bankChargesPercent}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {bankChargesAmount.toFixed(0)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {vatPercent}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {vatAmount.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {netReceived.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {toPayAmount.toFixed(1)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {finalMargin.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {paid > 0 ? paid.toFixed(1) : ''}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {toPayAmount.toFixed(1)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            Super Admin
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            Super Admin
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {format(new Date(), 'dd-MMM-yyyy HH:mm')}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {format(new Date(), 'dd-MMM-yyyy HH:mm')}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
-                            {item.description || ''}
-                          </td>
-                        </tr>
-                      )
-                    } else {
-                      // Agent view - only net received amount
-                      return (
-                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {format(new Date(), 'dd-MMM-yyyy')}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.posMachine || 'N/A'}
-                          </td>
-                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
-                            {posAmount.toFixed(0)}
-                          </td>
-                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
-                            {netReceived.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
-                            {item.description || ''}
-                          </td>
-                        </tr>
-                      )
-                    }
+                    const batchId = item.batchId || item.receiptNumber || item.transactionId || '—'
+                    const posAmount = Number(item.amount ?? item.posReceiptAmount ?? 0)
+                    const chargesPercent = Number(item.chargesPercent ?? item.marginPercent ?? item.commissionPercentage ?? 0)
+                    const bankChargesPercent = Number(item.bankChargesPercent ?? item.bankCharges ?? 0)
+                    const vatPercent = Number(item.vatPercent ?? item.vatPercentage ?? 0)
+                    const chargesAmount = Number(item.chargesAmount ?? ((posAmount * chargesPercent) / 100))
+                    const bankChargesAmount = Number(item.bankChargesAmount ?? ((posAmount * bankChargesPercent) / 100))
+                    const vatAmount = Number(item.vatAmount ?? ((bankChargesAmount * vatPercent) / 100))
+                    const netReceived = Number(item.netReceived ?? (posAmount - bankChargesAmount - vatAmount))
+                    const toPayAmount = Number(item.toPayAmount ?? (posAmount - chargesAmount))
+
+                    return (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.posMachine || 'N/A'}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
+                          AED {posAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">
+                          AED {toPayAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
+                          AED {netReceived.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                          {item.description || '—'}
+                        </td>
+                      </tr>
+                    )
                   } else if (reportType === 'receipts') {
                     const amount = item.amount || 0
                     // Use flat fields sent directly from the API
-                    const marginPercent = item.commissionPercentage ?? 0
+                    const chargesPercent = item.chargesPercent ?? item.commissionPercentage ?? 0
                     const bankChargesPercent = item.bankCharges ?? 0
                     const vatPercent = item.vatPercentage ?? 0
-                    const marginAmount = (amount * marginPercent) / 100
+                    const chargesAmount = amount * chargesPercent / 100
                     const bankChargesAmount = (amount * bankChargesPercent) / 100
-                    const vatAmount = (amount * vatPercent) / 100  // VAT on full amount
+                    const vatAmount = (bankChargesAmount * vatPercent) / 100
                     const netReceived = amount - bankChargesAmount - vatAmount
-                    const toPayAmount = amount - bankChargesAmount - vatAmount - marginAmount
+                    const toPayAmount = amount - chargesAmount
                     const paidAmount = item.paidAmount || 0
                     const settledAmount = item.settlementAmount || 0
                     const dueAmount = item.dueAmount != null ? item.dueAmount : toPayAmount - paidAmount - settledAmount
@@ -950,8 +910,8 @@ export default function Reports() {
                             {item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS'}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">AED {amount.toFixed(2)}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{marginPercent > 0 ? `${marginPercent}%` : '—'}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{marginAmount > 0 ? `AED ${marginAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{chargesPercent > 0 ? `${chargesPercent}%` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{chargesAmount > 0 ? `AED ${chargesAmount.toFixed(2)}` : '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesPercent > 0 ? `${bankChargesPercent}%` : '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesAmount > 0 ? `AED ${bankChargesAmount.toFixed(2)}` : '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{vatPercent > 0 ? `${vatPercent}%` : '—'}</td>
@@ -996,14 +956,14 @@ export default function Reports() {
                     // Use pre-calculated values sent directly from the API — no re-calculation needed
                     const batchId = item.batchId || item.receiptNumber || item.transactionId
                     const posAmount = item.amount || 0
-                    const marginPercent = item.marginPercent || 0
-                    const marginAmount = item.marginAmount || 0
+                    const chargesPercent = item.chargesPercent || item.marginPercent || 0
+                    const chargesAmount = item.chargesAmount || (posAmount * chargesPercent) / 100
                     const bankChargesPercent = item.bankChargesPercent || 0
                     const bankChargesAmount = item.bankChargesAmount || 0
                     const vatPercent = item.vatPercent || 0
                     const vatAmount = item.vatAmount || 0
                     const netReceived = item.netReceived ?? (posAmount - bankChargesAmount - vatAmount)
-                    const toPayAmount = item.toPayAmount ?? (posAmount - bankChargesAmount - vatAmount - marginAmount)
+                    const toPayAmount = item.toPayAmount ?? (posAmount - chargesAmount)
                     const paid = item.paid || 0
                     const settled = item.settlementAmount || 0
                     const due = item.balance ?? (toPayAmount - paid - settled)
@@ -1025,10 +985,10 @@ export default function Reports() {
                             {posAmount.toFixed(0)}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {marginPercent > 0 ? marginPercent.toFixed(2) : '—'}
+                            {chargesPercent > 0 ? chargesPercent.toFixed(2) : '—'}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {marginAmount > 0 ? marginAmount.toFixed(2) : '—'}
+                            {chargesAmount > 0 ? chargesAmount.toFixed(2) : '—'}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {bankChargesPercent > 0 ? bankChargesPercent.toFixed(2) : '—'}
@@ -1087,9 +1047,6 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                             {posAmount.toFixed(0)}
                           </td>
-                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
-                            {netReceived.toFixed(2)}
-                          </td>
                           <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">
                             AED {toPayAmount.toFixed(2)}
                           </td>
@@ -1140,7 +1097,7 @@ export default function Reports() {
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 15 : 6) : reportType === 'summary' ? (isAdmin ? 15 : 9) : reportType === 'receipts' ? (isAdmin ? 15 : 8) : 6} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 16 : 6) : reportType === 'summary' ? (isAdmin ? 16 : 9) : reportType === 'receipts' ? (isAdmin ? 16 : 8) : 6} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -1155,13 +1112,14 @@ export default function Reports() {
                         Grand Total ({filteredItems.length} records)
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-amber-500 dark:text-amber-300">AED {adminGrandTotals.receiptAmount.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.charges.toFixed(2)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.bankCharges.toFixed(2)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.vat.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.margin.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.netReceived.toFixed(2)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">AED {adminGrandTotals.toPay.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.margin.toFixed(2)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.paid.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.due.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.netProfit.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.balance.toFixed(2)}</td>
                       <td colSpan={3} />
                     </tr>
                   ) : !isAdmin && (reportType === 'summary' || reportType === 'receipts') ? (
@@ -1172,7 +1130,7 @@ export default function Reports() {
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">AED {agentGrandTotals.toReceive.toFixed(2)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {agentGrandTotals.received.toFixed(2)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {agentGrandTotals.remainingReceive.toFixed(2)}</td>
-                      <td colSpan={2} />
+                      <td colSpan={1} />
                     </tr>
                   ) : (
                     <tr>

@@ -33,8 +33,12 @@ export function ImagePreviewModal({ isOpen, onClose, imageUrl, fileName }: Image
   if (!isOpen) return null
 
   const handleDownload = () => {
+    const downloadHref = imageUrl.includes('/api/upload/file?')
+      ? `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}download=1`
+      : imageUrl
+
     const link = document.createElement('a')
-    link.href = imageUrl
+    link.href = downloadHref
     link.download = fileName
     document.body.appendChild(link)
     link.click()

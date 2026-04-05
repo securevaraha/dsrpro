@@ -7,27 +7,40 @@ import Client from '@/models/Client'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 // ─── Single source of truth for all financial calculations ───────────────────
-// amount=100, bankCharges=5%, VAT=5%, margin=10%
-//   bankChargesAmount = 100 × 5%  = 5.00
-//   vatAmount         = 100 × 5%  = 5.00  ← VAT on FULL amount
-//   marginAmount      = 100 × 10% = 10.00
-//   netReceived       = 100 - 5 - 5        = 90.00  (admin receives from bank after deductions)
-//   toPayAmount       = 100 - 5 - 5 - 10   = 80.00  (admin pays agent after ALL charges)
-//   finalMargin       = 10 - 5 - 5         = 0.00   (admin's actual profit)
+// amount=100, charges=3.75%, bankCharges=2.7%, VAT=5%
+//   chargesAmount     = 100 × 3.75% = 3.75
+//   bankChargesAmount = 100 × 2.7%  = 2.70
+//   vatAmount         = 2.70 × 5%   = 0.135  ← VAT on BANK CHARGES amount
+//   netReceived       = 100 - 2.70 - 0.135 = 97.165
+//   toPayAmount       = 100 - 3.75         = 96.25
+//   marginAmount      = 97.165 - 96.25     = 0.915   (admin's earning)
 function calcFinancials(amount: number, pos: any) {
-  const marginPercent      = pos?.commissionPercentage || 0
+  const chargesPercent     = pos?.commissionPercentage || 0
   const bankChargesPercent = pos?.bankCharges          || 0
   const vatPercent         = pos?.vatPercentage        || 0
 
-  const marginAmount      = (amount * marginPercent)      / 100
+  const chargesAmount     = (amount * chargesPercent)     / 100
   const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount         = (amount * vatPercent)         / 100   // VAT on full amount
+  const vatAmount         = (bankChargesAmount * vatPercent) / 100
 
-  const netReceived  = amount - bankChargesAmount - vatAmount              // admin receives from bank
-  const toPayAmount  = amount - bankChargesAmount - vatAmount - marginAmount  // admin pays agent
-  const finalMargin  = marginAmount - bankChargesAmount - vatAmount
+  const netReceived  = amount - bankChargesAmount - vatAmount
+  const toPayAmount  = amount - chargesAmount
+  const marginAmount = netReceived - toPayAmount
 
-  return { marginPercent, marginAmount, bankChargesPercent, bankChargesAmount, vatPercent, vatAmount, toPayAmount, netReceived, finalMargin }
+  return {
+    chargesPercent,
+    chargesAmount,
+    bankChargesPercent,
+    bankChargesAmount,
+    vatPercent,
+    vatAmount,
+    netReceived,
+    toPayAmount,
+    marginAmount,
+    // Legacy aliases retained for existing consumers.
+    marginPercent: chargesPercent,
+    finalMargin: marginAmount,
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -201,7 +214,7 @@ async function generateSettlementReport(dateFilter: any, auth: any, page = 1, li
     const posReceiptAmount = item.ccSales || 1000
     const f = calcFinancials(posReceiptAmount, { commissionPercentage: item.chargesPercent || pos.commissionPercentage || 3.75, bankCharges: pos.bankCharges || 2.7, vatPercentage: pos.vatPercentage || 5 })
     const paid = item.paid || 0
-    return { batchId: item._id.toString().slice(-7).toUpperCase(), date: item.date || item.createdAt, agent: item.merchantId?.name || pos.assignedAgent?.name || 'System Agent', posMachine: `${pos.segment} / ${pos.brand}`, posReceiptAmount, amount: posReceiptAmount, ...f, margin: f.finalMargin, paid, balance: f.toPayAmount - paid, createdBy: item.createdBy?.name || 'System', updatedBy: item.updatedBy?.name || 'System', createdDate: item.createdAt, updatedDate: item.updatedAt, description: item.description || '', status: item.status || 'completed' }
+    return { batchId: item._id.toString().slice(-7).toUpperCase(), date: item.date || item.createdAt, agent: item.merchantId?.name || pos.assignedAgent?.name || 'System Agent', posMachine: `${pos.segment} / ${pos.brand}`, posReceiptAmount, amount: posReceiptAmount, ...f, margin: f.marginAmount, paid, balance: f.toPayAmount - paid, createdBy: item.createdBy?.name || 'System', updatedBy: item.updatedBy?.name || 'System', createdDate: item.createdAt, updatedDate: item.updatedAt, description: item.description || '', status: item.status || 'completed' }
   })
 
   return NextResponse.json({ reportType: 'settlements', totalCCSales: settlements.reduce((s: number, i: any) => s + (i.ccSales || 0), 0), totalMargin: settlements.reduce((s: number, i: any) => s + (i.margin || 0), 0), totalPaid: settlements.reduce((s: number, i: any) => s + (i.paid || 0), 0), totalBalance: settlements.reduce((s: number, i: any) => s + (i.balance || 0), 0), totalSettlements: settlements.length, totalBankCharges: 0, totalVAT: 0, totalRevenue: settlements.reduce((s: number, i: any) => s + (i.ccSales || 0), 0), totalTransactions: settlements.length, total: settlementsTotal, page, limit, totalPages: Math.ceil(settlementsTotal / limit), items, allItems: items })

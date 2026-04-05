@@ -330,8 +330,8 @@ export default function Dashboard() {
 
         {/* ── Agent: single POS card ── */}
         {role === 'agent' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Link href="/dashboard/pos-machines" className="dubai-card p-5 hover:shadow-lg transition-all duration-200 group cursor-pointer">
+          <div className="equal-card-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <Link href="/dashboard/pos-machines" className="equal-card hover:shadow-lg transition-all duration-200 group cursor-pointer">
               <div className="flex items-start gap-3">
                 <div className="p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-900/20 flex-shrink-0">
                   <Wifi className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
@@ -386,9 +386,9 @@ export default function Dashboard() {
         )}
 
         {/* ── Quick Actions ── */}
-        <div className={`grid grid-cols-1 gap-4 ${role === 'admin' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+        <div className={`equal-card-grid grid-cols-1 ${role === 'admin' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
           {role === 'admin' && (
-            <Link href="/dashboard/settlements" className="dubai-card p-5 hover:shadow-lg transition-all duration-200 group">
+            <Link href="/dashboard/settlements" className="equal-card hover:shadow-lg transition-all duration-200 group">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0">
                   <Calculator className="h-6 w-6 text-amber-600 dark:text-amber-400" />
@@ -401,7 +401,7 @@ export default function Dashboard() {
             </Link>
           )}
           {role === 'admin' && (
-            <Link href="/dashboard/payments" className="dubai-card p-5 hover:shadow-lg transition-all duration-200 group">
+            <Link href="/dashboard/payments" className="equal-card hover:shadow-lg transition-all duration-200 group">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0">
                   <CreditCard className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
@@ -413,7 +413,7 @@ export default function Dashboard() {
               </div>
             </Link>
           )}
-          <Link href="/dashboard/reports" className="dubai-card p-5 hover:shadow-lg transition-all duration-200 group">
+          <Link href="/dashboard/reports" className="equal-card hover:shadow-lg transition-all duration-200 group">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0">
                 <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />

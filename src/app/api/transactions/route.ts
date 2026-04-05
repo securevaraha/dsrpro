@@ -16,7 +16,7 @@ function calcToPayAmount(amount: number, pos: any) {
 
   const marginAmount = (amount * marginPercent) / 100
   const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount = (amount * vatPercent) / 100
+  const vatAmount = (bankChargesAmount * vatPercent) / 100
 
   return amount - bankChargesAmount - vatAmount - marginAmount
 }

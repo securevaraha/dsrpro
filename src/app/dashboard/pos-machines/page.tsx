@@ -618,7 +618,7 @@ export default function POSMachines() {
                       {isAdmin && (
                         <>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400">Margin</span>
+                            <span className="text-xs text-gray-400">Charges</span>
                             <span className="text-xs font-medium">{machine.commissionPercentage?.toFixed(2) || '0.00'}%</span>
                           </div>
                           <div className="flex items-center justify-between">
@@ -747,6 +747,13 @@ export default function POSMachines() {
                     <p className="form-section-title">Financial Settings</p>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
+                        <label className="form-label">Charges (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="0.00"
+                          value={formData.commissionPercentage}
+                          onChange={(e) => { const v = e.target.value; if (v === '' || (parseFloat(v) >= 0 && parseFloat(v) <= 100)) setFormData({...formData, commissionPercentage: v}) }}
+                        />
+                      </div>
+                      <div>
                         <label className="form-label">Bank Charges (%)</label>
                         <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="0.00"
                           value={formData.bankCharges}
@@ -758,13 +765,6 @@ export default function POSMachines() {
                         <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="5.00"
                           value={formData.vatPercentage}
                           onChange={(e) => { const v = e.target.value; if (v === '' || (parseFloat(v) >= 0 && parseFloat(v) <= 100)) setFormData({...formData, vatPercentage: v}) }}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Margin (%)</label>
-                        <input type="number" step="0.01" min="0" max="100" className="form-input" placeholder="0.00"
-                          value={formData.commissionPercentage}
-                          onChange={(e) => { const v = e.target.value; if (v === '' || (parseFloat(v) >= 0 && parseFloat(v) <= 100)) setFormData({...formData, commissionPercentage: v}) }}
                         />
                       </div>
                     </div>

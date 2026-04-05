@@ -4,23 +4,37 @@ import Transaction from '@/models/Transaction'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 
 // Shared calculation — single source of truth used everywhere
-// amount=100, bankCharges=5%, VAT=5%, margin=10%
-//   netReceived = 100 - 5 - 5      = 90  (admin receives from bank)
-//   toPayAmount = 100 - 5 - 5 - 10 = 80  (admin pays agent after ALL charges)
+// amount=100, charges=3.75%, bankCharges=2.7%, VAT=5%
+//   netReceived = 100 - 2.70 - 0.135 = 97.165
+//   toPayAmount = 100 - 3.75         = 96.25
+//   marginAmount = netReceived - toPayAmount = 0.915
 export function calcReceiptFinancials(amount: number, pos: any) {
-  const marginPercent      = pos?.commissionPercentage || 0
+  const chargesPercent     = pos?.commissionPercentage || 0
   const bankChargesPercent = pos?.bankCharges          || 0
   const vatPercent         = pos?.vatPercentage        || 0
 
-  const marginAmount      = (amount * marginPercent)      / 100
+  const chargesAmount     = (amount * chargesPercent)     / 100
   const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount         = (amount * vatPercent)         / 100  // VAT on full amount
+  const vatAmount         = (bankChargesAmount * vatPercent) / 100
 
   const netReceived  = amount - bankChargesAmount - vatAmount
-  const toPayAmount  = amount - bankChargesAmount - vatAmount - marginAmount
-  const finalMargin  = marginAmount - bankChargesAmount - vatAmount
+  const toPayAmount  = amount - chargesAmount
+  const marginAmount = netReceived - toPayAmount
 
-  return { marginPercent, marginAmount, bankChargesPercent, bankChargesAmount, vatPercent, vatAmount, toPayAmount, netReceived, finalMargin }
+  return {
+    chargesPercent,
+    chargesAmount,
+    bankChargesPercent,
+    bankChargesAmount,
+    vatPercent,
+    vatAmount,
+    toPayAmount,
+    netReceived,
+    marginAmount,
+    // Legacy aliases for existing consumers.
+    marginPercent: chargesPercent,
+    finalMargin: marginAmount,
+  }
 }
 
 export async function GET(request: NextRequest) {

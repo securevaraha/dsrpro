@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
-import { uploadToLocal } from '@/lib/uploadFallback'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -36,44 +35,26 @@ export async function POST(request: NextRequest) {
     
     console.log('Generated filename:', fileName)
     
-    // Try Vercel Blob first, fallback to local storage
-    let uploadResult
-    
-    try {
-      if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        throw new Error('BLOB_READ_WRITE_TOKEN environment variable is not set')
-      }
-      // Upload to Vercel Blob
-      const blob = await put(fileName, file, {
-        access: 'public',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      })
-      
-      uploadResult = {
-        url: blob.url,
-        fileName: file.name,
-        size: file.size,
-        type: file.type
-      }
-      
-      console.log('Vercel Blob upload successful:', blob.url)
-    } catch (blobError: any) {
-      console.warn('Vercel Blob upload failed, trying local fallback:', blobError?.message || blobError)
-      
-      // Fallback to local storage
-      const localResult = await uploadToLocal(file)
-      
-      uploadResult = {
-        url: localResult.url,
-        fileName: file.name,
-        size: file.size,
-        type: file.type
-      }
-      
-      console.log('Local upload successful:', localResult.url)
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: 'BLOB_READ_WRITE_TOKEN environment variable is not set' }, { status: 500 })
     }
-    
-    return NextResponse.json(uploadResult)
+
+    const uploadAccess = process.env.BLOB_UPLOAD_ACCESS === 'public' ? 'public' : 'private'
+
+    // Upload to Vercel Blob only.
+    const blob = await put(fileName, file, {
+      access: uploadAccess,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    })
+
+    console.log('Vercel Blob upload successful:', blob.url)
+
+    return NextResponse.json({
+      url: blob.url,
+      fileName: file.name,
+      size: file.size,
+      type: file.type,
+    })
   } catch (error: any) {
     console.error('Upload error details:', {
       message: error?.message,
@@ -82,8 +63,12 @@ export async function POST(request: NextRequest) {
     })
     
     // Return more specific error messages
-    if (error?.message?.includes('token')) {
+    if (error?.message?.includes('token') || error?.message?.includes('BLOB_READ_WRITE_TOKEN')) {
       return NextResponse.json({ error: 'Invalid upload token configuration' }, { status: 500 })
+    }
+
+    if (error?.message?.includes('Cannot use public access on a private store')) {
+      return NextResponse.json({ error: 'Blob store is private. Set BLOB_UPLOAD_ACCESS=private or use a public Blob store token.' }, { status: 500 })
     }
     
     if (error?.message?.includes('network') || error?.message?.includes('fetch')) {

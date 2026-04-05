@@ -537,7 +537,7 @@ export default function Payments() {
       {/* Add/Edit Payment Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content form-modal">
             <div className="modal-header">
               <div>
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">

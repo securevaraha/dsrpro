@@ -18,10 +18,11 @@ interface FilterPanelProps {
   values: Record<string, string>
   onChange: (key: string, value: string) => void
   onReset: () => void
+  onApply?: () => void
   activeCount: number
 }
 
-export function FilterPanel({ open, onClose, fields, values, onChange, onReset, activeCount }: FilterPanelProps) {
+export function FilterPanel({ open, onClose, fields, values, onChange, onReset, onApply, activeCount }: FilterPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -120,7 +121,10 @@ export function FilterPanel({ open, onClose, fields, values, onChange, onReset, 
         {/* Footer */}
         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
           <button
-            onClick={onClose}
+            onClick={() => {
+              onApply?.()
+              onClose()
+            }}
             className="dubai-button w-full justify-center text-sm"
           >
             Apply Filters

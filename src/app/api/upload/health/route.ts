@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       status: 'ok',
-      uploadService: hasVercelBlob ? 'vercel-blob' : 'local-fallback',
+      uploadService: 'vercel-blob',
       configured: hasVercelBlob,
       timestamp: new Date().toISOString()
     })
