@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 export type UserRole = 'admin' | 'agent'
 
@@ -22,7 +23,7 @@ export function CurrentUserProvider({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetchWithAuth('/api/auth/me')
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data) setUser(data.user) })
       .catch(() => {})

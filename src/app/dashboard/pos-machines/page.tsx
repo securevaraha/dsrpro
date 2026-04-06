@@ -13,6 +13,7 @@ import { RoleGuard } from '@/components/RoleGuard'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 interface Agent {
   _id: string
@@ -121,7 +122,7 @@ export default function POSMachines() {
 
   const fetchBrands = async () => {
     try {
-      const response = await fetch('/api/brands')
+      const response = await fetchWithAuth('/api/brands')
       if (response.ok) {
         const data = await response.json()
         setBrands(data.brands || [])
@@ -133,7 +134,7 @@ export default function POSMachines() {
 
   const fetchSegments = async () => {
     try {
-      const response = await fetch('/api/segments')
+      const response = await fetchWithAuth('/api/segments')
       if (response.ok) {
         const data = await response.json()
         setSegments(data.segments || [])
@@ -146,7 +147,7 @@ export default function POSMachines() {
   const fetchMachines = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/pos-machines')
+      const response = await fetchWithAuth('/api/pos-machines')
       if (response.ok) {
         const data = await response.json()
         setMachines((data.machines || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
@@ -165,7 +166,7 @@ export default function POSMachines() {
 
   const fetchAgents = async () => {
     try {
-      const response = await fetch('/api/users?role=agent')
+      const response = await fetchWithAuth('/api/users?role=agent')
       if (response.ok) {
         const data = await response.json()
         setAgents(data.users || [])

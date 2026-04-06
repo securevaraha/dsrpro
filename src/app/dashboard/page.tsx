@@ -12,6 +12,7 @@ import Chart from '@/components/Chart'
 import { ChartSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 
 type Period = 'today' | 'week' | 'month' | 'year'
@@ -100,8 +101,8 @@ export default function Dashboard() {
       setError(null)
 
       const [statsRes, transactionsRes] = await Promise.all([
-        fetch(`/api/dashboard/stats?period=${period}`),
-        fetch('/api/transactions?limit=5')
+        fetchWithAuth(`/api/dashboard/stats?period=${period}`),
+        fetchWithAuth('/api/transactions?limit=5')
       ])
 
       if (statsRes.ok) {

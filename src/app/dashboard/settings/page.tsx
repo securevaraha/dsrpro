@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/LanguageProvider'
 import { useTheme } from '@/components/ThemeProvider'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage()
@@ -46,7 +47,7 @@ export default function Settings() {
 
   const fetchUserProfile = async () => {
     try {
-      const response = await fetch('/api/profile')
+      const response = await fetchWithAuth('/api/profile')
       if (response.ok) {
         const data = await response.json()
         setProfileData(data.user)

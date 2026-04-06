@@ -13,6 +13,9 @@ export async function fetchWithAuth(
   options: FetchWithAuthOptions = {}
 ): Promise<Response> {
   const { retryOnAuthError = true, retryDelayMs = 180 } = options
+  const method = String(init.method || 'GET').toUpperCase()
+  const canRetrySafely = ['GET', 'HEAD', 'OPTIONS'].includes(method)
+  const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504])
 
   const baseInit: RequestInit = {
     cache: 'no-store',
@@ -28,7 +31,12 @@ export async function fetchWithAuth(
   let response = await fetch(input, baseInit)
 
   if (!retryOnAuthError || (response.status !== 401 && response.status !== 403)) {
-    return response
+    if (!canRetrySafely || !retryableStatuses.has(response.status)) {
+      return response
+    }
+
+    await sleep(retryDelayMs)
+    return fetch(input, baseInit)
   }
 
   // Session cookie propagation can lag briefly after opening a new tab/window.

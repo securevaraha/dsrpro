@@ -12,6 +12,7 @@ import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
 import { format } from 'date-fns'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface User {
@@ -117,7 +118,7 @@ export default function AdminPanel() {
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true)
-      const response = await fetch('/api/users?includeAdmins=true')
+      const response = await fetchWithAuth('/api/users?includeAdmins=true')
       const data = await response.json()
       setUsers((data.users || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
     } catch {
@@ -130,7 +131,7 @@ export default function AdminPanel() {
   const fetchSessions = async () => {
     try {
       setLoadingSessions(true)
-      const response = await fetch('/api/admin/sessions?active=true')
+      const response = await fetchWithAuth('/api/admin/sessions?active=true')
       const data = await response.json()
       setSessions(data.sessions || [])
       setActiveSessions(data.activeCount || 0)
