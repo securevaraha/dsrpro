@@ -26,7 +26,7 @@ interface DashboardStats {
   totalPOSMachines: number
   totalTransactions: number
   monthlyTrend?: { labels: string[]; data: number[] }
-  transactionStatus?: { completed: number; pending: number; failed: number }
+  workflowStatus?: { dueReceipts: number; completedPayments: number; settlements: number }
 }
 
 interface RecentTransaction {
@@ -106,6 +106,7 @@ export default function Dashboard() {
 
       if (statsRes.ok) {
         const data = await statsRes.json()
+        const workflowStatus = data.workflowStatus || {}
         setStats(data)
         setChartData({
           line: {
@@ -121,14 +122,14 @@ export default function Dashboard() {
             }]
           },
           doughnut: {
-            labels: ['Completed', 'Pending', 'Failed'],
+            labels: ['Due Receipts', 'Payments Sent', 'Settlements'],
             datasets: [{
               data: [
-                data.transactionStatus?.completed || 0,
-                data.transactionStatus?.pending || 0,
-                data.transactionStatus?.failed || 0
+                workflowStatus.dueReceipts || 0,
+                workflowStatus.completedPayments || 0,
+                workflowStatus.settlements || 0,
               ],
-              backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+              backgroundColor: ['#F59E0B', '#3B82F6', '#10B981'],
               borderWidth: 0,
             }]
           }
@@ -152,6 +153,7 @@ export default function Dashboard() {
     { key: 'month', label: 'This Month' },
     { key: 'year', label: 'This Year' },
   ]
+  const selectedPeriodLabel = periodButtons.find(p => p.key === period)?.label || 'Today'
 
   const adminCards = stats ? [
     {
@@ -476,10 +478,10 @@ export default function Dashboard() {
 
           <div className="dubai-card p-5">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-              {t('monthlyOverview')}
+              {`${selectedPeriodLabel} ${t('overview')}`}
               {role === 'admin' && (
                 <span className="ml-2 text-xs font-normal text-gray-400">
-                  {periodButtons.find(p => p.key === period)?.label}
+                  {selectedPeriodLabel}
                 </span>
               )}
             </h3>

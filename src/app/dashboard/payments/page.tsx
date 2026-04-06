@@ -11,6 +11,7 @@ import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { Search } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface Payment {
   _id: string
@@ -22,6 +23,7 @@ interface Payment {
   amount: number
   description: string
   status: 'completed' | 'pending' | 'failed' | 'due'
+  source?: string
   createdBy?: { name: string }
   createdAt?: string
 }
@@ -69,6 +71,8 @@ export default function Payments() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [agentBalance, setAgentBalance] = useState<{ totalToPay: number; totalNetReceived: number; totalPaid: number; totalDue: number } | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [selectedDueReceiptId, setSelectedDueReceiptId] = useState<string | null>(null)
@@ -151,7 +155,9 @@ export default function Payments() {
       const response = await fetchWithAuth('/api/transactions?type=payment&limit=500')
       if (response.ok) {
         const data = await response.json()
-        const formattedPayments = data.transactions.map((t: any) => ({
+        const formattedPayments = (data.transactions || [])
+          .filter((t: any) => String(t.metadata?.source || 'manual-payment').toLowerCase() !== 'settlement')
+          .map((t: any) => ({
           _id: t._id,
           paymentNumber: t.transactionId,
           date: t.date || t.createdAt,
@@ -161,6 +167,7 @@ export default function Payments() {
           amount: t.amount,
           description: t.description || 'Payment',
           status: t.status || 'completed',
+          source: t.metadata?.source || 'manual-payment',
           createdBy: t.createdBy,
           createdAt: t.createdAt
         })).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -405,8 +412,21 @@ export default function Payments() {
     ...filteredPayments.map((p) => ({ ...p, rowType: 'completed' as const })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  const dueRows = rows.filter((r) => r.rowType === 'due')
-  const completedRows = rows.filter((r) => r.rowType === 'completed')
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters, payments, dueEntries, itemsPerPage])
+
+  const paginatedRows = getPaginatedSlice(rows, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(rows.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const dueRows = paginatedRows.filter((r) => r.rowType === 'due')
+  const completedRows = paginatedRows.filter((r) => r.rowType === 'completed')
 
   const grandTotal = rows.reduce((s, p) => s + p.amount, 0)
 
@@ -445,7 +465,7 @@ export default function Payments() {
                 data: [
                   ...rows.map(p => ({
                     ...p,
-                    entryType: p.rowType === 'due' ? 'Due' : 'Completed',
+                    entryType: p.rowType === 'due' ? 'Receipt Due' : 'Payment',
                     date: format(new Date(p.date), 'dd-MMM-yyyy'),
                     paymentMethod: p.rowType === 'due' ? 'RECEIPT DUE' : p.paymentMethod.toUpperCase(),
                     status: p.status === 'due' ? 'Due' : p.status.charAt(0).toUpperCase() + p.status.slice(1),
@@ -670,13 +690,8 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          payment.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                          payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
-                          payment.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' :
-                          'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300'
-                        }`}>
-                          {payment.status === 'due' ? 'Due' : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                        <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300">
+                          Due
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
@@ -803,6 +818,16 @@ export default function Payments() {
           </>
         )}
       </div>
+
+      {!loading && rows.length > 0 && (
+        <TablePagination
+          totalItems={rows.length}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setItemsPerPage}
+        />
+      )}
 
       {/* Add/Edit Payment Modal */}
       {showModal && (

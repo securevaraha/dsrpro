@@ -140,13 +140,46 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Transaction status breakdown for period
-    const statusBreakdown = await Transaction.aggregate([
-      { $match: { ...roleFilter, createdAt: dateFilter } },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
+    // Workflow breakdown for the current payment / settlement structure
+    const dueReceiptsAgg = await Transaction.aggregate([
+      {
+        $match: {
+          ...roleFilter,
+          createdAt: dateFilter,
+          type: { $in: ['sale', 'receipt'] },
+          $or: [
+            { status: 'due' },
+            { dueAmount: { $gt: 0 } },
+          ],
+        },
+      },
+      { $group: { _id: null, count: { $sum: 1 } } },
     ])
-    const statusMap: Record<string, number> = {}
-    statusBreakdown.forEach((s: any) => { statusMap[s._id] = s.count })
+
+    const completedPaymentsAgg = await Transaction.aggregate([
+      {
+        $match: {
+          ...roleFilter,
+          createdAt: dateFilter,
+          type: 'payment',
+          status: 'completed',
+          'metadata.source': 'manual-payment',
+        },
+      },
+      { $group: { _id: null, count: { $sum: 1 } } },
+    ])
+
+    const settlementUpdatesAgg = await Transaction.aggregate([
+      {
+        $match: {
+          ...roleFilter,
+          updatedAt: dateFilter,
+          type: { $in: ['sale', 'receipt'] },
+          settlementAmount: { $gt: 0 },
+        },
+      },
+      { $group: { _id: null, count: { $sum: 1 } } },
+    ])
 
     // Bank charges, VAT, margin from POS-linked receipts for period
     const receiptsWithPOS = await Transaction.find({
@@ -187,10 +220,10 @@ export async function GET(request: NextRequest) {
       totalPOSMachines,
       totalTransactions: (receiptsAgg[0]?.count || 0) + (paymentsAgg[0]?.count || 0),
       monthlyTrend: { labels: trendLabels, data: trendData },
-      transactionStatus: {
-        completed: statusMap['completed'] || 0,
-        pending: statusMap['pending'] || 0,
-        failed: statusMap['failed'] || 0,
+      workflowStatus: {
+        dueReceipts: dueReceiptsAgg[0]?.count || 0,
+        completedPayments: completedPaymentsAgg[0]?.count || 0,
+        settlements: settlementUpdatesAgg[0]?.count || 0,
       }
     })
   } catch (error) {

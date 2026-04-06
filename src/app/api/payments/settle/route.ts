@@ -105,50 +105,26 @@ export async function POST(request: NextRequest) {
   }
 
   if (settledAmount > 0.001) {
-    const openManualPayment = await Transaction.findOne({
+    const settlementTxId = `SET${Date.now()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
+    await Transaction.create({
+      transactionId: settlementTxId,
       type: 'payment',
       agentId,
+      amount: settledAmount,
+      paymentMethod: 'cash',
+      description: note && String(note).trim()
+        ? `Settlement cleared outstanding due. Note: ${String(note).trim()}`
+        : 'Settlement cleared outstanding due',
       status: 'completed',
-      'metadata.source': 'manual-payment',
-      'metadata.outstandingDueAfter': { $gt: 0 },
-    }).sort({ createdAt: -1 })
-
-    if (openManualPayment) {
-      const previousAmount = Number(openManualPayment.amount || 0)
-      const previousRemaining = Number(openManualPayment.metadata?.outstandingDueAfter || 0)
-      const mergedAmount = previousAmount + settledAmount
-      const mergedRemaining = Math.max(0, previousRemaining - settledAmount)
-
-      await Transaction.findByIdAndUpdate(openManualPayment._id, {
-        amount: mergedAmount,
-        updatedBy: auth.userId,
-        ...(note && String(note).trim()
-          ? { description: `${openManualPayment.description || 'Admin payment sent to agent'} | Settlement note: ${String(note).trim()}` }
-          : {}),
-        'metadata.outstandingDueAfter': mergedRemaining,
-      })
-    } else {
-      const paymentTxId = `PAY${Date.now()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
-      await Transaction.create({
-        transactionId: paymentTxId,
-        type: 'payment',
-        agentId,
-        amount: settledAmount,
-        paymentMethod: 'cash',
-        description: note && String(note).trim()
-          ? `Settlement cleared outstanding due. Note: ${String(note).trim()}`
-          : 'Settlement cleared outstanding due',
-        status: 'completed',
-        createdBy: auth.userId,
-        updatedBy: auth.userId,
-        metadata: {
-          paymentNumber: paymentTxId,
-          source: 'settlement',
-          outstandingDueBefore: settledAmount,
-          outstandingDueAfter: 0,
-        },
-      })
-    }
+      createdBy: auth.userId,
+      updatedBy: auth.userId,
+      metadata: {
+        paymentNumber: settlementTxId,
+        source: 'settlement',
+        outstandingDueBefore: settledAmount,
+        outstandingDueAfter: 0,
+      },
+    })
   }
 
   return NextResponse.json({

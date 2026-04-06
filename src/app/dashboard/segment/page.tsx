@@ -7,6 +7,7 @@ import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface Segment {
   _id: string
@@ -31,6 +32,8 @@ export default function SegmentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
 
   const filterFields = [
@@ -126,6 +129,17 @@ export default function SegmentsPage() {
       (filters.status === 'active' ? s.isActive : !s.isActive)
     return matchesSearch && matchesName && matchesStatus
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters, segments, itemsPerPage])
+
+  const paginatedSegments = getPaginatedSlice(filteredSegments, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(filteredSegments.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   return (
     <RoleGuard allowedRoles={['admin']}>
@@ -227,7 +241,7 @@ export default function SegmentsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {filteredSegments.map((segment) => (
+                  {paginatedSegments.map((segment) => (
                     <tr key={segment._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-5 py-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">
                         {segment.name}
@@ -283,6 +297,16 @@ export default function SegmentsPage() {
             </div>
           )}
         </div>
+
+        {!loading && filteredSegments.length > 0 && (
+          <TablePagination
+            totalItems={filteredSegments.length}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        )}
 
         {/* Add/Edit Modal */}
         {showModal && (

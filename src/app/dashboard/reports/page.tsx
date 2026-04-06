@@ -11,6 +11,7 @@ import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { Search } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 function safeAmount(value: number): number {
   const num = Number(value)
@@ -70,7 +71,7 @@ export default function Reports() {
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [totalPages, setTotalPages] = useState(1)
 
-  useEffect(() => { fetchReportData() }, [reportType, dateRange, currentPage, itemsPerPage])
+  useEffect(() => { fetchReportData() }, [reportType, dateRange])
 
   useEffect(() => {
     fetchWithAuth('/api/users?role=agent').then(r => r.ok ? r.json() : null).then(d => d && setAgents(d.users || []))
@@ -83,8 +84,8 @@ export default function Reports() {
       const params = new URLSearchParams({
         type: reportType,
         range: dateRange,
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString(),
+        page: '1',
+        limit: '5000',
         ...(startDate && { startDate }),
         ...(endDate && { endDate }),
       })
@@ -92,7 +93,7 @@ export default function Reports() {
       if (res.ok) {
         const data = await res.json()
         setReportData(data)
-        setTotalPages(Math.ceil((data.total || data.items?.length || 0) / itemsPerPage))
+        setTotalPages(1)
       } else {
         const err = await res.json().catch(() => ({}))
         toast.error(err.error || 'Failed to load report data')
@@ -225,33 +226,27 @@ export default function Reports() {
               { key: 'description', label: 'Description', width: 40 },
             ]
       } else if (reportType === 'settlements') {
-        columns = isAdmin
-          ? [
-              { key: 'batchId', label: 'Batch ID', width: 22 },
-              { key: 'agent', label: 'Agent', width: 22 },
-              { key: 'posMachine', label: 'POS Machine', width: 26 },
-              { key: 'date', label: 'Date', width: 16 },
-              { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
-              { key: 'charges', label: 'Charges', width: 22 },
-              { key: 'bankCharges', label: 'Bank Charges', width: 24 },
-              { key: 'vat', label: 'VAT', width: 20 },
-              { key: 'netReceived', label: 'Net Received', width: 18 },
-              { key: 'toPay', label: 'To Pay', width: 18 },
-              { key: 'margin', label: 'Margin', width: 20 },
-              { key: 'paid', label: 'Paid', width: 18 },
-              { key: 'balance', label: 'Balance', width: 18 },
-              { key: 'createdByDate', label: 'Created By / Date', width: 30 },
-              { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
-              { key: 'description', label: 'Description', width: 40 },
-            ]
-          : [
-              { key: 'batchId', label: 'Batch ID', width: 22 },
-              { key: 'date', label: 'Date', width: 16 },
-              { key: 'posMachine', label: 'POS Machine', width: 26 },
-              { key: 'receiptAmount', label: 'POS/Receipt Amount', width: 20 },
-              { key: 'netReceived', label: 'Net Received', width: 18 },
-              { key: 'description', label: 'Description', width: 40 },
-            ]
+        columns = [
+          { key: 'batchId', label: 'Batch ID', width: 22 },
+          { key: 'date', label: 'Date', width: 16 },
+          { key: 'agent', label: 'Agent', width: 22 },
+          { key: 'method', label: 'Method', width: 16 },
+          { key: 'status', label: 'Status', width: 14 },
+          { key: 'amount', label: 'Amount', width: 18 },
+          { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+          { key: 'description', label: 'Description', width: 40 },
+        ]
+      } else if (reportType === 'payments') {
+        columns = [
+          { key: 'batchId', label: 'Batch ID', width: 22 },
+          { key: 'date', label: 'Date', width: 16 },
+          { key: 'agent', label: 'Agent', width: 22 },
+          { key: 'method', label: 'Method', width: 16 },
+          { key: 'status', label: 'Status', width: 14 },
+          { key: 'amount', label: 'Amount', width: 18 },
+          { key: 'createdByDate', label: 'Created By / Date', width: 30 },
+          { key: 'description', label: 'Description', width: 40 },
+        ]
       } else {
         columns = [
           { key: 'batchId', label: 'Batch ID', width: 22 },
@@ -372,6 +367,19 @@ export default function Reports() {
     const matchTo = !filters.dateTo || !iDate || iDate <= new Date(filters.dateTo + 'T23:59:59')
     return matchBatchId && matchAgent && matchPOS && matchFrom && matchTo
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [reportType, dateRange, filters, itemsPerPage])
+
+  const paginatedFilteredItems = getPaginatedSlice(filteredItems, currentPage, itemsPerPage)
+  const computedTotalPages = getTotalPages(filteredItems.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > computedTotalPages) {
+      setCurrentPage(computedTotalPages)
+    }
+  }, [currentPage, computedTotalPages])
 
   const filteredStats = filteredItems.reduce((acc: any, item: any) => {
     const amount = getItemAmount(item)
@@ -803,7 +811,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredItems.length > 0 ? filteredItems.map((item: any, i: number) => {
+                {paginatedFilteredItems.length > 0 ? paginatedFilteredItems.map((item: any, i: number) => {
                   if (isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements')) {
                     const amount = Number(item.amount ?? item.posReceiptAmount ?? 0)
                     const chargesPercent = Number(item.chargesPercent ?? item.marginPercent ?? item.commissionPercentage ?? 0)
@@ -1156,88 +1164,14 @@ export default function Reports() {
         )}
         
         {/* Pagination */}
-        {!loading && filteredItems.length > 0 && totalPages > 1 && (
-          <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing page {currentPage} of {totalPages} ({filteredItems.length} of {reportData?.total || 0} total items)
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-500 dark:text-gray-400">Items per page:</label>
-                  <div className="w-24">
-                    <SearchableSelect
-                      value={String(itemsPerPage)}
-                      onChange={(value) => {
-                        setItemsPerPage(Number(value))
-                        setCurrentPage(1)
-                      }}
-                      options={[
-                        { value: '5', label: '5' },
-                        { value: '10', label: '10' },
-                        { value: '25', label: '25' },
-                        { value: '50', label: '50' },
-                        { value: '100', label: '100' },
-                      ]}
-                      placeholder="5"
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = i + 1
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-primary text-white'
-                            : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                  {totalPages > 5 && (
-                    <>
-                      <span className="px-2 text-gray-400">...</span>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                          currentPage === totalPages
-                            ? 'bg-primary text-white'
-                            : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        {totalPages}
-                      </button>
-                    </>
-                  )}
-                </div>
-                
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+        {!loading && filteredItems.length > 0 && (
+          <TablePagination
+            totalItems={filteredItems.length}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
         )}
       </div>
     </div>

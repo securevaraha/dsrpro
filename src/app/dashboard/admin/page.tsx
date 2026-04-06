@@ -12,6 +12,7 @@ import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
 import { format } from 'date-fns'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface User {
   _id: string
@@ -56,6 +57,8 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRole, setSelectedRole] = useState<'all' | 'admin' | 'agent'>('all')
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showResetDialog, setShowResetDialog] = useState(false)
@@ -95,6 +98,10 @@ export default function AdminPanel() {
   useEffect(() => {
     filterUsers()
   }, [users, searchTerm, selectedRole, selectedStatus])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedRole, selectedStatus, users, itemsPerPage])
 
   useEffect(() => {
     const s: UserStats = { total: users.length, admins: 0, agents: 0, active: 0, inactive: 0 }
@@ -311,6 +318,13 @@ export default function AdminPanel() {
     { id: 'users' as TabType, label: 'User Management', icon: Users },
     { id: 'sessions' as TabType, label: 'Active Sessions', icon: Monitor },
   ]
+
+  const paginatedUsers = getPaginatedSlice(filteredUsers, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(filteredUsers.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   return (
     <RoleGuard allowedRoles={['admin']}>
@@ -637,7 +651,7 @@ export default function AdminPanel() {
                         </td>
                       </tr>
                     ) : (
-                      filteredUsers.map((user) => (
+                      paginatedUsers.map((user) => (
                         <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center space-x-3">
@@ -721,7 +735,7 @@ export default function AdminPanel() {
                   <p className="font-medium text-gray-900 dark:text-white">No users found</p>
                 </div>
               ) : (
-                filteredUsers.map((user) => (
+                paginatedUsers.map((user) => (
                   <div key={user._id} className="dubai-card p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3">
@@ -777,6 +791,16 @@ export default function AdminPanel() {
                 ))
               )}
             </div>
+
+            {!loadingUsers && filteredUsers.length > 0 && (
+              <TablePagination
+                totalItems={filteredUsers.length}
+                currentPage={currentPage}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+              />
+            )}
           </div>
         )}
 

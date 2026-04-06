@@ -12,6 +12,7 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface Receipt {
   _id: string
@@ -56,6 +57,8 @@ export default function Receipts() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [previewImage, setPreviewImage] = useState({ url: '', fileName: '' })
@@ -243,6 +246,19 @@ export default function Receipts() {
     const matchesTo = !filters.dateTo || rDate <= new Date(filters.dateTo + 'T23:59:59')
     return matchesSearch && matchesBatchId && matchesPOS && matchesAgent && matchesFrom && matchesTo
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters, receipts, itemsPerPage])
+
+  const paginatedReceipts = getPaginatedSlice(filteredReceipts, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(filteredReceipts.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   const grandTotal = filteredReceipts.reduce((s, r) => s + r.amount, 0)
 
@@ -501,7 +517,7 @@ export default function Receipts() {
           <>
             {/* Mobile card view */}
             <div className="md:hidden space-y-3">
-              {filteredReceipts.map((receipt) => (
+              {paginatedReceipts.map((receipt) => (
                 <div key={receipt._id} className="dubai-card p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{receipt.receiptNumber}</span>
@@ -612,7 +628,7 @@ export default function Receipts() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredReceipts.map((receipt) => (
+                  {paginatedReceipts.map((receipt) => (
                     <tr key={receipt._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {receipt.receiptNumber}
@@ -774,6 +790,16 @@ export default function Receipts() {
           </>
         )}
       </div>
+
+      {!loading && filteredReceipts.length > 0 && (
+        <TablePagination
+          totalItems={filteredReceipts.length}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setItemsPerPage}
+        />
+      )}
 
       {/* Add/Edit Receipt Modal */}
       {showModal && (

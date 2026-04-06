@@ -166,19 +166,34 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
 
 // ─── Payment Report ───────────────────────────────────────────────────────────
 async function generatePaymentReport(dateFilter: any, auth: any, agentId?: string | null, page = 1, limit = 50, skip = 0) {
-  let query: any = { ...dateFilter, type: 'payment' }
+  let query: any = { ...dateFilter, type: 'payment', 'metadata.source': { $ne: 'settlement' } }
   if (auth.role === 'agent') query.agentId = auth.userId
   else if (agentId) query.agentId = agentId
 
   const total = await Transaction.countDocuments(query)
-  const allPayments = await Transaction.find(query).populate('agentId', 'name email').sort({ createdAt: -1 })
-  const payments    = await Transaction.find(query).populate('agentId', 'name email').sort({ createdAt: -1 }).skip(skip).limit(limit)
+  const allPayments = await Transaction.find(query)
+    .populate('agentId', 'name email')
+    .populate('createdBy', 'name')
+    .populate('updatedBy', 'name')
+    .sort({ createdAt: -1 })
+  const payments    = await Transaction.find(query)
+    .populate('agentId', 'name email')
+    .populate('createdBy', 'name')
+    .populate('updatedBy', 'name')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
   const totalAmount = allPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
 
   const mapItem = (p: any) => ({
     transactionId: p.transactionId, date: p.date || p.createdAt,
     agentId: p.agentId?._id?.toString() || '', agent: p.agentId?.name || 'N/A',
     paymentMethod: p.paymentMethod, amount: p.amount, status: p.status, description: p.description,
+    source: String(p.metadata?.source || 'manual-payment').toLowerCase(),
+    createdBy: p.createdBy?.name || 'System',
+    updatedBy: p.updatedBy?.name || 'System',
+    createdDate: p.createdAt,
+    updatedDate: p.updatedAt,
   })
 
   return NextResponse.json({
@@ -190,34 +205,69 @@ async function generatePaymentReport(dateFilter: any, auth: any, agentId?: strin
 
 // ─── Settlement Report ────────────────────────────────────────────────────────
 async function generateSettlementReport(dateFilter: any, auth: any, page = 1, limit = 50, skip = 0) {
-  if (auth.role === 'agent') {
-    const query: any = { ...dateFilter, type: 'payment', status: { $in: ['pending', 'failed', 'due'] }, agentId: auth.userId }
-    const total = await Transaction.countDocuments(query)
-    const allT  = await Transaction.find(query).populate('agentId', 'name email').populate('createdBy', 'name').populate('updatedBy', 'name').sort({ createdAt: -1 })
-    const pageT = await Transaction.find(query).populate('agentId', 'name email').populate('createdBy', 'name').populate('updatedBy', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit)
-    const mapItem = (t: any) => ({ batchId: t.metadata?.paymentNumber || t.transactionId, transactionId: t.transactionId, type: 'settlement', date: t.date || t.createdAt, createdAt: t.createdAt, updatedAt: t.updatedAt, agentId: t.agentId?._id?.toString() || '', agent: t.agentId?.name || 'N/A', posMachine: 'No POS', amount: Number(t.amount || 0), netReceived: Number(t.amount || 0), status: t.status, description: t.description || 'Settlement follow-up payment', createdBy: t.createdBy?.name || 'System', updatedBy: t.updatedBy?.name || 'System', createdDate: t.createdAt, updatedDate: t.updatedAt })
-    const allItems = allT.map(mapItem)
-    return NextResponse.json({ reportType: 'settlements', totalRevenue: allItems.reduce((s: number, i: any) => s + i.amount, 0), totalTransactions: allItems.length, totalBankCharges: 0, totalVAT: 0, totalMargin: 0, total, page, limit, totalPages: Math.ceil(total / limit), items: pageT.map(mapItem), allItems })
+  if (auth.role !== 'admin' && auth.role !== 'agent') {
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
-  if (auth.role !== 'admin') return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+  const query: any = {
+    ...dateFilter,
+    type: 'payment',
+    status: 'completed',
+    'metadata.source': 'settlement',
+  }
+  if (auth.role === 'agent') query.agentId = auth.userId
 
-  const settlementsTotal = await MerchantSettlement.countDocuments(dateFilter)
-  if (settlementsTotal === 0) return NextResponse.json({ reportType: 'settlements', totalCCSales: 0, totalCharges: 0, totalMargin: 0, totalPaid: 0, totalBalance: 0, totalSettlements: 0, totalBankCharges: 0, totalVAT: 0, totalRevenue: 0, totalTransactions: 0, total: 0, page, limit, totalPages: 0, items: [], allItems: [] })
+  const total = await Transaction.countDocuments(query)
+  const allSettlements = await Transaction.find(query)
+    .populate('agentId', 'name email')
+    .populate('createdBy', 'name')
+    .populate('updatedBy', 'name')
+    .sort({ createdAt: -1 })
+  const pagedSettlements = await Transaction.find(query)
+    .populate('agentId', 'name email')
+    .populate('createdBy', 'name')
+    .populate('updatedBy', 'name')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
 
-  const POSMachine = require('@/models/POSMachine').default
-  const posMachines = await POSMachine.find({ status: 'active' }).populate('assignedAgent', 'name')
-  const settlements = await MerchantSettlement.find(dateFilter).populate('merchantId', 'name email').populate('createdBy', 'name').populate('updatedBy', 'name').sort({ date: -1 }).skip(skip).limit(limit)
-
-  const items = settlements.map((item: any) => {
-    const pos = posMachines[Math.floor(Math.random() * posMachines.length)] || { segment: 'Default', brand: 'POS', assignedAgent: { name: 'System' }, bankCharges: 2.7, vatPercentage: 5, commissionPercentage: 3.75 }
-    const posReceiptAmount = item.ccSales || 1000
-    const f = calcFinancials(posReceiptAmount, { commissionPercentage: item.chargesPercent || pos.commissionPercentage || 3.75, bankCharges: pos.bankCharges || 2.7, vatPercentage: pos.vatPercentage || 5 })
-    const paid = item.paid || 0
-    return { batchId: item._id.toString().slice(-7).toUpperCase(), date: item.date || item.createdAt, agent: item.merchantId?.name || pos.assignedAgent?.name || 'System Agent', posMachine: `${pos.segment} / ${pos.brand}`, posReceiptAmount, amount: posReceiptAmount, ...f, margin: f.marginAmount, paid, balance: f.toPayAmount - paid, createdBy: item.createdBy?.name || 'System', updatedBy: item.updatedBy?.name || 'System', createdDate: item.createdAt, updatedDate: item.updatedAt, description: item.description || '', status: item.status || 'completed' }
+  const mapItem = (t: any) => ({
+    batchId: t.metadata?.paymentNumber || t.transactionId,
+    transactionId: t.transactionId,
+    type: 'settlement',
+    date: t.date || t.createdAt,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    agentId: t.agentId?._id?.toString() || '',
+    agent: t.agentId?.name || 'N/A',
+    posMachine: 'Settlement',
+    amount: Number(t.amount || 0),
+    netReceived: Number(t.amount || 0),
+    status: t.status || 'completed',
+    description: t.description || 'Settlement payment',
+    paymentMethod: t.paymentMethod || 'cash',
+    source: 'settlement',
+    createdBy: t.createdBy?.name || 'System',
+    updatedBy: t.updatedBy?.name || 'System',
+    createdDate: t.createdAt,
+    updatedDate: t.updatedAt,
   })
 
-  return NextResponse.json({ reportType: 'settlements', totalCCSales: settlements.reduce((s: number, i: any) => s + (i.ccSales || 0), 0), totalMargin: settlements.reduce((s: number, i: any) => s + (i.margin || 0), 0), totalPaid: settlements.reduce((s: number, i: any) => s + (i.paid || 0), 0), totalBalance: settlements.reduce((s: number, i: any) => s + (i.balance || 0), 0), totalSettlements: settlements.length, totalBankCharges: 0, totalVAT: 0, totalRevenue: settlements.reduce((s: number, i: any) => s + (i.ccSales || 0), 0), totalTransactions: settlements.length, total: settlementsTotal, page, limit, totalPages: Math.ceil(settlementsTotal / limit), items, allItems: items })
+  const allItems = allSettlements.map(mapItem)
+  return NextResponse.json({
+    reportType: 'settlements',
+    totalRevenue: allItems.reduce((s: number, i: any) => s + i.amount, 0),
+    totalTransactions: allItems.length,
+    totalBankCharges: 0,
+    totalVAT: 0,
+    totalMargin: 0,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    items: pagedSettlements.map(mapItem),
+    allItems,
+  })
 }
 
 // ─── Summary Report ───────────────────────────────────────────────────────────

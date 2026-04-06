@@ -7,6 +7,7 @@ import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface Brand {
   _id: string
@@ -32,6 +33,8 @@ export default function BrandsPage() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
 
   const filterFields = [
@@ -127,6 +130,17 @@ export default function BrandsPage() {
       (filters.status === 'active' ? b.isActive : !b.isActive)
     return matchesSearch && matchesName && matchesStatus
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters, brands, itemsPerPage])
+
+  const paginatedBrands = getPaginatedSlice(filteredBrands, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(filteredBrands.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   return (
     <RoleGuard allowedRoles={['admin']}>
@@ -229,7 +243,7 @@ export default function BrandsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {filteredBrands.map((brand) => (
+                  {paginatedBrands.map((brand) => (
                     <tr key={brand._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-5 py-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">
                         {brand.name}
@@ -285,6 +299,16 @@ export default function BrandsPage() {
             </div>
           )}
         </div>
+
+        {!loading && filteredBrands.length > 0 && (
+          <TablePagination
+            totalItems={filteredBrands.length}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        )}
 
         {/* Add/Edit Modal */}
         {showModal && (

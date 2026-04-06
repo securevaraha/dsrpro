@@ -1,13 +1,15 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { CheckCircle, AlertCircle, Search, Download, History } from 'lucide-react'
+import { CheckCircle, AlertCircle, Search, Download, History, Edit, Trash2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 type PaymentStatus = 'due'
 
@@ -32,6 +34,7 @@ interface SettlementHistoryItem {
   description: string
   status: 'completed'
   createdAt: string
+  source?: string
   createdBy?: { name: string }
 }
 
@@ -77,9 +80,23 @@ export default function Settlements() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [showSettleModal, setShowSettleModal] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<UnsettledPayment | null>(null)
   const [settleNote, setSettleNote] = useState('')
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingSettlement, setEditingSettlement] = useState<SettlementHistoryItem | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deletingSettlement, setDeletingSettlement] = useState<SettlementHistoryItem | null>(null)
+  const [savingSettlement, setSavingSettlement] = useState(false)
+  const [deletingSettlementLoading, setDeletingSettlementLoading] = useState(false)
+  const [editForm, setEditForm] = useState({
+    date: format(new Date(), 'yyyy-MM-dd'),
+    paymentMethod: 'cash',
+    amount: '',
+    description: '',
+  })
 
   useEffect(() => {
     fetchUnsettled()
@@ -110,8 +127,7 @@ export default function Settlements() {
       const history = (data.transactions || []).filter((t: any) => {
         if (t.type !== 'payment') return false
         if (t.status !== 'completed') return false
-        const source = String(t.metadata?.source || '').toLowerCase()
-        return source === 'settlement' || source === 'manual-payment'
+        return String(t.metadata?.source || '').toLowerCase() === 'settlement'
       }).map((t: any) => ({
         _id: t._id,
         transactionId: t.transactionId,
@@ -121,6 +137,7 @@ export default function Settlements() {
         description: t.description || 'Settlement payment',
         status: 'completed' as const,
         createdAt: t.createdAt,
+        source: 'settlement',
         createdBy: t.createdBy ? { name: t.createdBy.name || 'System' } : { name: 'System' },
       }))
       setSettlementHistory(history)
@@ -169,6 +186,60 @@ export default function Settlements() {
     }
   }
 
+  const openEditSettlement = (item: SettlementHistoryItem) => {
+    setEditingSettlement(item)
+    setEditForm({
+      date: format(new Date(item.createdAt), 'yyyy-MM-dd'),
+      paymentMethod: item.paymentMethod || 'cash',
+      amount: item.amount.toString(),
+      description: item.description || '',
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveSettlement = async () => {
+    if (!editingSettlement) return
+    setSavingSettlement(true)
+    try {
+      const res = await fetchWithAuth(`/api/transactions/${editingSettlement._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseFloat(editForm.amount),
+          date: editForm.date,
+          paymentMethod: editForm.paymentMethod,
+          description: editForm.description,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Settlement updated successfully')
+      setShowEditModal(false)
+      setEditingSettlement(null)
+      fetchSettlementHistory()
+    } catch {
+      toast.error('Failed to update settlement')
+    } finally {
+      setSavingSettlement(false)
+    }
+  }
+
+  const handleDeleteSettlement = async () => {
+    if (!deletingSettlement) return
+    setDeletingSettlementLoading(true)
+    try {
+      const res = await fetchWithAuth(`/api/transactions/${deletingSettlement._id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast.success('Settlement deleted successfully')
+      setShowDeleteDialog(false)
+      setDeletingSettlement(null)
+      fetchSettlementHistory()
+    } catch {
+      toast.error('Failed to delete settlement')
+    } finally {
+      setDeletingSettlementLoading(false)
+    }
+  }
+
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
   const filterFields = [
@@ -211,6 +282,27 @@ export default function Settlements() {
     return matchesSearch && matchesAgent && matchesStatus && matchesFrom && matchesTo
   })
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters, payments, settlementHistory, itemsPerPage])
+
+  const settlementRows = [
+    ...filtered.map((p) => ({ ...p, rowType: 'outstanding' as const })),
+    ...historyFiltered.map((h) => ({ ...h, rowType: 'history' as const })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  const paginatedSettlementRows = getPaginatedSlice(settlementRows, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(settlementRows.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const pageOutstanding = paginatedSettlementRows.filter((r) => r.rowType === 'outstanding')
+  const pageHistory = paginatedSettlementRows.filter((r) => r.rowType === 'history')
+
   const totalAmount = filtered.reduce((s, p) => s + p.amount, 0)
   const settledAmount = historyFiltered.reduce((s, h) => s + h.amount, 0)
   const visibleGrandTotal = totalAmount + settledAmount
@@ -223,7 +315,7 @@ export default function Settlements() {
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Settlements</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Payments requiring follow-up — pending, due, or failed
+              Open due receipts and completed settlement history
             </p>
           </div>
           <div className="flex gap-2">
@@ -332,10 +424,10 @@ export default function Settlements() {
             <>
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
-                {filtered.length > 0 && (
+                {pageOutstanding.length > 0 && (
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1">Outstanding Settlements</div>
                 )}
-                {filtered.map((p) => {
+                {pageOutstanding.map((p) => {
                   const cfg = statusConfig[p.status]
                   const Icon = cfg.icon
                   return (
@@ -370,10 +462,10 @@ export default function Settlements() {
                   )
                 })}
 
-                {historyFiltered.length > 0 && (
+                {pageHistory.length > 0 && (
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1 pt-2">Settlement History</div>
                 )}
-                {historyFiltered.map((h) => (
+                {pageHistory.map((h) => (
                   <div key={h._id} className="dubai-card p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-semibold text-gray-900 dark:text-white">{h.transactionId}</span>
@@ -391,6 +483,25 @@ export default function Settlements() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${methodColor[h.paymentMethod] || ''}`}>
                         {h.paymentMethod?.toUpperCase()}
                       </span>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
+                      <button
+                        onClick={() => openEditSettlement(h)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title={t('edit')}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingSettlement(h)
+                          setShowDeleteDialog(true)
+                        }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title={t('delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -414,12 +525,12 @@ export default function Settlements() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filtered.length > 0 && (
+                    {pageOutstanding.length > 0 && (
                       <tr className="bg-gray-50 dark:bg-gray-800/50">
                         <td colSpan={9} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Outstanding Settlements</td>
                       </tr>
                     )}
-                    {filtered.map((p) => {
+                    {pageOutstanding.map((p) => {
                       const cfg = statusConfig[p.status]
                       const Icon = cfg.icon
                       return (
@@ -460,14 +571,14 @@ export default function Settlements() {
                       )
                     })}
 
-                    {historyFiltered.length > 0 && (
+                    {pageHistory.length > 0 && (
                       <tr className="bg-gray-50 dark:bg-gray-800/50">
                         <td colSpan={9} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           <span className="inline-flex items-center gap-2"><History className="h-3.5 w-3.5" />Settlement History</span>
                         </td>
                       </tr>
                     )}
-                    {historyFiltered.map((h) => (
+                    {pageHistory.map((h) => (
                       <tr key={h._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{h.transactionId}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{h.agentId?.name || '—'}</td>
@@ -492,7 +603,27 @@ export default function Settlements() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">{h.description || 'Settlement payment'}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-400">—</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <div className="flex justify-center gap-1">
+                            <button
+                              onClick={() => openEditSettlement(h)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title={t('edit')}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingSettlement(h)
+                                setShowDeleteDialog(true)
+                              }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title={t('delete')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -510,6 +641,16 @@ export default function Settlements() {
             </>
           )}
         </div>
+
+        {!loading && settlementRows.length > 0 && (
+          <TablePagination
+            totalItems={settlementRows.length}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        )}
 
         {/* Settle Confirmation Modal */}
         {showSettleModal && selectedPayment && (() => {
@@ -589,6 +730,93 @@ export default function Settlements() {
             </div>
           )
         })()}
+
+        {showEditModal && editingSettlement && (
+          <div className="modal-overlay">
+            <div className="modal-content max-w-md">
+              <div className="modal-header">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Edit Settlement</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Update the settlement record details</p>
+                </div>
+                <button type="button" onClick={() => setShowEditModal(false)} className="modal-close-btn">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Batch ID</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{editingSettlement.transactionId}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Agent</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{editingSettlement.agentId?.name || '—'}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Date</label>
+                    <input type="date" className="form-input" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="form-label">Payment Method</label>
+                    <select className="form-input" value={editForm.paymentMethod} onChange={(e) => setEditForm({ ...editForm, paymentMethod: e.target.value })}>
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="form-label">Amount</label>
+                    <input type="number" min="0.01" step="0.01" className="form-input" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="form-label">Description</label>
+                    <textarea rows={3} className="form-input resize-none" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary">Cancel</button>
+                  <button type="button" onClick={handleSaveSettlement} disabled={savingSettlement} className="dubai-button disabled:opacity-50">
+                    {savingSettlement ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Delete</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete settlement {deletingSettlement?.transactionId}? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setDeletingSettlement(null)
+                }}
+                disabled={deletingSettlementLoading}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSettlement}
+                disabled={deletingSettlementLoading}
+                className="btn-danger disabled:opacity-50"
+              >
+                {deletingSettlementLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </RoleGuard>
   )

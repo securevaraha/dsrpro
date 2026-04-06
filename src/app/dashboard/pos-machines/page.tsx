@@ -12,6 +12,7 @@ import { useOptimistic } from '@/hooks/useOptimistic'
 import { RoleGuard } from '@/components/RoleGuard'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 
 interface Agent {
   _id: string
@@ -71,6 +72,8 @@ export default function POSMachines() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(5)
   const [showModal, setShowModal] = useState(false)
   const [editingMachine, setEditingMachine] = useState<POSMachine | null>(null)
   const [loading, setLoading] = useState(true)
@@ -186,6 +189,17 @@ export default function POSMachines() {
     const matchesDevice = !filters.device || filters.device === 'all' || machine.deviceType === filters.device
     return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters, machines, itemsPerPage])
+
+  const paginatedMachines = getPaginatedSlice(filteredMachines, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(filteredMachines.length, itemsPerPage)
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
@@ -502,7 +516,7 @@ export default function POSMachines() {
                       {isAdmin && <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Actions</div></th>}
                     </tr></thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
-                    {filteredMachines.map((machine) => (
+                    {paginatedMachines.map((machine) => (
                       <tr key={machine._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {machine.segment || '—'}
@@ -611,7 +625,7 @@ export default function POSMachines() {
 
               {/* Mobile Cards */}
               <div className="lg:hidden space-y-3">
-                {filteredMachines.map((machine) => (
+                {paginatedMachines.map((machine) => (
                   <div key={machine._id} className="dubai-card p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -622,6 +636,7 @@ export default function POSMachines() {
                           }
                         </div>
                         <div>
+
                           <p className="font-mono font-medium text-sm text-gray-900 dark:text-white">{machine.terminalId}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">MID: {machine.merchantId}</p>
                         </div>
@@ -696,6 +711,16 @@ export default function POSMachines() {
                 ))}
               </div>
             </>
+          )}
+
+          {!loading && filteredMachines.length > 0 && (
+            <TablePagination
+              totalItems={filteredMachines.length}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+            />
           )}
         </div>
 
