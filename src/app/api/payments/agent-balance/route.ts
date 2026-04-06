@@ -74,14 +74,16 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  const totalPaid = receiptDetails.reduce((s: number, r: any) => s + r.paidAmount, 0)
-  const totalDue = totalToPay - totalPaid
+  const totalPaid = receiptDetails.reduce((s: number, r: any) => s + r.paidAmount + r.settlementAmount, 0)
+  const totalDue = receiptDetails.reduce((s: number, r: any) => s + r.dueAmount, 0)
+  const openReceipts = receiptDetails.filter((r: any) => r.dueAmount > 0.001)
 
   return NextResponse.json({
     totalToPay,
     totalNetReceived,
     totalPaid,
     totalDue,
-    receipts: receiptDetails,
+    openReceiptsCount: openReceipts.length,
+    receipts: openReceipts,
   })
 }

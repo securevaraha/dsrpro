@@ -163,6 +163,14 @@ export default function Dashboard() {
       href: '/dashboard/receipts',
     },
     {
+      label: `Transactions · ${periodButtons.find(p => p.key === period)?.label}`,
+      value: String(stats.totalTransactions),
+      icon: Activity,
+      color: 'text-indigo-600 dark:text-indigo-400',
+      bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+      href: '/dashboard/reports',
+    },
+    {
       label: `Payments · ${periodButtons.find(p => p.key === period)?.label}`,
       value: formatAED(stats.totalPayments),
       icon: TrendingDown,
@@ -195,14 +203,6 @@ export default function Dashboard() {
       href: '/dashboard/reports',
     },
     {
-      label: 'Active Agents',
-      value: String(stats.activeAgents),
-      icon: Users,
-      color: 'text-primary',
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-      href: '/dashboard/admin',
-    },
-    {
       label: 'POS Machines',
       value: String(stats.totalPOSMachines),
       icon: Wifi,
@@ -211,12 +211,12 @@ export default function Dashboard() {
       href: '/dashboard/pos-machines',
     },
     {
-      label: `Transactions · ${periodButtons.find(p => p.key === period)?.label}`,
-      value: String(stats.totalTransactions),
-      icon: Activity,
-      color: 'text-indigo-600 dark:text-indigo-400',
-      bg: 'bg-indigo-50 dark:bg-indigo-900/20',
-      href: '/dashboard/reports',
+      label: 'Active Agents',
+      value: String(stats.activeAgents),
+      icon: Users,
+      color: 'text-primary',
+      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      href: '/dashboard/admin',
     },
   ] : []
 
@@ -389,12 +389,12 @@ export default function Dashboard() {
         <div className={`equal-card-grid grid-cols-1 ${role === 'admin' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
           {role === 'admin' && (
             <Link href="/dashboard/settlements" className="equal-card hover:shadow-lg transition-all duration-200 group">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-3">
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0">
                   <Calculator className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Merchant Settlements</h3>
+                <div className="kpi-card-body min-w-0">
+                  <h3 className="kpi-card-value !text-base sm:!text-lg">Merchant Settlements</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Track daily card sales</p>
                 </div>
               </div>
@@ -402,24 +402,24 @@ export default function Dashboard() {
           )}
           {role === 'admin' && (
             <Link href="/dashboard/payments" className="equal-card hover:shadow-lg transition-all duration-200 group">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-3">
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0">
                   <CreditCard className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Quick Payment</h3>
+                <div className="kpi-card-body min-w-0">
+                  <h3 className="kpi-card-value !text-base sm:!text-lg">Quick Payment</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Record new payment</p>
                 </div>
               </div>
             </Link>
           )}
           <Link href="/dashboard/reports" className="equal-card hover:shadow-lg transition-all duration-200 group">
-            <div className="flex items-center gap-4">
+            <div className="flex items-start gap-3">
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0">
                 <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <div className="min-w-0">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Generate Reports</h3>
+              <div className="kpi-card-body min-w-0">
+                <h3 className="kpi-card-value !text-base sm:!text-lg">Generate Reports</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Export settlement data</p>
               </div>
             </div>

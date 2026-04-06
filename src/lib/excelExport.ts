@@ -357,6 +357,7 @@ export const exportMultiSheetExcel = ({
 // Predefined column configurations for different reports
 export const reportColumns = {
   payments: (t: (key: string) => string) => [
+    { key: 'entryType', label: 'Entry Type', width: 16 },
     { key: 'paymentNumber', label: 'Batch ID', width: 24 },
     { key: 'agentName', label: t('agent'), width: 25 },
     { key: 'date', label: t('date'), width: 18 },

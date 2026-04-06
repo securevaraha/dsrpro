@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plus, Download, Eye, Edit, Trash2, CreditCard } from 'lucide-react'
+import { Plus, Download, Eye, Edit, Trash2, CreditCard, CheckCircle } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
@@ -9,6 +9,8 @@ import { TableSkeleton } from '@/components/ui/skeleton'
 import { DatePicker } from '@/components/ui/date-picker'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { Search } from 'lucide-react'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 interface Payment {
   _id: string
@@ -24,9 +26,27 @@ interface Payment {
   createdAt?: string
 }
 
+interface DuePaymentEntry {
+  _id: string
+  sourceReceiptId: string
+  paymentNumber: string
+  date: string
+  agentId: string
+  agentName: string
+  paymentMethod: 'cash' | 'bank' | 'upi' | 'card'
+  amount: number
+  description: string
+  status: 'due'
+  createdBy?: { name: string }
+  createdAt?: string
+}
+
+type PaymentRow = (Payment & { rowType: 'completed' }) | (DuePaymentEntry & { rowType: 'due' })
+
 export default function Payments() {
   const { t } = useLanguage()
   const [payments, setPayments] = useState<Payment[]>([])
+  const [dueEntries, setDueEntries] = useState<DuePaymentEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -51,16 +71,50 @@ export default function Payments() {
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
   const [agentBalance, setAgentBalance] = useState<{ totalToPay: number; totalNetReceived: number; totalPaid: number; totalDue: number } | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [selectedDueReceiptId, setSelectedDueReceiptId] = useState<string | null>(null)
+  const [selectedDueEntryAmount, setSelectedDueEntryAmount] = useState<number | null>(null)
 
   useEffect(() => {
     fetchPayments()
+    fetchDueEntries()
     fetchAgents()
   }, [])
+
+  const fetchDueEntries = async () => {
+    try {
+      const response = await fetchWithAuth('/api/transactions?type=receipt&limit=500')
+      if (!response.ok) return
+      const data = await response.json()
+      const dues = (data.transactions || []).map((t: any) => {
+        const amount = Number(t.amount || 0)
+        const chargesPercent = Number(t.posMachine?.commissionPercentage || 0)
+        const toPayAmount = amount - ((amount * chargesPercent) / 100)
+        const paidAmount = Math.min(Number(t.paidAmount || 0), toPayAmount)
+        const settlementAmount = Math.min(Number(t.settlementAmount || 0), Math.max(0, toPayAmount - paidAmount))
+        const due = Math.max(0, toPayAmount - paidAmount - settlementAmount)
+        return {
+          _id: `due-${t._id}`,
+          sourceReceiptId: t._id,
+          paymentNumber: t.metadata?.receiptNumber || t.transactionId,
+          date: t.date || t.createdAt,
+          agentId: t.agentId?._id || '',
+          agentName: t.agentId?.name || 'Unknown',
+          paymentMethod: 'cash' as const,
+          amount: due,
+          description: t.description || `Due for receipt ${t.metadata?.receiptNumber || t.transactionId}`,
+          status: 'due' as const,
+          createdBy: t.createdBy || { name: 'System' },
+          createdAt: t.createdAt,
+        }
+      }).filter((entry: DuePaymentEntry) => entry.amount > 0.001)
+      setDueEntries(dues)
+    } catch {}
+  }
 
   const fetchAgentDueMap = async (agentList: {_id: string, name: string}[]) => {
     const entries = await Promise.all(agentList.map(async (agent) => {
       try {
-        const res = await fetch(`/api/payments/agent-balance?agentId=${agent._id}`)
+        const res = await fetchWithAuth(`/api/payments/agent-balance?agentId=${agent._id}`)
         if (!res.ok) return [agent._id, 0] as const
         const data = await res.json()
         return [agent._id, Number(data.totalDue || 0)] as const
@@ -79,7 +133,7 @@ export default function Payments() {
 
   const fetchAgents = async () => {
     try {
-      const response = await fetch('/api/users?role=agent')
+      const response = await fetchWithAuth('/api/users?role=agent')
       if (response.ok) {
         const data = await response.json()
         const users = data.users || []
@@ -94,7 +148,7 @@ export default function Payments() {
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/transactions?type=payment&limit=500')
+      const response = await fetchWithAuth('/api/transactions?type=payment&limit=500')
       if (response.ok) {
         const data = await response.json()
         const formattedPayments = data.transactions.map((t: any) => ({
@@ -139,7 +193,7 @@ export default function Payments() {
           throw new Error(`Pay Amount cannot exceed total due (AED ${totalDue.toFixed(2)})`)
         }
 
-        const sendRes = await fetch('/api/payments/send', {
+        const sendRes = await fetchWithAuth('/api/payments/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -148,6 +202,7 @@ export default function Payments() {
             paymentMethod: formData.paymentMethod,
             description: formData.description,
             date: formData.date,
+            receiptId: selectedDueReceiptId || undefined,
           })
         })
         if (sendRes.ok) {
@@ -164,6 +219,7 @@ export default function Payments() {
           fetchAgentBalance(formData.agentId)
           fetchAgents()
           fetchPayments()
+          fetchDueEntries()
         } else {
           const err = await sendRes.json()
           throw new Error(err.error || 'Failed to send payment')
@@ -171,7 +227,7 @@ export default function Payments() {
         return
       }
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,6 +249,7 @@ export default function Payments() {
         setShowModal(false)
         resetForm()
         fetchPayments()
+        fetchDueEntries()
       } else {
         const err = await response.json()
         throw new Error(err.error || 'Failed to save payment')
@@ -220,12 +277,13 @@ export default function Payments() {
     if (!deletingPayment) return
     setDeleting(true)
     try {
-      const response = await fetch(`/api/transactions/${deletingPayment._id}`, { method: 'DELETE' })
+      const response = await fetchWithAuth(`/api/transactions/${deletingPayment._id}`, { method: 'DELETE' })
       if (response.ok) {
         toast.success('Payment deleted successfully')
         setShowDeleteDialog(false)
         setDeletingPayment(null)
         fetchPayments()
+        fetchDueEntries()
       } else {
         throw new Error('Failed to delete payment')
       }
@@ -247,13 +305,33 @@ export default function Payments() {
       description: '',
     })
     setEditingPayment(null)
+    setSelectedDueReceiptId(null)
+    setSelectedDueEntryAmount(null)
+  }
+
+  const openPayDueModal = (entry: DuePaymentEntry) => {
+    const id = `P${Date.now().toString().slice(-6)}${Math.random().toString(36).slice(2,4).toUpperCase()}`
+    setSelectedDueReceiptId(entry.sourceReceiptId)
+    setSelectedDueEntryAmount(entry.amount)
+    setFormData({
+      paymentNumber: id,
+      date: format(new Date(), 'yyyy-MM-dd'),
+      agentId: entry.agentId,
+      paymentMethod: 'cash',
+      bankAccount: '',
+      amount: entry.amount.toFixed(2),
+      description: '',
+    })
+    setEditingPayment(null)
+    fetchAgentBalance(entry.agentId)
+    setShowModal(true)
   }
 
   const fetchAgentBalance = async (agentId: string) => {
     if (!agentId) { setAgentBalance(null); return }
     setBalanceLoading(true)
     try {
-      const res = await fetch(`/api/payments/agent-balance?agentId=${agentId}`)
+      const res = await fetchWithAuth(`/api/payments/agent-balance?agentId=${agentId}`)
       if (res.ok) setAgentBalance(await res.json())
     } catch {}
     finally { setBalanceLoading(false) }
@@ -263,6 +341,8 @@ export default function Payments() {
     const id = `P${Date.now().toString().slice(-6)}${Math.random().toString(36).slice(2,4).toUpperCase()}`
     setFormData({ paymentNumber: id, date: format(new Date(), 'yyyy-MM-dd'), agentId: '', paymentMethod: 'cash', bankAccount: '', amount: '', description: '' })
     setEditingPayment(null)
+    setSelectedDueReceiptId(null)
+    setSelectedDueEntryAmount(null)
     setAgentBalance(null)
     setShowModal(true)
   }
@@ -270,7 +350,28 @@ export default function Payments() {
   const enteredPayAmount = parseFloat(formData.amount)
   const safePayAmount = Number.isFinite(enteredPayAmount) ? Math.max(0, enteredPayAmount) : 0
   const totalDueAmount = agentBalance?.totalDue ?? 0
-  const computedDueAfterPay = Math.max(0, totalDueAmount - safePayAmount)
+  const currentPayableDue = selectedDueReceiptId ? (selectedDueEntryAmount ?? totalDueAmount) : totalDueAmount
+  const computedDueAfterPay = Math.max(0, currentPayableDue - safePayAmount)
+  const handlePayAmountChange = (rawValue: string) => {
+    if (rawValue === '') {
+      setFormData({ ...formData, amount: '' })
+      return
+    }
+
+    const parsed = Number(rawValue)
+    if (!Number.isFinite(parsed)) return
+
+    // Do not allow zero/negative values.
+    if (parsed <= 0) return
+
+    // For new payments, cap to the currently payable due.
+    if (!editingPayment && agentBalance && parsed > currentPayableDue) {
+      setFormData({ ...formData, amount: currentPayableDue.toFixed(2) })
+      return
+    }
+
+    setFormData({ ...formData, amount: rawValue })
+  }
   const payableAgents = editingPayment
     ? agents
     : agents.filter((a) => (agentDueMap[a._id] || 0) > 0.001)
@@ -280,13 +381,34 @@ export default function Payments() {
       p.agentName.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesBatchId = !filters.batchId || p.paymentNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId === filters.agent
+    const matchesStatus = !filters.status || filters.status === 'all' || p.status === filters.status
     const pDate = new Date(p.date)
     const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
     const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesBatchId && matchesAgent && matchesFrom && matchesTo
+    return matchesSearch && matchesBatchId && matchesAgent && matchesStatus && matchesFrom && matchesTo
   })
 
-  const grandTotal = filteredPayments.reduce((s, p) => s + p.amount, 0)
+  const filteredDueEntries = dueEntries.filter((d) => {
+    const matchesSearch = d.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.agentName.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesBatchId = !filters.batchId || d.paymentNumber.toLowerCase().includes(filters.batchId.toLowerCase())
+    const matchesAgent = !filters.agent || filters.agent === 'all' || d.agentId === filters.agent
+    const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'due'
+    const dDate = new Date(d.date)
+    const matchesFrom = !filters.dateFrom || dDate >= new Date(filters.dateFrom)
+    const matchesTo = !filters.dateTo || dDate <= new Date(filters.dateTo + 'T23:59:59')
+    return matchesSearch && matchesBatchId && matchesAgent && matchesStatus && matchesFrom && matchesTo
+  })
+
+  const rows: PaymentRow[] = [
+    ...filteredDueEntries.map((d) => ({ ...d, rowType: 'due' as const })),
+    ...filteredPayments.map((p) => ({ ...p, rowType: 'completed' as const })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  const dueRows = rows.filter((r) => r.rowType === 'due')
+  const completedRows = rows.filter((r) => r.rowType === 'completed')
+
+  const grandTotal = rows.reduce((s, p) => s + p.amount, 0)
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
@@ -295,6 +417,11 @@ export default function Payments() {
     { key: 'agent', label: 'Agent', type: 'select' as const, options: [
       { value: 'all', label: 'All Agents' },
       ...agents.map(a => ({ value: a._id, label: a.name }))
+    ]},
+    { key: 'status', label: 'Payment Status', type: 'select' as const, options: [
+      { value: 'all', label: 'All' },
+      { value: 'due', label: 'Due' },
+      { value: 'completed', label: 'Completed' },
     ]},
     { key: 'dateFrom', label: 'Date From', type: 'date' as const },
     { key: 'dateTo', label: 'Date To', type: 'date' as const },
@@ -316,16 +443,17 @@ export default function Payments() {
                 sheetName: 'Payments',
                 columns: reportColumns.payments(t),
                 data: [
-                  ...filteredPayments.map(p => ({
+                  ...rows.map(p => ({
                     ...p,
+                    entryType: p.rowType === 'due' ? 'Due' : 'Completed',
                     date: format(new Date(p.date), 'dd-MMM-yyyy'),
-                    paymentMethod: p.paymentMethod.toUpperCase(),
+                    paymentMethod: p.rowType === 'due' ? 'RECEIPT DUE' : p.paymentMethod.toUpperCase(),
                     status: p.status === 'due' ? 'Due' : p.status.charAt(0).toUpperCase() + p.status.slice(1),
                     amount: `AED ${p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     createdByDate: `${p.createdBy?.name || 'System'} | ${format(new Date(p.createdAt || p.date), 'dd-MMM-yyyy HH:mm')}`
                   })),
                   {
-                    paymentNumber: `Grand Total (${filteredPayments.length} records)`,
+                    paymentNumber: `Grand Total (${rows.length} records)`,
                     amount: `AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                   }
                 ],
@@ -382,7 +510,7 @@ export default function Payments() {
       <div className="mt-6">
         {loading ? (
           <TableSkeleton rows={5} columns={7} />
-        ) : payments.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="dubai-card text-center py-12">
             <CreditCard className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-base font-medium text-gray-900 dark:text-white mb-1">
@@ -396,7 +524,66 @@ export default function Payments() {
           <>
             {/* Mobile card view */}
             <div className="md:hidden space-y-3">
-              {filteredPayments.map((payment) => (
+              {dueRows.length > 0 && (
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1">Due Payments</div>
+              )}
+              {dueRows.map((payment) => (
+                <div key={payment._id} className="dubai-card p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{payment.paymentNumber}</span>
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                      payment.paymentMethod === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                      payment.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
+                      payment.paymentMethod === 'upi' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                    }`}>
+                      {payment.rowType === 'due' ? 'RECEIPT DUE' : payment.paymentMethod.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{payment.agentName}</span>
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">AED {payment.amount.toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{payment.description}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">{format(new Date(payment.date), 'dd-MMM-yyyy')}</span>
+                    <span className="text-xs text-gray-400">{payment.createdBy?.name || 'System'}</span>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
+                    {payment.rowType === 'due' ? (
+                      <button
+                        onClick={() => openPayDueModal(payment)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-lg transition-colors"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Pay
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEdit(payment)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeletingPayment(payment)
+                            setShowDeleteDialog(true)
+                          }}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {completedRows.length > 0 && (
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1 pt-2">Completed Payments</div>
+              )}
+              {completedRows.map((payment) => (
                 <div key={payment._id} className="dubai-card p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{payment.paymentNumber}</span>
@@ -439,7 +626,7 @@ export default function Payments() {
               ))}
               <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredPayments.length} records)</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({rows.length} records)</span>
                   <span className="text-base font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
@@ -456,7 +643,93 @@ export default function Payments() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredPayments.map((payment) => (
+                  {dueRows.length > 0 && (
+                    <tr className="bg-gray-50 dark:bg-gray-800/50">
+                      <td colSpan={9} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Due Payments</td>
+                    </tr>
+                  )}
+                  {dueRows.map((payment) => (
+                    <tr key={payment._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {payment.paymentNumber}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {payment.agentName}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {format(new Date(payment.date), 'dd-MMM-yyyy')}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          payment.paymentMethod === 'cash' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                          payment.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
+                          payment.paymentMethod === 'upi' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                        }`}>
+                          {payment.rowType === 'due' ? 'RECEIPT DUE' : payment.paymentMethod.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          payment.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                          payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
+                          payment.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' :
+                          'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300'
+                        }`}>
+                          {payment.status === 'due' ? 'Due' : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
+                        AED {payment.amount.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        <div className="meta-compact">
+                          <div className="meta-compact-name">{payment.createdBy?.name || 'System'}</div>
+                          <div className="meta-compact-date">{format(new Date(payment.createdAt || payment.date), 'dd-MMM-yyyy HH:mm')}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 max-w-[180px] truncate">
+                        {payment.description}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm">
+                        {payment.rowType === 'due' ? (
+                          <button
+                            onClick={() => openPayDueModal(payment)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-lg transition-colors"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Pay
+                          </button>
+                        ) : (
+                          <div className="flex justify-center gap-1">
+                            <button
+                              onClick={() => handleEdit(payment)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title={t('edit')}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingPayment(payment)
+                                setShowDeleteDialog(true)
+                              }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title={t('delete')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {completedRows.length > 0 && (
+                    <tr className="bg-gray-50 dark:bg-gray-800/50">
+                      <td colSpan={9} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Completed Payments</td>
+                    </tr>
+                  )}
+                  {completedRows.map((payment) => (
                     <tr key={payment._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {payment.paymentNumber}
@@ -478,13 +751,8 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          payment.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                          payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
-                          payment.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' :
-                          'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300'
-                        }`}>
-                          {payment.status === 'due' ? 'Due' : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                        <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                          Completed
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
@@ -525,7 +793,7 @@ export default function Payments() {
                 </tbody>
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                   <tr>
-                    <td colSpan={5} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredPayments.length} records)</td>
+                    <td colSpan={5} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({rows.length} records)</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td colSpan={3} />
                   </tr>
@@ -572,48 +840,72 @@ export default function Payments() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="form-label">{t('agent')}</label>
-                    <select required className="form-select" value={formData.agentId} onChange={(e) => {
-                      setFormData({...formData, agentId: e.target.value})
-                      if (!editingPayment) fetchAgentBalance(e.target.value)
-                    }}>
-                      <option value="">Select {t('agent')}</option>
-                      {payableAgents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
-                    </select>
+                    <SearchableSelect
+                      value={formData.agentId}
+                      onChange={(value) => {
+                        setFormData({ ...formData, agentId: value })
+                        if (!editingPayment) fetchAgentBalance(value)
+                      }}
+                      options={[
+                        { value: '', label: `Select ${t('agent')}` },
+                        ...payableAgents.map((agent) => ({ value: agent._id, label: agent.name })),
+                      ]}
+                      placeholder={`Select ${t('agent')}`}
+                    />
                     {!editingPayment && payableAgents.length === 0 && (
                       <p className="text-xs text-amber-500 mt-1">No agents have pending due amount.</p>
                     )}
                     {!editingPayment && agentBalance && (
                       <div className="mt-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs space-y-0.5">
-                        <div className="flex justify-between"><span className="text-gray-500">Net Received (Admin):</span><span className="font-semibold text-emerald-600">AED {agentBalance.totalNetReceived.toFixed(2)}</span></div>
-                        <div className="flex justify-between border-t border-blue-100 dark:border-blue-800 pt-0.5 mt-0.5"><span className="text-gray-500">Total to Pay Agent:</span><span className="font-semibold text-gray-800 dark:text-gray-200">AED {agentBalance.totalToPay.toFixed(2)}</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">Already Paid:</span><span className="font-semibold text-green-600">AED {agentBalance.totalPaid.toFixed(2)}</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">Current Amount to Pay:</span><span className="font-semibold text-sky-600">AED {agentBalance.totalDue.toFixed(2)}</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">Outstanding Due:</span><span className="font-semibold text-red-600">AED {agentBalance.totalDue.toFixed(2)}</span></div>
+                        {selectedDueReceiptId && (
+                          <div className="flex justify-between border-b border-blue-100 dark:border-blue-800 pb-0.5 mb-0.5">
+                            <span className="text-gray-500">Selected Receipt Due:</span>
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">AED {currentPayableDue.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Open Outstanding Due:</span>
+                          <span className="font-semibold text-red-600">AED {currentPayableDue.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Due After This Payment:</span>
+                          <span className="font-semibold text-amber-600">AED {computedDueAfterPay.toFixed(2)}</span>
+                        </div>
                       </div>
                     )}
                     {!editingPayment && balanceLoading && <p className="text-xs text-gray-400 mt-1">Loading balance...</p>}
                   </div>
                   <div>
                     <label className="form-label">{t('paymentMethod')}</label>
-                    <select className="form-select" value={formData.paymentMethod} onChange={(e) => setFormData({...formData, paymentMethod: e.target.value as any})}>
-                      <option value="cash">Cash</option>
-                      <option value="bank">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="card">Card</option>
-                    </select>
+                    <SearchableSelect
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData({ ...formData, paymentMethod: value as any })}
+                      options={[
+                        { value: 'cash', label: 'Cash' },
+                        { value: 'bank', label: 'Bank Transfer' },
+                        { value: 'upi', label: 'UPI' },
+                        { value: 'card', label: 'Card' },
+                      ]}
+                      placeholder="Payment Method"
+                    />
                   </div>
                   <div>
                     <label className="form-label">Pay Amount (AED)</label>
                     <input type="number" placeholder="0.00" required className="form-input"
                       value={formData.amount}
                       min={0.01}
-                      max={!editingPayment && agentBalance ? Number(agentBalance.totalDue.toFixed(2)) : undefined}
+                      max={!editingPayment && agentBalance ? Number(currentPayableDue.toFixed(2)) : undefined}
                       step="0.01"
-                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                      onKeyDown={(e) => {
+                        if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') {
+                          e.preventDefault()
+                        }
+                      }}
+                      onChange={(e) => handlePayAmountChange(e.target.value)}
                     />
                     {!editingPayment && agentBalance && formData.amount && (() => {
                       const entered = Math.max(0, parseFloat(formData.amount) || 0)
-                      const due = agentBalance.totalDue
+                      const due = currentPayableDue
                       if (entered > due) {
                         return (
                           <p className="text-xs text-red-600 dark:text-red-400 mt-1">Pay Amount cannot exceed AED {due.toFixed(2)}.</p>
@@ -630,34 +922,14 @@ export default function Payments() {
                     })()}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {formData.paymentMethod === 'bank' && (
                   <div>
-                    <label className="form-label">Current Amount to Pay (AED)</label>
-                    <input
-                      type="text"
-                      readOnly
-                      className="form-input bg-gray-100 dark:bg-gray-600/50 cursor-not-allowed"
-                      value={!editingPayment && agentBalance ? agentBalance.totalDue.toFixed(2) : '0.00'}
+                    <label className="form-label">Bank Account</label>
+                    <input type="text" placeholder="Bank Account Number" className="form-input"
+                      value={formData.bankAccount} onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
                     />
                   </div>
-                  <div>
-                    <label className="form-label">Due Amount (AED)</label>
-                    <input
-                      type="text"
-                      readOnly
-                      className="form-input bg-gray-100 dark:bg-gray-600/50 cursor-not-allowed"
-                      value={!editingPayment && agentBalance ? computedDueAfterPay.toFixed(2) : '0.00'}
-                    />
-                  </div>
-                  {formData.paymentMethod === 'bank' && (
-                    <div>
-                      <label className="form-label">Bank Account</label>
-                      <input type="text" placeholder="Bank Account Number" className="form-input"
-                        value={formData.bankAccount} onChange={(e) => setFormData({...formData, bankAccount: e.target.value})}
-                      />
-                    </div>
-                  )}
-                </div>
+                )}
                 <div>
                   <label className="form-label">{t('description')}</label>
                   <textarea placeholder={t('description')} rows={3} className="form-input resize-none"
@@ -674,7 +946,7 @@ export default function Payments() {
                     || !formData.agentId
                     || !formData.amount
                     || !formData.date
-                    || (!editingPayment && (!!agentBalance && ((safePayAmount <= 0) || (safePayAmount > agentBalance.totalDue))))
+                    || (!editingPayment && (!!agentBalance && ((safePayAmount <= 0) || (safePayAmount > currentPayableDue))))
                   }
                   className="dubai-button w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >

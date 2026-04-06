@@ -11,14 +11,10 @@ import { addAuditFields } from '@/lib/audit'
 
 function calcToPayAmount(amount: number, pos: any) {
   const marginPercent = pos?.commissionPercentage || 0
-  const bankChargesPercent = pos?.bankCharges || 0
-  const vatPercent = pos?.vatPercentage || 0
-
   const marginAmount = (amount * marginPercent) / 100
-  const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount = (bankChargesAmount * vatPercent) / 100
 
-  return amount - bankChargesAmount - vatAmount - marginAmount
+  // Keep aligned with reports/settlements formula: To Pay = amount - charges.
+  return amount - marginAmount
 }
 
 export async function GET(request: NextRequest) {

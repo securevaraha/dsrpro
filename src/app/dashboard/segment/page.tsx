@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 interface Segment {
   _id: string
@@ -50,7 +51,7 @@ export default function SegmentsPage() {
   const fetchSegments = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/segments')
+      const response = await fetchWithAuth('/api/segments')
       if (response.ok) {
         const data = await response.json()
         setSegments((data.segments || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
@@ -74,7 +75,7 @@ export default function SegmentsPage() {
     try {
       const url = editingSegment ? `/api/segments/${editingSegment._id}` : '/api/segments'
       const method = editingSegment ? 'PUT' : 'POST'
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -100,7 +101,7 @@ export default function SegmentsPage() {
     if (!deletingSegment) return
     setDeleting(true)
     try {
-      const response = await fetch(`/api/segments/${deletingSegment._id}`, { method: 'DELETE' })
+      const response = await fetchWithAuth(`/api/segments/${deletingSegment._id}`, { method: 'DELETE' })
       const data = await response.json()
       if (response.ok) {
         toast.success('Segment deleted')

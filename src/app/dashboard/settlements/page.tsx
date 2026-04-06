@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { CheckCircle, Clock, XCircle, AlertCircle, Search, FileText, Download } from 'lucide-react'
+import { CheckCircle, AlertCircle, Search, Download, History } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 type PaymentStatus = 'due'
 
@@ -18,6 +19,18 @@ interface UnsettledPayment {
   paymentMethod: string
   description: string
   status: PaymentStatus
+  createdAt: string
+  createdBy?: { name: string }
+}
+
+interface SettlementHistoryItem {
+  _id: string
+  transactionId: string
+  agentId: { _id: string; name: string } | null
+  amount: number
+  paymentMethod: string
+  description: string
+  status: 'completed'
   createdAt: string
   createdBy?: { name: string }
 }
@@ -56,6 +69,7 @@ function formatAEDCompact(value: number): string {
 export default function Settlements() {
   const { t } = useLanguage()
   const [payments, setPayments] = useState<UnsettledPayment[]>([])
+  const [settlementHistory, setSettlementHistory] = useState<SettlementHistoryItem[]>([])
   const [agents, setAgents] = useState<{ _id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [settling, setSettling] = useState(false)
@@ -69,13 +83,14 @@ export default function Settlements() {
 
   useEffect(() => {
     fetchUnsettled()
+    fetchSettlementHistory()
     fetchAgents()
   }, [])
 
   const fetchUnsettled = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/payments/settle')
+      const res = await fetchWithAuth('/api/payments/settle')
       if (!res.ok) throw new Error('Failed to load unsettled items')
       const data = await res.json()
       const all = (data.transactions || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -87,9 +102,34 @@ export default function Settlements() {
     }
   }
 
+  const fetchSettlementHistory = async () => {
+    try {
+      const res = await fetchWithAuth('/api/transactions?type=payment&limit=500')
+      if (!res.ok) return
+      const data = await res.json()
+      const history = (data.transactions || []).filter((t: any) => {
+        if (t.type !== 'payment') return false
+        if (t.status !== 'completed') return false
+        const source = String(t.metadata?.source || '').toLowerCase()
+        return source === 'settlement' || source === 'manual-payment'
+      }).map((t: any) => ({
+        _id: t._id,
+        transactionId: t.transactionId,
+        agentId: t.agentId ? { _id: t.agentId._id || t.agentId, name: t.agentId.name || 'Unknown Agent' } : null,
+        amount: Number(t.amount || 0),
+        paymentMethod: t.paymentMethod || 'cash',
+        description: t.description || 'Settlement payment',
+        status: 'completed' as const,
+        createdAt: t.createdAt,
+        createdBy: t.createdBy ? { name: t.createdBy.name || 'System' } : { name: 'System' },
+      }))
+      setSettlementHistory(history)
+    } catch {}
+  }
+
   const fetchAgents = async () => {
     try {
-      const res = await fetch('/api/users?role=agent')
+      const res = await fetchWithAuth('/api/users?role=agent')
       if (res.ok) {
         const data = await res.json()
         setAgents(data.users || [])
@@ -107,7 +147,7 @@ export default function Settlements() {
     if (!selectedPayment) return
     setSettling(true)
     try {
-      const res = await fetch('/api/payments/settle', {
+      const res = await fetchWithAuth('/api/payments/settle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,6 +161,7 @@ export default function Settlements() {
       setShowSettleModal(false)
       setSelectedPayment(null)
       fetchUnsettled()
+      fetchSettlementHistory()
     } catch {
       toast.error('Failed to settle payment')
     } finally {
@@ -131,15 +172,14 @@ export default function Settlements() {
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
   const filterFields = [
-    { key: 'status', label: 'Status', type: 'select' as const, options: [
-      { value: 'all', label: 'All Statuses' },
-      { value: 'pending', label: 'Pending' },
-      { value: 'due', label: 'Due' },
-      { value: 'failed', label: 'Failed' },
-    ]},
     { key: 'agent', label: 'Agent', type: 'select' as const, options: [
       { value: 'all', label: 'All Agents' },
       ...agents.map(a => ({ value: a._id, label: a.name })),
+    ]},
+    { key: 'status', label: 'Status', type: 'select' as const, options: [
+      { value: 'all', label: 'All Statuses' },
+      { value: 'due', label: 'Due' },
+      { value: 'settled', label: 'Settled' },
     ]},
     { key: 'dateFrom', label: 'Date From', type: 'date' as const },
     { key: 'dateTo', label: 'Date To', type: 'date' as const },
@@ -151,20 +191,29 @@ export default function Settlements() {
       (p.agentId?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId?._id === filters.agent
+    const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'due'
     const pDate = new Date(p.createdAt)
     const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
     const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesAgent && matchesFrom && matchesTo
+    return matchesSearch && matchesAgent && matchesStatus && matchesFrom && matchesTo
+  })
+
+  const historyFiltered = settlementHistory.filter((h) => {
+    const matchesSearch =
+      h.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (h.agentId?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (h.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesAgent = !filters.agent || filters.agent === 'all' || h.agentId?._id === filters.agent
+    const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'settled'
+    const hDate = new Date(h.createdAt)
+    const matchesFrom = !filters.dateFrom || hDate >= new Date(filters.dateFrom)
+    const matchesTo = !filters.dateTo || hDate <= new Date(filters.dateTo + 'T23:59:59')
+    return matchesSearch && matchesAgent && matchesStatus && matchesFrom && matchesTo
   })
 
   const totalAmount = filtered.reduce((s, p) => s + p.amount, 0)
-  const totalOutstandingCompact = formatAEDCompact(totalAmount)
-  const totalOutstandingFull = formatAEDFull(totalAmount)
-  const counts = {
-    pending: 0,
-    due: payments.filter(p => p.status === 'due').length,
-    failed: 0,
-  }
+  const settledAmount = historyFiltered.reduce((s, h) => s + h.amount, 0)
+  const visibleGrandTotal = totalAmount + settledAmount
 
   return (
     <RoleGuard allowedRoles={['admin']}>
@@ -185,6 +234,7 @@ export default function Settlements() {
                   filename: 'settlements_report',
                   sheetName: 'Settlements',
                   columns: [
+                    { key: 'entryType', label: 'Entry Type', width: 16 },
                     { key: 'transactionId', label: 'Batch ID', width: 24 },
                     { key: 'agentName', label: 'Agent', width: 24 },
                     { key: 'date', label: 'Date', width: 16 },
@@ -197,6 +247,7 @@ export default function Settlements() {
                   data: [
                     ...filtered.map(p => ({
                       ...p,
+                      entryType: 'Outstanding',
                       agentName: p.agentId?.name || '—',
                       date: format(new Date(p.createdAt), 'dd-MMM-yyyy'),
                       amount: `AED ${p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -204,15 +255,25 @@ export default function Settlements() {
                       status: p.status === 'due' ? 'Due' : p.status,
                       createdByDate: `${p.createdBy?.name || '—'} | ${format(new Date(p.createdAt), 'dd-MMM-yyyy HH:mm')}`,
                     })),
+                    ...historyFiltered.map(h => ({
+                      ...h,
+                      entryType: 'Settled',
+                      agentName: h.agentId?.name || '—',
+                      date: format(new Date(h.createdAt), 'dd-MMM-yyyy'),
+                      amount: `AED ${h.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      paymentMethod: (h.paymentMethod || '').toUpperCase(),
+                      status: 'Settled',
+                      createdByDate: `${h.createdBy?.name || '—'} | ${format(new Date(h.createdAt), 'dd-MMM-yyyy HH:mm')}`,
+                    })),
                     {
-                      transactionId: `Grand Total (${filtered.length} records)`,
-                      amount: `AED ${totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      transactionId: `Grand Total (${filtered.length + historyFiltered.length} records)`,
+                      amount: `AED ${visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     }
                   ],
                   title: 'Settlements Report',
                   grandTotals: {
                     enabled: true,
-                    summary: `Grand Total: AED ${totalAmount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    summary: `Grand Total: AED ${visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   },
                   isRTL: false
                 })
@@ -223,29 +284,6 @@ export default function Settlements() {
               Export
             </button>
           </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="mt-5 stat-grid">
-          {[
-            {
-              label: 'Total Outstanding',
-              value: totalOutstandingCompact,
-              fullValue: totalOutstandingFull,
-              color: 'text-gray-900 dark:text-white',
-            },
-            { label: 'Pending', value: String(counts.pending), color: 'text-yellow-500 dark:text-yellow-400' },
-            { label: 'Due',     value: String(counts.due),     color: 'text-orange-500 dark:text-orange-400' },
-            { label: 'Failed',  value: String(counts.failed),  color: 'text-red-500 dark:text-red-400' },
-          ].map(({ label, value, color, fullValue }) => (
-            <div key={label} className="stat-card">
-              <span className="stat-card-label">{label}</span>
-              <span className={`stat-card-value ${color}`} title={fullValue || value}>{value}</span>
-              {fullValue && fullValue !== value && (
-                <span className="stat-card-subvalue" title={fullValue}>{fullValue}</span>
-              )}
-            </div>
-          ))}
         </div>
 
         {/* Search + Filter */}
@@ -278,15 +316,15 @@ export default function Settlements() {
         <div className="mt-6">
           {loading ? (
             <TableSkeleton rows={5} columns={6} />
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 && historyFiltered.length === 0 ? (
             <div className="dubai-card text-center py-16">
               <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
               <h3 className="text-base font-medium text-gray-900 dark:text-white mb-1">
-                {payments.length === 0 ? 'All payments are settled' : 'No results match your filters'}
+                {payments.length === 0 && settlementHistory.length === 0 ? 'No settlement data yet' : 'No results match your filters'}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {payments.length === 0
-                  ? 'There are no pending, due, or failed payments at this time.'
+                {payments.length === 0 && settlementHistory.length === 0
+                  ? 'Settlement records will appear here after you settle payments.'
                   : 'Try adjusting your search or filters.'}
               </p>
             </div>
@@ -294,6 +332,9 @@ export default function Settlements() {
             <>
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
+                {filtered.length > 0 && (
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1">Outstanding Settlements</div>
+                )}
                 {filtered.map((p) => {
                   const cfg = statusConfig[p.status]
                   const Icon = cfg.icon
@@ -328,10 +369,36 @@ export default function Settlements() {
                     </div>
                   )
                 })}
+
+                {historyFiltered.length > 0 && (
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1 pt-2">Settlement History</div>
+                )}
+                {historyFiltered.map((h) => (
+                  <div key={h._id} className="dubai-card p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">{h.transactionId}</span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                        <CheckCircle className="h-3 w-3" />Settled
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{h.agentId?.name || '—'}</span>
+                      <span className="text-base font-semibold text-primary">AED {h.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-1">{h.description || 'Settlement payment'}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">{format(new Date(h.createdAt), 'dd-MMM-yyyy')}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${methodColor[h.paymentMethod] || ''}`}>
+                        {h.paymentMethod?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
                 <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length} records)</span>
-                    <span className="text-base font-bold text-primary">AED {filtered.reduce((s, p) => s + p.amount, 0).toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length + historyFiltered.length} records)</span>
+                    <span className="text-base font-bold text-primary">AED {visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
@@ -347,6 +414,11 @@ export default function Settlements() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {filtered.length > 0 && (
+                      <tr className="bg-gray-50 dark:bg-gray-800/50">
+                        <td colSpan={9} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Outstanding Settlements</td>
+                      </tr>
+                    )}
                     {filtered.map((p) => {
                       const cfg = statusConfig[p.status]
                       const Icon = cfg.icon
@@ -387,12 +459,48 @@ export default function Settlements() {
                         </tr>
                       )
                     })}
+
+                    {historyFiltered.length > 0 && (
+                      <tr className="bg-gray-50 dark:bg-gray-800/50">
+                        <td colSpan={9} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                          <span className="inline-flex items-center gap-2"><History className="h-3.5 w-3.5" />Settlement History</span>
+                        </td>
+                      </tr>
+                    )}
+                    {historyFiltered.map((h) => (
+                      <tr key={h._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{h.transactionId}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{h.agentId?.name || '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(h.createdAt), 'dd-MMM-yyyy')}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
+                          AED {h.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${methodColor[h.paymentMethod] || 'bg-gray-100 text-gray-700'}`}>
+                            {h.paymentMethod?.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                            <CheckCircle className="h-3 w-3" />Settled
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                          <div className="meta-compact">
+                            <div className="meta-compact-name">{h.createdBy?.name || 'System'}</div>
+                            <div className="meta-compact-date">{format(new Date(h.createdAt), 'dd-MMM-yyyy HH:mm')}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">{h.description || 'Settlement payment'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-400">—</td>
+                      </tr>
+                    ))}
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                     <tr>
-                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length} records)</td>
+                      <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length + historyFiltered.length} records)</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">
-                        AED {filtered.reduce((s, p) => s + p.amount, 0).toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                        AED {visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
                       </td>
                       <td colSpan={5} />
                     </tr>

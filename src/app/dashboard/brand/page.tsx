@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
 
 interface Brand {
   _id: string
@@ -51,7 +52,7 @@ export default function BrandsPage() {
   const fetchBrands = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/brands')
+      const response = await fetchWithAuth('/api/brands')
       if (response.ok) {
         const data = await response.json()
         setBrands((data.brands || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
@@ -75,7 +76,7 @@ export default function BrandsPage() {
     try {
       const url = editingBrand ? `/api/brands/${editingBrand._id}` : '/api/brands'
       const method = editingBrand ? 'PUT' : 'POST'
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -101,7 +102,7 @@ export default function BrandsPage() {
     if (!deletingBrand) return
     setDeleting(true)
     try {
-      const response = await fetch(`/api/brands/${deletingBrand._id}`, { method: 'DELETE' })
+      const response = await fetchWithAuth(`/api/brands/${deletingBrand._id}`, { method: 'DELETE' })
       const data = await response.json()
       if (response.ok) {
         toast.success('Brand deleted')

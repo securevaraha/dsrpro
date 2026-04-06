@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
 import { DatePicker } from '@/components/ui/date-picker'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 export interface FilterField {
   key: string
@@ -90,15 +91,13 @@ export function FilterPanel({ open, onClose, fields, values, onChange, onReset, 
                 {field.label}
               </label>
               {field.type === 'select' ? (
-                <select
-                  className="form-select text-sm"
+                <SearchableSelect
+                  className="text-sm"
                   value={values[field.key] ?? 'all'}
-                  onChange={(e) => onChange(field.key, e.target.value)}
-                >
-                  {field.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                  onChange={(value) => onChange(field.key, value)}
+                  options={field.options || []}
+                  placeholder={field.label}
+                />
               ) : field.type === 'date' ? (
                 <DatePicker
                   value={values[field.key] ?? ''}

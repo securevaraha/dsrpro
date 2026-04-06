@@ -9,6 +9,8 @@ import { TableSkeleton } from '@/components/ui/skeleton'
 import { DatePicker } from '@/components/ui/date-picker'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { Search } from 'lucide-react'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 function safeAmount(value: number): number {
   const num = Number(value)
@@ -71,8 +73,8 @@ export default function Reports() {
   useEffect(() => { fetchReportData() }, [reportType, dateRange, currentPage, itemsPerPage])
 
   useEffect(() => {
-    fetch('/api/users?role=agent').then(r => r.ok ? r.json() : null).then(d => d && setAgents(d.users || []))
-    fetch('/api/pos-machines').then(r => r.ok ? r.json() : null).then(d => d && setPosMachines(d.machines || []))
+    fetchWithAuth('/api/users?role=agent').then(r => r.ok ? r.json() : null).then(d => d && setAgents(d.users || []))
+    fetchWithAuth('/api/pos-machines').then(r => r.ok ? r.json() : null).then(d => d && setPosMachines(d.machines || []))
   }, [])
 
   const fetchReportData = async () => {
@@ -86,7 +88,7 @@ export default function Reports() {
         ...(startDate && { startDate }),
         ...(endDate && { endDate }),
       })
-      const res = await fetch(`/api/reports?${params}`)
+      const res = await fetchWithAuth(`/api/reports?${params}`)
       if (res.ok) {
         const data = await res.json()
         setReportData(data)
@@ -146,12 +148,12 @@ export default function Reports() {
           netReceived: toMoney(netReceived),
           toPay: toMoney(toPay),
           paid: toMoney(received),
-          balance: remaining > 0.01 ? toMoney(remaining) : '0.00',
+          balance: remaining > 0.01 ? toMoney(remaining) : 'AED 0.00',
           toReceive: toMoney(toPay),
           received: toMoney(received),
           settlementAmount: toMoney(settled),
-          remainingReceive: remaining > 0.01 ? toMoney(remaining) : '0.00',
-          due: remaining > 0.01 ? toMoney(remaining) : '0.00',
+          remainingReceive: remaining > 0.01 ? toMoney(remaining) : 'AED 0.00',
+          due: remaining > 0.01 ? toMoney(remaining) : 'AED 0.00',
           netProfit: toMoney(isAdmin ? margin : received),
           method: (r.paymentMethod || '').toUpperCase(),
           status: r.status ? String(r.status).charAt(0).toUpperCase() + String(r.status).slice(1) : 'Completed',
@@ -656,24 +658,34 @@ export default function Reports() {
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Report Type
           </label>
-          <select className="form-select" value={reportType} onChange={(e) => setReportType(e.target.value)}>
-            <option value="summary">Summary Report</option>
-            <option value="receipts">Receipts Report</option>
-            <option value="payments">Payments Report</option>
-            <option value="settlements">Settlements Report</option>
-          </select>
+          <SearchableSelect
+            value={reportType}
+            onChange={(value) => setReportType(value)}
+            options={[
+              { value: 'summary', label: 'Summary Report' },
+              { value: 'receipts', label: 'Receipts Report' },
+              { value: 'payments', label: 'Payments Report' },
+              { value: 'settlements', label: 'Settlements Report' },
+            ]}
+            placeholder="Report Type"
+          />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Date Range
           </label>
-          <select className="form-select" value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">{t('monthlyReport')}</option>
-            <option value="year">{t('yearlyReport')}</option>
-            <option value="custom">Custom Range</option>
-          </select>
+          <SearchableSelect
+            value={dateRange}
+            onChange={(value) => setDateRange(value)}
+            options={[
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: t('monthlyReport') },
+              { value: 'year', label: t('yearlyReport') },
+              { value: 'custom', label: 'Custom Range' },
+            ]}
+            placeholder="Date Range"
+          />
         </div>
         {dateRange === 'custom' && (
           <>
@@ -806,7 +818,7 @@ export default function Reports() {
                     const paidAmount = Number(item.paid ?? item.paidAmount ?? 0)
                     const dueAmount = Number(item.balance ?? item.dueAmount ?? (toPayAmount - paidAmount))
                     const isFullyPaid = paidAmount >= toPayAmount - 0.01
-                    const paidDisplay = isFullyPaid ? 'Paid' : (paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—')
+                    const paidDisplay = isFullyPaid ? `AED ${toPayAmount.toFixed(2)}` : (paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—')
                     const batchId = item.batchId || item.receiptNumber || item.transactionId || '—'
                     const posMachine = item.posMachine
                       || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')
@@ -828,9 +840,7 @@ export default function Reports() {
                         <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {marginAmount.toFixed(2)}</td>
                         <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{paidDisplay}</td>
                         <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
-                          <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>
-                            {dueAmount > 0.01 ? `AED ${dueAmount.toFixed(2)}` : '✓ Paid'}
-                          </span>
+                          <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>{`AED ${Math.max(0, dueAmount).toFixed(2)}`}</span>
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           <div className="meta-compact">
@@ -920,9 +930,7 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
-                            <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>
-                              {dueAmount > 0.01 ? `AED ${dueAmount.toFixed(2)}` : '✓ Paid'}
-                            </span>
+                            <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>{`AED ${Math.max(0, dueAmount).toFixed(2)}`}</span>
                           </td>
                           <td className="px-3 py-3 text-sm whitespace-nowrap">
                             <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
@@ -1012,9 +1020,7 @@ export default function Reports() {
                             {paid > 0 ? paid.toFixed(2) : '—'}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
-                            <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>
-                              {due > 0.01 ? due.toFixed(2) : '✓ Paid'}
-                            </span>
+                            <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>{`AED ${Math.max(0, due).toFixed(2)}`}</span>
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.createdBy || 'System'}
@@ -1159,20 +1165,24 @@ export default function Reports() {
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-gray-500 dark:text-gray-400">Items per page:</label>
-                  <select 
-                    value={itemsPerPage} 
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value))
-                      setCurrentPage(1) // Reset to first page when changing page size
-                    }}
-                    className="form-select text-sm py-1 px-2 min-w-0 w-20"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
+                  <div className="w-24">
+                    <SearchableSelect
+                      value={String(itemsPerPage)}
+                      onChange={(value) => {
+                        setItemsPerPage(Number(value))
+                        setCurrentPage(1)
+                      }}
+                      options={[
+                        { value: '5', label: '5' },
+                        { value: '10', label: '10' },
+                        { value: '25', label: '25' },
+                        { value: '50', label: '50' },
+                        { value: '100', label: '100' },
+                      ]}
+                      placeholder="5"
+                      className="text-sm"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">

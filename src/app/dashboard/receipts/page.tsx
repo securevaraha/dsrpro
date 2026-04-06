@@ -10,6 +10,8 @@ import { ImagePreviewModal } from '@/components/ImagePreviewModal'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { DatePicker } from '@/components/ui/date-picker'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 interface Receipt {
   _id: string
@@ -93,7 +95,7 @@ export default function Receipts() {
   const fetchReceipts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/transactions?type=receipt&limit=500')
+      const response = await fetchWithAuth('/api/transactions?type=receipt&limit=500')
       if (response.ok) {
         const data = await response.json()
         const formattedReceipts = data.transactions.map((t: any) => ({
@@ -122,7 +124,7 @@ export default function Receipts() {
 
   const fetchAgents = async () => {
     try {
-      const response = await fetch('/api/users?role=agent')
+      const response = await fetchWithAuth('/api/users?role=agent')
       if (response.ok) {
         const data = await response.json()
         setAgents(data.users || [])
@@ -132,7 +134,7 @@ export default function Receipts() {
 
   const fetchPosMachines = async () => {
     try {
-      const response = await fetch('/api/pos-machines')
+      const response = await fetchWithAuth('/api/pos-machines')
       if (response.ok) {
         const data = await response.json()
         setPosMachines(data.machines || [])
@@ -797,22 +799,31 @@ export default function Receipts() {
                 {isAdmin && (
                   <div>
                     <label className="form-label">Agent *</label>
-                    <select required className="form-select" value={formData.agentId} onChange={(e) => setFormData({...formData, agentId: e.target.value, posMachine: ''})}>
-                      <option value="">Select Agent</option>
-                      {agents.map(agent => <option key={agent._id} value={agent._id}>{agent.name}</option>)}
-                    </select>
+                    <SearchableSelect
+                      value={formData.agentId}
+                      onChange={(value) => setFormData({ ...formData, agentId: value, posMachine: '' })}
+                      options={[
+                        { value: '', label: 'Select Agent' },
+                        ...agents.map((agent) => ({ value: agent._id, label: agent.name })),
+                      ]}
+                      placeholder="Select Agent"
+                    />
                   </div>
                 )}
                 <div>
                   <label className="form-label">POS Machine *</label>
-                  <select required className="form-select" value={formData.posMachine} onChange={(e) => setFormData({...formData, posMachine: e.target.value})}>
-                    <option value="">Select POS Machine</option>
-                    {availablePosMachines.map(m => (
-                        <option key={m._id} value={m._id}>
-                          {m.segment} / {m.brand} — {m.terminalId}{m.status !== 'active' ? ` (${m.status})` : ''}
-                        </option>
-                      ))}
-                  </select>
+                  <SearchableSelect
+                    value={formData.posMachine}
+                    onChange={(value) => setFormData({ ...formData, posMachine: value })}
+                    options={[
+                      { value: '', label: 'Select POS Machine' },
+                      ...availablePosMachines.map((m) => ({
+                        value: m._id,
+                        label: `${m.segment} / ${m.brand} — ${m.terminalId}${m.status !== 'active' ? ` (${m.status})` : ''}`,
+                      })),
+                    ]}
+                    placeholder="Select POS Machine"
+                  />
                   {isAdmin && !editingReceipt && !formData.agentId
                     ? <p className="text-xs text-amber-500 mt-1">Select an agent first to view assigned POS machines</p>
                     : availablePosMachines.length === 0

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
   await connectDB()
 
-  const { agentId, amount, paymentMethod, description, date } = await request.json()
+  const { agentId, amount, paymentMethod, description, date, receiptId } = await request.json()
 
   if (!agentId || !amount || amount <= 0) {
     return NextResponse.json({ error: 'agentId and positive amount required' }, { status: 400 })
@@ -22,8 +22,22 @@ export async function POST(request: NextRequest) {
     .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
     .sort({ createdAt: 1 })
 
+  if (receiptId) {
+    const selected = receipts.find((r: any) => r._id.toString() === String(receiptId))
+    if (!selected) {
+      return NextResponse.json({ error: 'Selected receipt not found for this agent' }, { status: 400 })
+    }
+  }
+
   let outstandingDueBefore = 0
-  for (const r of receipts as any[]) {
+  const orderedReceipts = (() => {
+    if (!receiptId) return receipts as any[]
+    const target = (receipts as any[]).find((r) => r._id.toString() === String(receiptId))
+    const rest = (receipts as any[]).filter((r) => r._id.toString() !== String(receiptId))
+    return target ? [target, ...rest] : (receipts as any[])
+  })()
+
+  for (const r of orderedReceipts as any[]) {
     const fin = calcReceiptFinancials(r.amount || 0, r.posMachine)
     const alreadyPaid = Math.min(r.paidAmount || 0, fin.toPayAmount)
     const alreadySettled = Math.min(r.settlementAmount || 0, Math.max(0, fin.toPayAmount - alreadyPaid))
@@ -85,6 +99,7 @@ export async function POST(request: NextRequest) {
     metadata: {
       paymentNumber: paymentTxId,
       source: 'manual-payment',
+      sourceReceiptId: receiptId || null,
       outstandingDueBefore,
       outstandingDueAfter,
     },
