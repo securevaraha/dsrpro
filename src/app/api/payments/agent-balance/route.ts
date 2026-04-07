@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
+import '@/models/POSMachine'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 
 // Shared calculation — single source of truth used everywhere

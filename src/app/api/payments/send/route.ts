@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Transaction from '@/models/Transaction'
 import Notification from '@/models/Notification'
+import '@/models/POSMachine'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { calcReceiptFinancials } from '../agent-balance/route'
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Session from '@/models/Session'
+import '@/models/User'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { getActiveSessions, cleanupExpiredSessions } from '@/lib/sessionCleanup'
 

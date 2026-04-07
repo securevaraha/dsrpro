@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Segment from '@/models/Segment'
+import '@/models/User'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ segments })
   } catch (error) {
+    console.error('GET /api/segments error:', error)
     return NextResponse.json({ error: 'Failed to fetch segments' }, { status: 500 })
   }
 }

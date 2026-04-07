@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Brand from '@/models/Brand'
+import '@/models/User'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ brands })
   } catch (error) {
+    console.error('GET /api/brands error:', error)
     return NextResponse.json({ error: 'Failed to fetch brands' }, { status: 500 })
   }
 }

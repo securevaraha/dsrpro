@@ -4,6 +4,7 @@ import Transaction from '@/models/Transaction'
 import MerchantSettlement from '@/models/MerchantSettlement'
 import User from '@/models/User'
 import Client from '@/models/Client'
+import '@/models/POSMachine'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 
 // ─── Single source of truth for all financial calculations ───────────────────

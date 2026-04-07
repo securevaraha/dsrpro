@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import connectDB from '@/lib/mongodb'
 import POSMachine from '@/models/POSMachine'
 import Notification from '@/models/Notification'
+import '@/models/User'
 import { requireRole, requireAuth, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 

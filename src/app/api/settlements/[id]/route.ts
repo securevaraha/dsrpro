@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import MerchantSettlement from '@/models/MerchantSettlement'
+import '@/models/User'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
 

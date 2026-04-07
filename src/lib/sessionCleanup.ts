@@ -1,5 +1,6 @@
 import connectDB from '@/lib/mongodb'
 import Session from '@/models/Session'
+import '@/models/User'
 
 const SESSION_TIMEOUT = 10 * 60 * 1000 // 10 minutes in milliseconds
 
