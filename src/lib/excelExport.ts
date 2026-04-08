@@ -120,23 +120,19 @@ export const exportToExcel = ({
   
   // Add borders and center text to all data cells
   const dataStartRow = title ? 3 : 1
-  const grandTotalRowIndex = dataStartRow + data.length - 1
   
   for (let row = dataStartRow; row < dataStartRow + data.length; row++) {
     columns.forEach((_, colIndex) => {
       const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex })
       if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' }
       
-      const isGrandTotalRow = grandTotals?.enabled && row === grandTotalRowIndex
       const isAlternate = (row - dataStartRow) % 2 === 1
       
       worksheet[cellAddress].s = {
-        fill: isGrandTotalRow 
-          ? { fgColor: { rgb: 'FEF3C7' } } // Yellow background for grand total
-          : isAlternate 
+        fill: isAlternate 
             ? { fgColor: { rgb: 'F9FAFB' } } 
             : { fgColor: { rgb: 'FFFFFF' } },
-        font: isGrandTotalRow ? { bold: true, color: { rgb: '92400E' } } : {},
+        font: {},
         border: tableBorder,
         alignment: { 
           horizontal: 'center',
@@ -153,14 +149,19 @@ export const exportToExcel = ({
   // Add grand totals summary if provided
   if (grandTotals?.enabled && grandTotals.summary) {
     const summaryRowIndex = dataStartRow + data.length + 1
+    columns.forEach((_, colIndex) => {
+      const summaryAddress = XLSX.utils.encode_cell({ r: summaryRowIndex, c: colIndex })
+      if (!worksheet[summaryAddress]) worksheet[summaryAddress] = { v: '' }
+      worksheet[summaryAddress].s = {
+        font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
+        fill: { fgColor: { rgb: 'F3F4F6' } },
+        border: tableBorder,
+        alignment: { horizontal: 'center', vertical: 'center' }
+      }
+    })
+
     const summaryCell = XLSX.utils.encode_cell({ r: summaryRowIndex, c: 0 })
     worksheet[summaryCell] = { v: grandTotals.summary }
-    worksheet[summaryCell].s = {
-      font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
-      fill: { fgColor: { rgb: 'F3F4F6' } },
-      border: tableBorder,
-      alignment: { horizontal: 'center', vertical: 'center' }
-    }
     
     // Merge the summary across all columns
     if (!worksheet['!merges']) worksheet['!merges'] = []
@@ -292,23 +293,19 @@ export const exportMultiSheetExcel = ({
     
     // Add borders and styling to all data cells
     const dataStartRow = sheet.title ? 3 : 1
-    const grandTotalRowIndex = dataStartRow + sheet.data.length - 1
     
     for (let row = dataStartRow; row < dataStartRow + sheet.data.length; row++) {
       columns.forEach((_, colIndex) => {
         const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex })
         if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' }
         
-        const isGrandTotalRow = sheet.grandTotals?.enabled && row === grandTotalRowIndex
         const isAlternate = (row - dataStartRow) % 2 === 1
         
         worksheet[cellAddress].s = {
-          fill: isGrandTotalRow 
-            ? { fgColor: { rgb: 'FEF3C7' } }
-            : isAlternate 
+          fill: isAlternate 
               ? { fgColor: { rgb: 'F9FAFB' } } 
               : { fgColor: { rgb: 'FFFFFF' } },
-          font: isGrandTotalRow ? { bold: true, color: { rgb: '92400E' } } : {},
+          font: {},
           border: tableBorder,
           alignment: { 
             horizontal: 'center',
@@ -326,14 +323,19 @@ export const exportMultiSheetExcel = ({
     // Add grand totals summary if provided
     if (sheet.grandTotals?.enabled && sheet.grandTotals.summary) {
       const summaryRowIndex = dataStartRow + sheet.data.length + 1
+      columns.forEach((_, colIndex) => {
+        const summaryAddress = XLSX.utils.encode_cell({ r: summaryRowIndex, c: colIndex })
+        if (!worksheet[summaryAddress]) worksheet[summaryAddress] = { v: '' }
+        worksheet[summaryAddress].s = {
+          font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
+          fill: { fgColor: { rgb: 'F3F4F6' } },
+          border: tableBorder,
+          alignment: { horizontal: 'center', vertical: 'center' }
+        }
+      })
+
       const summaryCell = XLSX.utils.encode_cell({ r: summaryRowIndex, c: 0 })
       worksheet[summaryCell] = { v: sheet.grandTotals.summary }
-      worksheet[summaryCell].s = {
-        font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
-        fill: { fgColor: { rgb: 'F3F4F6' } },
-        border: tableBorder,
-        alignment: { horizontal: 'center', vertical: 'center' }
-      }
       
       // Merge the summary across all columns
       if (!worksheet['!merges']) worksheet['!merges'] = []

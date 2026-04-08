@@ -360,11 +360,7 @@ export default function Settlements() {
                       paymentMethod: (h.paymentMethod || '').toUpperCase(),
                       status: 'Settled',
                       createdByDate: `${h.createdBy?.name || '—'} | ${format(new Date(h.createdAt), 'dd-MMM-yyyy HH:mm')}`,
-                    })),
-                    {
-                      transactionId: `Grand Total (${filtered.length + historyFiltered.length} records)`,
-                      amount: Number(visibleGrandTotal.toFixed(2)),
-                    }
+                    }))
                   ],
                   title: 'Settlements Report',
                   grandTotals: {

@@ -269,18 +269,14 @@ export default function Reports() {
       const mapped = dataToExport.map(normalizeRow)
       const moneyKey = ['receiptAmount', 'amount', 'toReceive', 'received', 'remainingReceive'].find(k => columns.some((c: any) => c.key === k))
 
-      const withGrandTotal = (rows: any[]) => {
-        if (!moneyKey) return rows
+      const getGrandTotalSummary = (rows: any[]) => {
+        if (!moneyKey) return undefined
         const total = rows.reduce((sum: number, row: any) => {
           const value = Number(row[moneyKey] || 0)
           return sum + value
         }, 0)
-        const totalRow: any = { batchId: `Grand Total (${rows.length} records)` }
-        totalRow[moneyKey] = Number(total.toFixed(2))
-        return [...rows, totalRow]
+        return `Grand Total: ${formatAmount(total)}`
       }
-
-      const mappedWithTotal = withGrandTotal(mapped)
 
       if (isAdmin) {
         const grouped: Record<string, any[]> = mapped.reduce((acc: Record<string, any[]>, row: any) => {
@@ -294,15 +290,21 @@ export default function Reports() {
         const sheets = [
           {
             sheetName: 'All Agents Summary',
-            data: mappedWithTotal,
+            data: mapped,
             title: `${reportType.toUpperCase()} Report - All Agents - ${dateRange}`,
-            grandTotals: { enabled: !!moneyKey }
+            grandTotals: {
+              enabled: !!moneyKey,
+              summary: getGrandTotalSummary(mapped)
+            }
           },
           ...groupedEntries.map(([agentName, rows]) => ({
             sheetName: agentName.length > 25 ? `${agentName.slice(0, 25)}...` : agentName,
-            data: withGrandTotal(rows),
+            data: rows,
             title: `${reportType.toUpperCase()} Report - ${agentName} - ${dateRange}`,
-            grandTotals: { enabled: !!moneyKey }
+            grandTotals: {
+              enabled: !!moneyKey,
+              summary: getGrandTotalSummary(rows)
+            }
           })),
         ]
 
@@ -317,16 +319,17 @@ export default function Reports() {
           filename: `${reportType}_report`,
           sheetName: `${reportType.toUpperCase()} Report`,
           columns,
-          data: mappedWithTotal,
+          data: mapped,
           title: `${reportType.toUpperCase()} Report - ${dateRange}`,
           grandTotals: {
             enabled: !!moneyKey,
+            summary: getGrandTotalSummary(mapped)
           },
           isRTL: false,
         })
       }
 
-      toast.success(`Report exported (${mapped.length} records)`)
+  toast.success(`Report exported (${mapped.length} records)`)
     } else {
       toast.success('PDF export functionality coming soon')
     }

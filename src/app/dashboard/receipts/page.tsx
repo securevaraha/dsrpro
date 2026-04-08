@@ -437,11 +437,7 @@ export default function Receipts() {
             createdByDate: `${r.createdBy || '—'} | ${r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}`,
             updatedByDate: `${r.updatedBy || '—'} | ${r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}`
           }
-        }),
-        {
-          receiptNumber: `Grand Total (${filteredReceipts.length} records)`,
-          amount: Number(grandTotal.toFixed(2)),
-        }
+          })
       ],
       title: t('receiptsReport'),
       grandTotals: {

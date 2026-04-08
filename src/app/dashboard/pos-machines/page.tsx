@@ -395,7 +395,7 @@ export default function POSMachines() {
                       { key: 'merchantId', label: 'Merchant', width: 18 },
                       { key: 'agentName', label: 'Agent Name', width: 24 },
                       { key: 'deviceType', label: 'Device', width: 18 },
-                      { key: 'commissionPercentage', label: 'Margin', width: 14 },
+                      { key: 'commissionPercentage', label: 'Charges (%)', width: 14 },
                       { key: 'bankCharges', label: 'Bank Charges', width: 14 },
                       { key: 'vatPercentage', label: 'VAT', width: 12 },
                       { key: 'location', label: 'Location', width: 20 },

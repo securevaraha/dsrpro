@@ -475,11 +475,7 @@ export default function Payments() {
                     status: p.status === 'due' ? 'Due' : p.status.charAt(0).toUpperCase() + p.status.slice(1),
                     amount: Number(p.amount.toFixed(2)),
                     createdByDate: `${p.createdBy?.name || 'System'} | ${format(new Date(p.createdAt || p.date), 'dd-MMM-yyyy HH:mm')}`
-                  })),
-                  {
-                    paymentNumber: `Grand Total (${rows.length} records)`,
-                    amount: Number(grandTotal.toFixed(2)),
-                  }
+                  }))
                 ],
                 title: t('paymentsReport'),
                 grandTotals: {
