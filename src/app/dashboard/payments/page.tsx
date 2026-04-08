@@ -45,6 +45,10 @@ interface DuePaymentEntry {
 
 type PaymentRow = (Payment & { rowType: 'completed' }) | (DuePaymentEntry & { rowType: 'due' })
 
+function formatAmount(value: number): string {
+  return Number(value || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 export default function Payments() {
   const { t } = useLanguage()
   const [payments, setPayments] = useState<Payment[]>([])
@@ -197,7 +201,7 @@ export default function Payments() {
           throw new Error('No due amount available for this agent')
         }
         if (payAmount > totalDue) {
-          throw new Error(`Pay Amount cannot exceed total due (AED ${totalDue.toFixed(2)})`)
+          throw new Error(`Pay Amount cannot exceed total due (${formatAmount(totalDue)})`)
         }
 
         const sendRes = await fetchWithAuth('/api/payments/send', {
@@ -215,9 +219,9 @@ export default function Payments() {
         if (sendRes.ok) {
           const sendData = await sendRes.json()
           if ((sendData.unappliedAmount || 0) > 0.01) {
-            toast.success(`Applied AED ${sendData.appliedAmount.toFixed(2)}. AED ${sendData.unappliedAmount.toFixed(2)} was not applied (no pending due). Remaining due: AED ${sendData.outstandingDueAfter.toFixed(2)}`)
+            toast.success(`Applied ${formatAmount(sendData.appliedAmount)}. ${formatAmount(sendData.unappliedAmount)} was not applied (no pending due). Remaining due: ${formatAmount(sendData.outstandingDueAfter)}`)
           } else if ((sendData.outstandingDueAfter || 0) > 0.01) {
-            toast.success(`Payment sent. Remaining due: AED ${sendData.outstandingDueAfter.toFixed(2)}`)
+            toast.success(`Payment sent. Remaining due: ${formatAmount(sendData.outstandingDueAfter)}`)
           } else {
             toast.success('Payment sent successfully. All dues are cleared.')
           }
@@ -469,18 +473,18 @@ export default function Payments() {
                     date: format(new Date(p.date), 'dd-MMM-yyyy'),
                     paymentMethod: p.rowType === 'due' ? 'RECEIPT DUE' : p.paymentMethod.toUpperCase(),
                     status: p.status === 'due' ? 'Due' : p.status.charAt(0).toUpperCase() + p.status.slice(1),
-                    amount: `AED ${p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    amount: Number(p.amount.toFixed(2)),
                     createdByDate: `${p.createdBy?.name || 'System'} | ${format(new Date(p.createdAt || p.date), 'dd-MMM-yyyy HH:mm')}`
                   })),
                   {
                     paymentNumber: `Grand Total (${rows.length} records)`,
-                    amount: `AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    amount: Number(grandTotal.toFixed(2)),
                   }
                 ],
                 title: t('paymentsReport'),
                 grandTotals: {
                   enabled: true,
-                  summary: `Grand Total: AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  summary: `Grand Total: ${formatAmount(grandTotal)}`
                 },
                 isRTL: false
               })
@@ -562,7 +566,7 @@ export default function Payments() {
                   </div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-500 dark:text-gray-400">{payment.agentName}</span>
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">AED {payment.amount.toLocaleString()}</span>
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">{formatAmount(payment.amount)}</span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{payment.description}</p>
                   <div className="flex items-center justify-between">
@@ -618,7 +622,7 @@ export default function Payments() {
                   </div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-500 dark:text-gray-400">{payment.agentName}</span>
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">AED {payment.amount.toLocaleString()}</span>
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">{formatAmount(payment.amount)}</span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{payment.description}</p>
                   <div className="flex items-center justify-between">
@@ -647,7 +651,7 @@ export default function Payments() {
               <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({rows.length} records)</span>
-                  <span className="text-base font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-base font-bold text-primary">{formatAmount(grandTotal)}</span>
                 </div>
               </div>
             </div>
@@ -695,7 +699,7 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
-                        AED {payment.amount.toLocaleString()}
+                        {formatAmount(payment.amount)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         <div className="meta-compact">
@@ -771,7 +775,7 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
-                        AED {payment.amount.toLocaleString()}
+                        {formatAmount(payment.amount)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         <div className="meta-compact">
@@ -809,7 +813,7 @@ export default function Payments() {
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                   <tr>
                     <td colSpan={5} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({rows.length} records)</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">{formatAmount(grandTotal)}</td>
                     <td colSpan={3} />
                   </tr>
                 </tfoot>
@@ -885,16 +889,16 @@ export default function Payments() {
                         {selectedDueReceiptId && (
                           <div className="flex justify-between border-b border-blue-100 dark:border-blue-800 pb-0.5 mb-0.5">
                             <span className="text-gray-500">Selected Receipt Due:</span>
-                            <span className="font-semibold text-gray-800 dark:text-gray-200">AED {currentPayableDue.toFixed(2)}</span>
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{formatAmount(currentPayableDue)}</span>
                           </div>
                         )}
                         <div className="flex justify-between">
                           <span className="text-gray-500">Open Outstanding Due:</span>
-                          <span className="font-semibold text-red-600">AED {currentPayableDue.toFixed(2)}</span>
+                          <span className="font-semibold text-red-600">{formatAmount(currentPayableDue)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Due After This Payment:</span>
-                          <span className="font-semibold text-amber-600">AED {computedDueAfterPay.toFixed(2)}</span>
+                          <span className="font-semibold text-amber-600">{formatAmount(computedDueAfterPay)}</span>
                         </div>
                       </div>
                     )}
@@ -933,12 +937,12 @@ export default function Payments() {
                       const due = currentPayableDue
                       if (entered > due) {
                         return (
-                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">Pay Amount cannot exceed AED {due.toFixed(2)}.</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">Pay Amount cannot exceed {formatAmount(due)}.</p>
                         )
                       }
                       const remaining = due - entered
                       if (remaining > 0) return (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠ After this payment, AED {remaining.toFixed(2)} will still be due.</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠ After this payment, {formatAmount(remaining)} will still be due.</p>
                       )
                       if (remaining <= 0 && entered > 0) return (
                         <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ This covers the full outstanding amount.</p>

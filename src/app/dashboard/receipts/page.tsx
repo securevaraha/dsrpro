@@ -37,6 +37,10 @@ interface Receipt {
   createdAt?: string
 }
 
+function formatAmount(value: number): string {
+  return Number(value || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 export default function Receipts() {
   const { t } = useLanguage()
   const { user } = useCurrentUser()
@@ -423,23 +427,26 @@ export default function Receipts() {
             agent: r.agent || '—',
             date: format(new Date(r.date), 'dd-MMM-yyyy'),
             posMachineInfo: r.posMachine ? `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
-            charges: marginAmt != null ? `AED ${marginAmt.toFixed(2)} (${r.posMachine!.commissionPercentage}%)` : '',
-            bankCharges: bankChargesAmt != null ? `AED ${bankChargesAmt.toFixed(2)} (${r.posMachine!.bankCharges}%)` : '',
-            vat: vatAmt != null ? `AED ${vatAmt.toFixed(2)} (${r.posMachine!.vatPercentage}%)` : '',
-            amount: `AED ${r.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            chargesPercent: r.posMachine?.commissionPercentage != null ? Number(r.posMachine.commissionPercentage).toFixed(2) : '',
+            charges: marginAmt != null ? Number(marginAmt.toFixed(2)) : '',
+            bankChargesPercent: r.posMachine?.bankCharges != null ? Number(r.posMachine.bankCharges).toFixed(2) : '',
+            bankCharges: bankChargesAmt != null ? Number(bankChargesAmt.toFixed(2)) : '',
+            vatPercent: r.posMachine?.vatPercentage != null ? Number(r.posMachine.vatPercentage).toFixed(2) : '',
+            vat: vatAmt != null ? Number(vatAmt.toFixed(2)) : '',
+            amount: Number(r.amount.toFixed(2)),
             createdByDate: `${r.createdBy || '—'} | ${r.createdAt ? format(new Date(r.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}`,
             updatedByDate: `${r.updatedBy || '—'} | ${r.updatedAt ? format(new Date(r.updatedAt), 'dd-MMM-yyyy HH:mm') : '—'}`
           }
         }),
         {
           receiptNumber: `Grand Total (${filteredReceipts.length} records)`,
-          amount: `AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          amount: Number(grandTotal.toFixed(2)),
         }
       ],
       title: t('receiptsReport'),
       grandTotals: {
         enabled: true,
-        summary: `Grand Total: AED ${grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        summary: `Grand Total: ${formatAmount(grandTotal)}`
       },
       isRTL: false
     })
@@ -530,7 +537,7 @@ export default function Receipts() {
                     <div>
                       <span className="text-xs text-gray-400">{format(new Date(receipt.date), 'dd-MMM-yyyy')}</span>
                     </div>
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">{formatAmount(receipt.amount)}</span>
                   </div>
                   {/* Preview section for mobile */}
                   {receipt.attachments && receipt.attachments.length > 0 && (
@@ -609,7 +616,7 @@ export default function Receipts() {
               <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</span>
-                  <span className="text-base font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-base font-bold text-primary">{formatAmount(grandTotal)}</span>
                 </div>
               </div>
             </div>
@@ -620,7 +627,7 @@ export default function Receipts() {
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     {['Batch ID', ...(isAdmin ? ['Agent'] : []), 'POS Machine', t('date'), 'Receipt Amount',
-                      ...(isAdmin ? ['Bank Charges', 'VAT', 'Charges', 'Created By / Date', 'Updated By / Date'] : []),
+                      ...(isAdmin ? ['Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'VAT %', 'VAT', 'Created By / Date', 'Updated By / Date'] : []),
                       t('description'), 'Preview', t('actions')
                     ].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -647,13 +654,33 @@ export default function Receipts() {
                         {format(new Date(receipt.date), 'dd-MMM-yyyy')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
-                        AED {receipt.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatAmount(receipt.amount)}
                       </td>
                       {isAdmin && (
                         <>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            {receipt.posMachine?.commissionPercentage != null
+                              ? `${Number(receipt.posMachine.commissionPercentage).toFixed(2)}%`
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            {receipt.posMachine?.commissionPercentage != null
+                              ? formatAmount(receipt.amount * receipt.posMachine.commissionPercentage / 100)
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {receipt.posMachine?.bankCharges != null
-                              ? `AED ${(receipt.amount * receipt.posMachine.bankCharges / 100).toFixed(2)} (${receipt.posMachine.bankCharges}%)`
+                              ? `${Number(receipt.posMachine.bankCharges).toFixed(2)}%`
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            {receipt.posMachine?.bankCharges != null
+                              ? formatAmount(receipt.amount * receipt.posMachine.bankCharges / 100)
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                            {receipt.posMachine?.vatPercentage != null
+                              ? `${Number(receipt.posMachine.vatPercentage).toFixed(2)}%`
                               : '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
@@ -663,13 +690,8 @@ export default function Receipts() {
                                     ? (receipt.amount * receipt.posMachine.bankCharges / 100)
                                     : 0
                                   const vatAmount = bankChargesAmount * receipt.posMachine.vatPercentage / 100
-                                  return `AED ${vatAmount.toFixed(2)} (${receipt.posMachine.vatPercentage}%)`
+                                  return formatAmount(vatAmount)
                                 })()
-                              : '—'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {receipt.posMachine?.commissionPercentage != null
-                              ? `AED ${(receipt.amount * receipt.posMachine.commissionPercentage / 100).toFixed(2)} (${receipt.posMachine.commissionPercentage}%)`
                               : '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
@@ -781,8 +803,8 @@ export default function Receipts() {
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                   <tr>
                     <td colSpan={isAdmin ? 4 : 3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">AED {grandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td colSpan={isAdmin ? 8 : 3} />
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">{formatAmount(grandTotal)}</td>
+                    <td colSpan={isAdmin ? 11 : 3} />
                   </tr>
                 </tfoot>
               </table>

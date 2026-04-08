@@ -69,6 +69,10 @@ function formatAEDCompact(value: number): string {
   return formatAEDFull(amount)
 }
 
+function formatAmount(value: number): string {
+  return Number(value || 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 export default function Settlements() {
   const { t } = useLanguage()
   const [payments, setPayments] = useState<UnsettledPayment[]>([])
@@ -174,7 +178,7 @@ export default function Settlements() {
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      toast.success(`Settlement completed for ${data.settledReceipts || 0} receipt(s), AED ${(data.settledAmount || 0).toFixed(2)} cleared`)
+      toast.success(`Settlement completed for ${data.settledReceipts || 0} receipt(s), ${formatAmount(data.settledAmount || 0)} cleared`)
       setShowSettleModal(false)
       setSelectedPayment(null)
       fetchUnsettled()
@@ -342,7 +346,7 @@ export default function Settlements() {
                       entryType: 'Outstanding',
                       agentName: p.agentId?.name || '—',
                       date: format(new Date(p.createdAt), 'dd-MMM-yyyy'),
-                      amount: `AED ${p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      amount: Number(p.amount.toFixed(2)),
                       paymentMethod: (p.paymentMethod || '').toUpperCase(),
                       status: p.status === 'due' ? 'Due' : p.status,
                       createdByDate: `${p.createdBy?.name || '—'} | ${format(new Date(p.createdAt), 'dd-MMM-yyyy HH:mm')}`,
@@ -352,20 +356,20 @@ export default function Settlements() {
                       entryType: 'Settled',
                       agentName: h.agentId?.name || '—',
                       date: format(new Date(h.createdAt), 'dd-MMM-yyyy'),
-                      amount: `AED ${h.amount.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      amount: Number(h.amount.toFixed(2)),
                       paymentMethod: (h.paymentMethod || '').toUpperCase(),
                       status: 'Settled',
                       createdByDate: `${h.createdBy?.name || '—'} | ${format(new Date(h.createdAt), 'dd-MMM-yyyy HH:mm')}`,
                     })),
                     {
                       transactionId: `Grand Total (${filtered.length + historyFiltered.length} records)`,
-                      amount: `AED ${visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      amount: Number(visibleGrandTotal.toFixed(2)),
                     }
                   ],
                   title: 'Settlements Report',
                   grandTotals: {
                     enabled: true,
-                    summary: `Grand Total: AED ${visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    summary: `Grand Total: ${visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   },
                   isRTL: false
                 })
@@ -440,7 +444,7 @@ export default function Settlements() {
                       </div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm text-gray-500 dark:text-gray-400">{p.agentId?.name || '—'}</span>
-                        <span className="text-base font-semibold text-primary">AED {p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-base font-semibold text-primary">{formatAmount(p.amount)}</span>
                       </div>
                       <p className="text-xs text-gray-400 mb-1">{p.description}</p>
                       <div className="flex items-center justify-between">
@@ -475,7 +479,7 @@ export default function Settlements() {
                     </div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm text-gray-500 dark:text-gray-400">{h.agentId?.name || '—'}</span>
-                      <span className="text-base font-semibold text-primary">AED {h.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-base font-semibold text-primary">{formatAmount(h.amount)}</span>
                     </div>
                     <p className="text-xs text-gray-400 mb-1">{h.description || 'Settlement payment'}</p>
                     <div className="flex items-center justify-between">
@@ -509,7 +513,7 @@ export default function Settlements() {
                 <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length + historyFiltered.length} records)</span>
-                    <span className="text-base font-bold text-primary">AED {visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-base font-bold text-primary">{formatAmount(visibleGrandTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -539,7 +543,7 @@ export default function Settlements() {
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.agentId?.name || '—'}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(p.createdAt), 'dd-MMM-yyyy')}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
-                            AED {p.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                            {formatAmount(p.amount)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
                             <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${methodColor[p.paymentMethod] || 'bg-gray-100 text-gray-700'}`}>
@@ -584,7 +588,7 @@ export default function Settlements() {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{h.agentId?.name || '—'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(h.createdAt), 'dd-MMM-yyyy')}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
-                          AED {h.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                          {formatAmount(h.amount)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${methodColor[h.paymentMethod] || 'bg-gray-100 text-gray-700'}`}>
@@ -631,7 +635,7 @@ export default function Settlements() {
                     <tr>
                       <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filtered.length + historyFiltered.length} records)</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">
-                        AED {visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2 })}
+                        {formatAmount(visibleGrandTotal)}
                       </td>
                       <td colSpan={5} />
                     </tr>
@@ -681,7 +685,7 @@ export default function Settlements() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Amount</span>
-                    <span className="font-bold text-primary">AED {selectedPayment.amount.toLocaleString('en-AE', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-bold text-primary">{formatAmount(selectedPayment.amount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Current Status</span>

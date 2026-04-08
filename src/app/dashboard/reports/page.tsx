@@ -33,6 +33,10 @@ function formatAED(value: number): string {
   return formatAEDFull(amount)
 }
 
+function formatAmount(value: number): string {
+  return safeAmount(value).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 function getItemAmount(item: any): number {
   return Number(item.amount ?? item.posReceiptAmount ?? item.toPayAmount ?? item.netReceived ?? 0)
 }
@@ -46,10 +50,6 @@ function getItemType(item: any, reportType: string): string {
 
 function getStatus(item: any): string {
   return String(item.status || '').toLowerCase()
-}
-
-function formatAmountWithPercent(amount: number, percent: number): string {
-  return `AED ${amount.toFixed(2)} (${percent.toFixed(2)}%)`
 }
 
 export default function Reports() {
@@ -112,7 +112,6 @@ export default function Reports() {
       const { exportToExcel } = require('@/lib/excelExport')
 
       const dataToExport = filteredItems.length ? filteredItems : (reportData.allItems || reportData.items || [])
-      const toMoney = (n: number) => `AED ${Number(n || 0).toFixed(2)}`
       const fmtDate = (d: any) => d ? format(new Date(d), 'dd-MMM-yyyy') : '—'
       const fmtDateTime = (d: any) => d ? format(new Date(d), 'dd-MMM-yyyy HH:mm') : '—'
 
@@ -140,22 +139,25 @@ export default function Reports() {
           posMachine,
           date: fmtDate(date),
           description: r.description || '—',
-          receiptAmount: toMoney(amount),
-          amount: toMoney(amount),
-          charges: `${toMoney(chargesAmount)} (${chargesPercent.toFixed(2)}%)`,
-          bankCharges: `${toMoney(bankChargesAmount)} (${bankChargesPercent.toFixed(2)}%)`,
-          vat: `${toMoney(vatAmount)} (${vatPercent.toFixed(2)}%)`,
-          margin: toMoney(margin),
-          netReceived: toMoney(netReceived),
-          toPay: toMoney(toPay),
-          paid: toMoney(received),
-          balance: remaining > 0.01 ? toMoney(remaining) : 'AED 0.00',
-          toReceive: toMoney(toPay),
-          received: toMoney(received),
-          settlementAmount: toMoney(settled),
-          remainingReceive: remaining > 0.01 ? toMoney(remaining) : 'AED 0.00',
-          due: remaining > 0.01 ? toMoney(remaining) : 'AED 0.00',
-          netProfit: toMoney(isAdmin ? margin : received),
+          receiptAmount: Number(amount.toFixed(2)),
+          amount: Number(amount.toFixed(2)),
+          chargesPercent: Number(chargesPercent.toFixed(2)),
+          charges: Number(chargesAmount.toFixed(2)),
+          bankChargesPercent: Number(bankChargesPercent.toFixed(2)),
+          bankCharges: Number(bankChargesAmount.toFixed(2)),
+          vatPercent: Number(vatPercent.toFixed(2)),
+          vat: Number(vatAmount.toFixed(2)),
+          margin: Number(margin.toFixed(2)),
+          netReceived: Number(netReceived.toFixed(2)),
+          toPay: Number(toPay.toFixed(2)),
+          paid: Number(received.toFixed(2)),
+          balance: Number((remaining > 0.01 ? remaining : 0).toFixed(2)),
+          toReceive: Number(toPay.toFixed(2)),
+          received: Number(received.toFixed(2)),
+          settlementAmount: Number(settled.toFixed(2)),
+          remainingReceive: Number((remaining > 0.01 ? remaining : 0).toFixed(2)),
+          due: Number((remaining > 0.01 ? remaining : 0).toFixed(2)),
+          netProfit: Number((isAdmin ? margin : received).toFixed(2)),
           method: (r.paymentMethod || '').toUpperCase(),
           status: r.status ? String(r.status).charAt(0).toUpperCase() + String(r.status).slice(1) : 'Completed',
           createdByDate: `${r.createdBy || 'System'} | ${fmtDateTime(r.createdDate || r.createdAt)}`,
@@ -172,9 +174,12 @@ export default function Reports() {
               { key: 'posMachine', label: 'POS Machine', width: 26 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
-              { key: 'charges', label: 'Charges', width: 22 },
-              { key: 'bankCharges', label: 'Bank Charges', width: 24 },
-              { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'chargesPercent', label: 'Charges %', width: 14 },
+              { key: 'charges', label: 'Charges', width: 16 },
+              { key: 'bankChargesPercent', label: 'Bank Charges %', width: 16 },
+              { key: 'bankCharges', label: 'Bank Charges', width: 18 },
+              { key: 'vatPercent', label: 'VAT %', width: 12 },
+              { key: 'vat', label: 'VAT', width: 14 },
               { key: 'netReceived', label: 'Net Received', width: 18 },
               { key: 'toPay', label: 'To Pay', width: 18 },
               { key: 'margin', label: 'Margin', width: 20 },
@@ -202,9 +207,12 @@ export default function Reports() {
               { key: 'posMachine', label: 'POS Machine', width: 26 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
-              { key: 'charges', label: 'Charges', width: 22 },
-              { key: 'bankCharges', label: 'Bank Charges', width: 24 },
-              { key: 'vat', label: 'VAT', width: 20 },
+              { key: 'chargesPercent', label: 'Charges %', width: 14 },
+              { key: 'charges', label: 'Charges', width: 16 },
+              { key: 'bankChargesPercent', label: 'Bank Charges %', width: 16 },
+              { key: 'bankCharges', label: 'Bank Charges', width: 18 },
+              { key: 'vatPercent', label: 'VAT %', width: 12 },
+              { key: 'vat', label: 'VAT', width: 14 },
               { key: 'netReceived', label: 'Net Received', width: 18 },
               { key: 'toPay', label: 'To Pay', width: 18 },
               { key: 'margin', label: 'Margin', width: 20 },
@@ -264,11 +272,11 @@ export default function Reports() {
       const withGrandTotal = (rows: any[]) => {
         if (!moneyKey) return rows
         const total = rows.reduce((sum: number, row: any) => {
-          const value = Number(String(row[moneyKey] || 0).replace(/[^0-9.-]/g, '') || 0)
+          const value = Number(row[moneyKey] || 0)
           return sum + value
         }, 0)
         const totalRow: any = { batchId: `Grand Total (${rows.length} records)` }
-        totalRow[moneyKey] = `AED ${total.toFixed(2)}`
+        totalRow[moneyKey] = Number(total.toFixed(2))
         return [...rows, totalRow]
       }
 
@@ -771,7 +779,7 @@ export default function Reports() {
         </div>
 
         {loading ? (
-          <div className="p-5"><TableSkeleton rows={5} columns={isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? 16 : (reportType === 'summary' || reportType === 'receipts' ? 8 : 6)} /></div>
+          <div className="p-5"><TableSkeleton rows={5} columns={isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? 19 : (reportType === 'summary' || reportType === 'receipts' ? 8 : 6)} /></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -780,7 +788,7 @@ export default function Reports() {
                   {(reportType === 'settlements' ? (
                     isAdmin ? [
                       'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
-                      'Charges', 'Bank Charges', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
+                      'Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'Vat %', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
                       'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
@@ -788,7 +796,7 @@ export default function Reports() {
                   ) : reportType === 'summary' ? (
                     isAdmin ? [
                       'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
-                      'Charges', 'Bank Charges', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
+                      'Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'Vat %', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
                       'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
@@ -796,7 +804,7 @@ export default function Reports() {
                   ) : reportType === 'receipts' ? (
                     isAdmin ? [
                       'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
-                      'Charges', 'Bank Charges', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
+                      'Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'Vat %', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
                       'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
@@ -826,7 +834,6 @@ export default function Reports() {
                     const paidAmount = Number(item.paid ?? item.paidAmount ?? 0)
                     const dueAmount = Number(item.balance ?? item.dueAmount ?? (toPayAmount - paidAmount))
                     const isFullyPaid = paidAmount >= toPayAmount - 0.01
-                    const paidDisplay = isFullyPaid ? `AED ${toPayAmount.toFixed(2)}` : (paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—')
                     const batchId = item.batchId || item.receiptNumber || item.transactionId || '—'
                     const posMachine = item.posMachine
                       || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')
@@ -839,16 +846,19 @@ export default function Reports() {
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
                         </td>
-                        <td className="px-3 py-3 text-sm font-semibold text-amber-500 dark:text-amber-300 whitespace-nowrap">AED {amount.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmountWithPercent(chargesAmount, chargesPercent)}</td>
-                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmountWithPercent(bankChargesAmount, bankChargesPercent)}</td>
-                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmountWithPercent(vatAmount, vatPercent)}</td>
-                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {netReceived.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-sm font-semibold text-sky-600 dark:text-sky-300 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">AED {marginAmount.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{paidDisplay}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-amber-500 dark:text-amber-300 whitespace-nowrap">{formatAmount(amount)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{chargesPercent.toFixed(2)}%</td>
+                        <td className="px-3 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmount(chargesAmount)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{bankChargesPercent.toFixed(2)}%</td>
+                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmount(bankChargesAmount)}</td>
+                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{vatPercent.toFixed(2)}%</td>
+                        <td className="px-3 py-3 text-sm font-medium text-rose-600 dark:text-rose-300 whitespace-nowrap">{formatAmount(vatAmount)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmount(netReceived)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-sky-600 dark:text-sky-300 whitespace-nowrap">{formatAmount(toPayAmount)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{formatAmount(marginAmount)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-emerald-600 dark:text-emerald-300 whitespace-nowrap">{isFullyPaid ? formatAmount(toPayAmount) : (paidAmount > 0 ? formatAmount(paidAmount) : '—')}</td>
                         <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
-                          <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>{`AED ${Math.max(0, dueAmount).toFixed(2)}`}</span>
+                          <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>{formatAmount(Math.max(0, dueAmount))}</span>
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           <div className="meta-compact">
@@ -889,13 +899,13 @@ export default function Reports() {
                           {item.posMachine || 'N/A'}
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
-                          AED {posAmount.toFixed(2)}
+                          {formatAmount(posAmount)}
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">
-                          AED {toPayAmount.toFixed(2)}
+                          {formatAmount(toPayAmount)}
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
-                          AED {netReceived.toFixed(2)}
+                          {formatAmount(netReceived)}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
                           {item.description || '—'}
@@ -927,18 +937,18 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS'}
                           </td>
-                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">AED {amount.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">{formatAmount(amount)}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{chargesPercent > 0 ? `${chargesPercent}%` : '—'}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{chargesAmount > 0 ? `AED ${chargesAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{chargesAmount > 0 ? formatAmount(chargesAmount) : '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesPercent > 0 ? `${bankChargesPercent}%` : '—'}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesAmount > 0 ? `AED ${bankChargesAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{bankChargesAmount > 0 ? formatAmount(bankChargesAmount) : '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{vatPercent > 0 ? `${vatPercent}%` : '—'}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{vatAmount > 0 ? `AED ${vatAmount.toFixed(2)}` : '—'}</td>
-                          <td className="px-3 py-3 text-sm font-semibold text-emerald-600 whitespace-nowrap">AED {netReceived.toFixed(2)}</td>
-                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
-                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{vatAmount > 0 ? formatAmount(vatAmount) : '—'}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-emerald-600 whitespace-nowrap">{formatAmount(netReceived)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">{formatAmount(toPayAmount)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? formatAmount(paidAmount) : '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
-                            <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>{`AED ${Math.max(0, dueAmount).toFixed(2)}`}</span>
+                            <span className={dueAmount > 0.01 ? 'text-red-600' : 'text-green-600'}>{formatAmount(Math.max(0, dueAmount))}</span>
                           </td>
                           <td className="px-3 py-3 text-sm whitespace-nowrap">
                             <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
@@ -956,12 +966,12 @@ export default function Reports() {
                         <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.receiptNumber || item.transactionId}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}</td>
-                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">AED {amount.toFixed(2)}</td>
-                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">AED {toPayAmount.toFixed(2)}</td>
-                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? `AED ${paidAmount.toFixed(2)}` : '—'}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">{formatAmount(amount)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">{formatAmount(toPayAmount)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? formatAmount(paidAmount) : '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
                             <span className={dueAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                              {dueAmount > 0 ? `AED ${dueAmount.toFixed(2)}` : (settledAmount > 0.01 && paidAmount < toPayAmount - 0.01 ? '✓ Settled' : '✓ Received')}
+                              {dueAmount > 0 ? formatAmount(dueAmount) : (settledAmount > 0.01 && paidAmount < toPayAmount - 0.01 ? '✓ Settled' : '✓ Received')}
                             </span>
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">{item.description || '—'}</td>
@@ -1028,7 +1038,7 @@ export default function Reports() {
                             {paid > 0 ? paid.toFixed(2) : '—'}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
-                            <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>{`AED ${Math.max(0, due).toFixed(2)}`}</span>
+                            <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>{formatAmount(Math.max(0, due))}</span>
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.createdBy || 'System'}
@@ -1062,14 +1072,14 @@ export default function Reports() {
                             {posAmount.toFixed(0)}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">
-                            AED {toPayAmount.toFixed(2)}
+                            {formatAmount(toPayAmount)}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">
-                            {paid > 0 ? `AED ${paid.toFixed(2)}` : '—'}
+                            {paid > 0 ? formatAmount(paid) : '—'}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold whitespace-nowrap">
                             <span className={due > 0.01 ? 'text-red-600' : 'text-green-600'}>
-                              {due > 0.01 ? `AED ${due.toFixed(2)}` : (settled > 0.01 && paid < toPayAmount - 0.01 ? '✓ Settled' : '✓ Received')}
+                              {due > 0.01 ? formatAmount(due) : (settled > 0.01 && paid < toPayAmount - 0.01 ? '✓ Settled' : '✓ Received')}
                             </span>
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
@@ -1092,7 +1102,7 @@ export default function Reports() {
                           {item.agent || '—'}
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
-                          AED {(item.amount || 0).toFixed(2)}
+                          {formatAmount(item.amount || 0)}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1111,7 +1121,7 @@ export default function Reports() {
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 16 : 6) : reportType === 'summary' ? (isAdmin ? 16 : 9) : reportType === 'receipts' ? (isAdmin ? 16 : 8) : 6} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 19 : 6) : reportType === 'summary' ? (isAdmin ? 19 : 9) : reportType === 'receipts' ? (isAdmin ? 19 : 8) : 6} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -1125,15 +1135,18 @@ export default function Reports() {
                       <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Grand Total ({filteredItems.length} records)
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-amber-500 dark:text-amber-300">AED {adminGrandTotals.receiptAmount.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.charges.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.bankCharges.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.vat.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.netReceived.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">AED {adminGrandTotals.toPay.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.margin.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {adminGrandTotals.paid.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {adminGrandTotals.balance.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-amber-500 dark:text-amber-300">{formatAmount(adminGrandTotals.receiptAmount)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">—</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatAmount(adminGrandTotals.charges)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">—</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">{formatAmount(adminGrandTotals.bankCharges)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">—</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">{formatAmount(adminGrandTotals.vat)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatAmount(adminGrandTotals.netReceived)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">{formatAmount(adminGrandTotals.toPay)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatAmount(adminGrandTotals.margin)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatAmount(adminGrandTotals.paid)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">{formatAmount(adminGrandTotals.balance)}</td>
                       <td colSpan={3} />
                     </tr>
                   ) : !isAdmin && (reportType === 'summary' || reportType === 'receipts') ? (
@@ -1141,9 +1154,9 @@ export default function Reports() {
                       <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Agent Grand Total ({filteredItems.length} records)
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">AED {agentGrandTotals.toReceive.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">AED {agentGrandTotals.received.toFixed(2)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">AED {agentGrandTotals.remainingReceive.toFixed(2)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">{formatAmount(agentGrandTotals.toReceive)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-emerald-600 dark:text-emerald-300">{formatAmount(agentGrandTotals.received)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-300">{formatAmount(agentGrandTotals.remainingReceive)}</td>
                       <td colSpan={1} />
                     </tr>
                   ) : (
