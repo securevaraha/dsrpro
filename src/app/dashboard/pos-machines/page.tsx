@@ -14,6 +14,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
+import { matchesDateRange } from '@/lib/date-range'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
 interface Agent {
   _id: string
@@ -73,6 +75,9 @@ export default function POSMachines() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [dateRangeStart, setDateRangeStart] = useState('')
+  const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [showModal, setShowModal] = useState(false)
@@ -188,12 +193,12 @@ export default function POSMachines() {
     const matchesSegment = !filters.segment || filters.segment === 'all' || machine.segment === filters.segment
     const matchesAgent = !isAdmin || !filters.agent || filters.agent === 'all' || machine.assignedAgent?._id === filters.agent
     const matchesDevice = !filters.device || filters.device === 'all' || machine.deviceType === filters.device
-    return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice
+    return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice && matchesDateRange(machine.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, machines, itemsPerPage])
+  }, [searchTerm, filters, machines, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
   const paginatedMachines = getPaginatedSlice(filteredMachines, currentPage, itemsPerPage)
   const totalPages = getTotalPages(filteredMachines.length, itemsPerPage)
@@ -451,7 +456,7 @@ export default function POSMachines() {
         </div>
 
         {/* Filters */}
-        <div className="mt-6 flex gap-2">
+        <div className="mt-6 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -462,6 +467,22 @@ export default function POSMachines() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <DateRangeFilter
+            value={dateRangeFilter}
+            startDate={dateRangeStart}
+            endDate={dateRangeEnd}
+            onChange={setDateRangeFilter}
+            onStartDateChange={setDateRangeStart}
+            onEndDateChange={setDateRangeEnd}
+            options={[
+              { value: 'all', label: 'All Time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+              { value: 'year', label: 'This Year' },
+              { value: 'custom', label: 'Custom Range' },
+            ]}
+          />
           <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
         </div>
 

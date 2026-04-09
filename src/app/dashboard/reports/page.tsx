@@ -58,7 +58,7 @@ export default function Reports() {
   const isAdmin = user?.role === 'admin'
   const [loading, setLoading] = useState(true)
   const [reportType, setReportType] = useState('summary')
-  const [dateRange, setDateRange] = useState('today')
+  const [dateRange, setDateRange] = useState('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [reportData, setReportData] = useState<any>(null)
@@ -67,28 +67,27 @@ export default function Reports() {
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
+  const [segments, setSegments] = useState<{_id: string, name: string}[]>([])
+  const [brands, setBrands] = useState<{_id: string, name: string}[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [totalPages, setTotalPages] = useState(1)
 
-  useEffect(() => { fetchReportData() }, [reportType, dateRange])
+  useEffect(() => { fetchReportData() }, [reportType, dateRange, startDate, endDate])
 
   useEffect(() => {
     fetchWithAuth('/api/users?role=agent').then(r => r.ok ? r.json() : null).then(d => d && setAgents(d.users || []))
     fetchWithAuth('/api/pos-machines').then(r => r.ok ? r.json() : null).then(d => d && setPosMachines(d.machines || []))
+    fetchWithAuth('/api/segments').then(r => r.ok ? r.json() : null).then(d => d && setSegments(d.segments || []))
+    fetchWithAuth('/api/brands').then(r => r.ok ? r.json() : null).then(d => d && setBrands(d.brands || []))
   }, [])
 
   const fetchReportData = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams({
-        type: reportType,
-        range: dateRange,
-        page: '1',
-        limit: '5000',
-        ...(startDate && { startDate }),
-        ...(endDate && { endDate }),
-      })
+      const params = new URLSearchParams({ type: reportType, range: dateRange, page: '1', limit: '5000' })
+      if (dateRange === 'custom' && startDate) params.set('startDate', startDate)
+      if (dateRange === 'custom' && endDate) params.set('endDate', endDate)
       const res = await fetchWithAuth(`/api/reports?${params}`)
       if (res.ok) {
         const data = await res.json()
@@ -269,14 +268,31 @@ export default function Reports() {
       const mapped = dataToExport.map(normalizeRow)
       const moneyKey = ['receiptAmount', 'amount', 'toReceive', 'received', 'remainingReceive'].find(k => columns.some((c: any) => c.key === k))
 
-      const getGrandTotalSummary = (rows: any[]) => {
-        if (!moneyKey) return undefined
-        const total = rows.reduce((sum: number, row: any) => {
-          const value = Number(row[moneyKey] || 0)
-          return sum + value
-        }, 0)
-        return `Grand Total: ${formatAmount(total)}`
+      const getGrandTotalRow = (rows: any[]) => {
+        if (reportType === 'summary' || reportType === 'receipts') {
+          const totals = rows.reduce((acc: any, row: any) => {
+            acc.receiptAmount += Number(row.receiptAmount || 0)
+            acc.charges += Number(row.charges || 0)
+            acc.bankCharges += Number(row.bankCharges || 0)
+            acc.vat += Number(row.vat || 0)
+            acc.netReceived += Number(row.netReceived || 0)
+            acc.toPay += Number(row.toPay || 0)
+            acc.margin += Number(row.margin || 0)
+            acc.paid += Number(row.paid || 0)
+            acc.balance += Number(row.balance || 0)
+            acc.amount += Number(row.amount || 0)
+            acc.toReceive += Number(row.toReceive || 0)
+            acc.received += Number(row.received || 0)
+            acc.remainingReceive += Number(row.remainingReceive || 0)
+            return acc
+          }, { receiptAmount: 0, charges: 0, bankCharges: 0, vat: 0, netReceived: 0, toPay: 0, margin: 0, paid: 0, balance: 0, amount: 0, toReceive: 0, received: 0, remainingReceive: 0 })
+          return { label: `Grand Total (${rows.length} records)`, values: totals }
+        }
+        const total = rows.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0)
+        return { label: `Grand Total (${rows.length} records)`, values: { amount: total } }
       }
+
+      const getGrandTotalSummary = (rows: any[]) => undefined
 
       if (isAdmin) {
         const grouped: Record<string, any[]> = mapped.reduce((acc: Record<string, any[]>, row: any) => {
@@ -291,20 +307,14 @@ export default function Reports() {
           {
             sheetName: 'All Agents Summary',
             data: mapped,
-            title: `${reportType.toUpperCase()} Report - All Agents - ${dateRange}`,
-            grandTotals: {
-              enabled: !!moneyKey,
-              summary: getGrandTotalSummary(mapped)
-            }
+            title: getDynamicExcelTitle(),
+            grandTotals: { enabled: true, row: getGrandTotalRow(mapped) }
           },
           ...groupedEntries.map(([agentName, rows]) => ({
             sheetName: agentName.length > 25 ? `${agentName.slice(0, 25)}...` : agentName,
             data: rows,
-            title: `${reportType.toUpperCase()} Report - ${agentName} - ${dateRange}`,
-            grandTotals: {
-              enabled: !!moneyKey,
-              summary: getGrandTotalSummary(rows)
-            }
+            title: (() => { const rl = toTitleCase(reportType === 'summary' ? 'Summary Report' : reportType === 'receipts' ? 'Receipts Report' : reportType === 'payments' ? 'Payments Report' : 'Settlements Report'); return `${rl} - ${toTitleCase(agentName)} - ${toTitleCase(getDateRangeLabel())}` })(),
+            grandTotals: { enabled: true, row: getGrandTotalRow(rows) }
           })),
         ]
 
@@ -317,14 +327,11 @@ export default function Reports() {
       } else {
         exportToExcel({
           filename: `${reportType}_report`,
-          sheetName: `${reportType.toUpperCase()} Report`,
+          sheetName: toTitleCase(reportType + ' Report'),
           columns,
           data: mapped,
-          title: `${reportType.toUpperCase()} Report - ${dateRange}`,
-          grandTotals: {
-            enabled: !!moneyKey,
-            summary: getGrandTotalSummary(mapped)
-          },
+          title: getDynamicExcelTitle(),
+          grandTotals: { enabled: true, row: getGrandTotalRow(mapped) },
           isRTL: false,
         })
       }
@@ -335,48 +342,52 @@ export default function Reports() {
     }
   }
 
-  // Generate dynamic heading
-  const getDynamicHeading = () => {
+  const getDateRangeLabel = () => {
     const now = new Date()
-    let dateRangeText = ''
-    
     switch (dateRange) {
-      case 'today':
-        dateRangeText = format(now, 'dd-MMM-yyyy')
-        break
-      case 'week':
-        const weekStart = new Date(now.getTime())
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-        dateRangeText = `Week of ${format(weekStart, 'dd-MMM-yyyy')}`
-        break
-      case 'month':
-        dateRangeText = format(now, 'MMMM yyyy')
-        break
-      case 'year':
-        dateRangeText = format(now, 'yyyy')
-        break
+      case 'all': return 'All Time'
+      case 'today': return 'Today'
+      case 'week': return 'This Week'
+      case 'month': return format(now, 'MMMM yyyy')
+      case 'year': return format(now, 'yyyy')
       case 'custom':
-        if (startDate && endDate) {
-          dateRangeText = `${format(new Date(startDate), 'dd-MMM-yyyy')} to ${format(new Date(endDate), 'dd-MMM-yyyy')}`
-        } else {
-          dateRangeText = 'Custom Range'
-        }
-        break
+        if (startDate && endDate) return `${format(new Date(startDate), 'dd-MMM-yyyy')} To ${format(new Date(endDate), 'dd-MMM-yyyy')}`
+        return 'Custom Range'
+      default: return 'All Time'
     }
-    
-    return `${reportType.toUpperCase()} Report - ${dateRangeText}`
+  }
+
+  const toTitleCase = (s: string) => s.replace(/[_-]+/g, ' ').trim().split(/\s+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+
+  const getAgentLabel = () => {
+    if (!filters.agent || filters.agent === 'all') return 'All Agents'
+    return agents.find(a => a._id === filters.agent)?.name || 'All Agents'
+  }
+
+  const getDynamicExcelTitle = () => {
+    const reportLabel = toTitleCase(reportType === 'summary' ? 'Summary Report' : reportType === 'receipts' ? 'Receipts Report' : reportType === 'payments' ? 'Payments Report' : 'Settlements Report')
+    const agentLabel = toTitleCase(getAgentLabel())
+    const dateLabel = toTitleCase(getDateRangeLabel())
+    return `${reportLabel} - ${agentLabel} - ${dateLabel}`
+  }
+
+  const getDynamicHeading = () => {
+    const reportLabel = toTitleCase(reportType === 'summary' ? 'Summary Report' : reportType === 'receipts' ? 'Receipts Report' : reportType === 'payments' ? 'Payments Report' : 'Settlements Report')
+    return `${reportLabel} - ${getDateRangeLabel()}`
   }
 
   const sourceItems = reportData?.allItems || reportData?.items || []
 
   const filteredItems = sourceItems.filter((item: any) => {
-    const matchBatchId = !filters.batchId || (item.receiptNumber || item.transactionId || '').toLowerCase().includes(filters.batchId.toLowerCase())
+    const matchBatchId = !filters.batchId || (item.receiptNumber || item.transactionId || item.batchId || '').toLowerCase().includes(filters.batchId.toLowerCase())
     const matchAgent = !filters.agent || filters.agent === 'all' || item.agentId === filters.agent || item.agent === agents.find(a => a._id === filters.agent)?.name
     const matchPOS = !filters.posMachine || filters.posMachine === 'all' || item.posMachineId === filters.posMachine
+    const matchSegment = !filters.segment || filters.segment === 'all' || item.posMachineSegment === filters.segment || (item.posMachine || '').startsWith(filters.segment)
+    const matchBrand = !filters.brand || filters.brand === 'all' || item.posMachineBrand === filters.brand || (item.posMachine || '').includes(filters.brand)
     const iDate = item.date ? new Date(item.date) : null
     const matchFrom = !filters.dateFrom || !iDate || iDate >= new Date(filters.dateFrom)
     const matchTo = !filters.dateTo || !iDate || iDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchBatchId && matchAgent && matchPOS && matchFrom && matchTo
+    return matchBatchId && matchAgent && matchPOS && matchSegment && matchBrand && matchFrom && matchTo
   })
 
   useEffect(() => {
@@ -626,16 +637,22 @@ export default function Reports() {
 
   const filterFields = [
     { key: 'batchId', label: 'Batch ID', type: 'text' as const, placeholder: 'Filter by batch ID...' },
-    { key: 'agent', label: 'Agent', type: 'select' as const, options: [
-      { value: 'all', label: 'All Agents' },
-      ...agents.map(a => ({ value: a._id, label: a.name }))
+    { key: 'segment', label: 'Segment', type: 'select' as const, options: [
+      { value: 'all', label: 'All Segments' },
+      ...segments.map(s => ({ value: s.name, label: s.name }))
+    ]},
+    { key: 'brand', label: 'Brand', type: 'select' as const, options: [
+      { value: 'all', label: 'All Brands' },
+      ...brands.map(b => ({ value: b.name, label: b.name }))
     ]},
     { key: 'posMachine', label: 'POS Machine', type: 'select' as const, options: [
       { value: 'all', label: 'All POS Machines' },
       ...posMachines.map(m => ({ value: m._id, label: `${m.segment} / ${m.brand} — ${m.terminalId}` }))
     ]},
-    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
-    { key: 'dateTo', label: 'Date To', type: 'date' as const },
+    { key: 'agent', label: 'Agent', type: 'select' as const, options: [
+      { value: 'all', label: 'All Agents' },
+      ...agents.map(a => ({ value: a._id, label: a.name }))
+    ]},
   ]
 
   return (
@@ -697,6 +714,7 @@ export default function Reports() {
             value={dateRange}
             onChange={(value) => setDateRange(value)}
             options={[
+              { value: 'all', label: 'All Time' },
               { value: 'today', label: 'Today' },
               { value: 'week', label: 'This Week' },
               { value: 'month', label: t('monthlyReport') },

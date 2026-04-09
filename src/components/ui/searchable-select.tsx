@@ -79,14 +79,14 @@ export function SearchableSelect({
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          'form-input w-full text-left flex items-center justify-between gap-2 pr-9 cursor-pointer',
+          'form-input w-full text-left flex items-center gap-2 cursor-pointer',
           disabled && 'opacity-60 cursor-not-allowed'
         )}
       >
-        <span className={cn('truncate', !selectedOption && 'text-gray-400 dark:text-gray-500')}>
+        <span className={cn('flex-1 truncate', !selectedOption && 'text-gray-400 dark:text-gray-500')}>
           {selectedOption?.label || placeholder}
         </span>
-        <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (

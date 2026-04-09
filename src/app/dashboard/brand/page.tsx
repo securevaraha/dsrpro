@@ -8,6 +8,8 @@ import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { matchesDateRange } from '@/lib/date-range'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
 interface Brand {
   _id: string
@@ -33,6 +35,9 @@ export default function BrandsPage() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [dateRangeStart, setDateRangeStart] = useState('')
+  const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
@@ -128,12 +133,12 @@ export default function BrandsPage() {
     const matchesName = !filters.name || b.name.toLowerCase().includes(filters.name.toLowerCase())
     const matchesStatus = !filters.status || filters.status === 'all' ||
       (filters.status === 'active' ? b.isActive : !b.isActive)
-    return matchesSearch && matchesName && matchesStatus
+    return matchesSearch && matchesName && matchesStatus && matchesDateRange(b.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, brands, itemsPerPage])
+  }, [searchTerm, filters, brands, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
   const paginatedBrands = getPaginatedSlice(filteredBrands, currentPage, itemsPerPage)
   const totalPages = getTotalPages(filteredBrands.length, itemsPerPage)
@@ -190,7 +195,7 @@ export default function BrandsPage() {
         </div>
 
         {/* Search + Filter */}
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -201,6 +206,22 @@ export default function BrandsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <DateRangeFilter
+            value={dateRangeFilter}
+            startDate={dateRangeStart}
+            endDate={dateRangeEnd}
+            onChange={setDateRangeFilter}
+            onStartDateChange={setDateRangeStart}
+            onEndDateChange={setDateRangeEnd}
+            options={[
+              { value: 'all', label: 'All Time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+              { value: 'year', label: 'This Year' },
+              { value: 'custom', label: 'Custom Range' },
+            ]}
+          />
           <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
         </div>
 

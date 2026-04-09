@@ -10,6 +10,8 @@ import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { matchesDateRange } from '@/lib/date-range'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
 type PaymentStatus = 'due'
 
@@ -84,6 +86,9 @@ export default function Settlements() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [dateRangeStart, setDateRangeStart] = useState('')
+  const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [showSettleModal, setShowSettleModal] = useState(false)
@@ -256,8 +261,6 @@ export default function Settlements() {
       { value: 'due', label: 'Due' },
       { value: 'settled', label: 'Settled' },
     ]},
-    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
-    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   const filtered = payments.filter(p => {
@@ -267,10 +270,7 @@ export default function Settlements() {
       p.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId?._id === filters.agent
     const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'due'
-    const pDate = new Date(p.createdAt)
-    const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
-    const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesAgent && matchesStatus && matchesFrom && matchesTo
+    return matchesSearch && matchesAgent && matchesStatus && matchesDateRange(p.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   const historyFiltered = settlementHistory.filter((h) => {
@@ -280,15 +280,12 @@ export default function Settlements() {
       (h.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || h.agentId?._id === filters.agent
     const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'settled'
-    const hDate = new Date(h.createdAt)
-    const matchesFrom = !filters.dateFrom || hDate >= new Date(filters.dateFrom)
-    const matchesTo = !filters.dateTo || hDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesAgent && matchesStatus && matchesFrom && matchesTo
+    return matchesSearch && matchesAgent && matchesStatus && matchesDateRange(h.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, payments, settlementHistory, itemsPerPage])
+  }, [searchTerm, filters, payments, settlementHistory, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
   const settlementRows = [
     ...filtered.map((p) => ({ ...p, rowType: 'outstanding' as const })),
@@ -365,7 +362,10 @@ export default function Settlements() {
                   title: 'Settlements Report',
                   grandTotals: {
                     enabled: true,
-                    summary: `Grand Total: ${visibleGrandTotal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    row: {
+                      label: `Grand Total (${filtered.length + historyFiltered.length} records)`,
+                      values: { amount: visibleGrandTotal }
+                    }
                   },
                   isRTL: false
                 })
@@ -379,7 +379,7 @@ export default function Settlements() {
         </div>
 
         {/* Search + Filter */}
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -390,6 +390,22 @@ export default function Settlements() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <DateRangeFilter
+            value={dateRangeFilter}
+            startDate={dateRangeStart}
+            endDate={dateRangeEnd}
+            onChange={setDateRangeFilter}
+            onStartDateChange={setDateRangeStart}
+            onEndDateChange={setDateRangeEnd}
+            options={[
+              { value: 'all', label: 'All Time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+              { value: 'year', label: 'This Year' },
+              { value: 'custom', label: 'Custom Range' },
+            ]}
+          />
           <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
         </div>
 

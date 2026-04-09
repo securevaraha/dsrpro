@@ -8,6 +8,8 @@ import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { matchesDateRange } from '@/lib/date-range'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
 interface Segment {
   _id: string
@@ -32,6 +34,9 @@ export default function SegmentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [dateRangeStart, setDateRangeStart] = useState('')
+  const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
@@ -127,12 +132,12 @@ export default function SegmentsPage() {
     const matchesName = !filters.name || s.name.toLowerCase().includes(filters.name.toLowerCase())
     const matchesStatus = !filters.status || filters.status === 'all' ||
       (filters.status === 'active' ? s.isActive : !s.isActive)
-    return matchesSearch && matchesName && matchesStatus
+    return matchesSearch && matchesName && matchesStatus && matchesDateRange(s.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, segments, itemsPerPage])
+  }, [searchTerm, filters, segments, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
   const paginatedSegments = getPaginatedSlice(filteredSegments, currentPage, itemsPerPage)
   const totalPages = getTotalPages(filteredSegments.length, itemsPerPage)
@@ -189,7 +194,7 @@ export default function SegmentsPage() {
         </div>
 
         {/* Search + Filter */}
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -200,6 +205,22 @@ export default function SegmentsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <DateRangeFilter
+            value={dateRangeFilter}
+            startDate={dateRangeStart}
+            endDate={dateRangeEnd}
+            onChange={setDateRangeFilter}
+            onStartDateChange={setDateRangeStart}
+            onEndDateChange={setDateRangeEnd}
+            options={[
+              { value: 'all', label: 'All Time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+              { value: 'year', label: 'This Year' },
+              { value: 'custom', label: 'Custom Range' },
+            ]}
+          />
           <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
         </div>
 

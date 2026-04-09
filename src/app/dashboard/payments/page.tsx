@@ -12,6 +12,8 @@ import { Search } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { matchesDateRange } from '@/lib/date-range'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
 interface Payment {
   _id: string
@@ -75,6 +77,9 @@ export default function Payments() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [dateRangeStart, setDateRangeStart] = useState('')
+  const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [agentBalance, setAgentBalance] = useState<{ totalToPay: number; totalNetReceived: number; totalPaid: number; totalDue: number } | null>(null)
@@ -393,10 +398,7 @@ export default function Payments() {
     const matchesBatchId = !filters.batchId || p.paymentNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId === filters.agent
     const matchesStatus = !filters.status || filters.status === 'all' || p.status === filters.status
-    const pDate = new Date(p.date)
-    const matchesFrom = !filters.dateFrom || pDate >= new Date(filters.dateFrom)
-    const matchesTo = !filters.dateTo || pDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesBatchId && matchesAgent && matchesStatus && matchesFrom && matchesTo
+    return matchesSearch && matchesBatchId && matchesAgent && matchesStatus && matchesDateRange(p.date, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   const filteredDueEntries = dueEntries.filter((d) => {
@@ -405,10 +407,7 @@ export default function Payments() {
     const matchesBatchId = !filters.batchId || d.paymentNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || d.agentId === filters.agent
     const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'due'
-    const dDate = new Date(d.date)
-    const matchesFrom = !filters.dateFrom || dDate >= new Date(filters.dateFrom)
-    const matchesTo = !filters.dateTo || dDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesBatchId && matchesAgent && matchesStatus && matchesFrom && matchesTo
+    return matchesSearch && matchesBatchId && matchesAgent && matchesStatus && matchesDateRange(d.date, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   const rows: PaymentRow[] = [
@@ -418,7 +417,7 @@ export default function Payments() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, payments, dueEntries, itemsPerPage])
+  }, [searchTerm, filters, payments, dueEntries, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
   const paginatedRows = getPaginatedSlice(rows, currentPage, itemsPerPage)
   const totalPages = getTotalPages(rows.length, itemsPerPage)
@@ -447,8 +446,6 @@ export default function Payments() {
       { value: 'due', label: 'Due' },
       { value: 'completed', label: 'Completed' },
     ]},
-    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
-    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   return (
@@ -480,7 +477,10 @@ export default function Payments() {
                 title: t('paymentsReport'),
                 grandTotals: {
                   enabled: true,
-                  summary: `Grand Total: ${formatAmount(grandTotal)}`
+                  row: {
+                    label: `Grand Total (${rows.length} records)`,
+                    values: { amount: grandTotal }
+                  }
                 },
                 isRTL: false
               })
@@ -501,7 +501,7 @@ export default function Payments() {
       </div>
 
       {/* Search + Filter */}
-      <div className="mt-5 flex gap-2">
+      <div className="mt-5 flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -512,6 +512,22 @@ export default function Payments() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <DateRangeFilter
+          value={dateRangeFilter}
+          startDate={dateRangeStart}
+          endDate={dateRangeEnd}
+          onChange={setDateRangeFilter}
+          onStartDateChange={setDateRangeStart}
+          onEndDateChange={setDateRangeEnd}
+          options={[
+            { value: 'all', label: 'All Time' },
+            { value: 'today', label: 'Today' },
+            { value: 'week', label: 'This Week' },
+            { value: 'month', label: 'This Month' },
+            { value: 'year', label: 'This Year' },
+            { value: 'custom', label: 'Custom Range' },
+          ]}
+        />
         <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
       </div>
 

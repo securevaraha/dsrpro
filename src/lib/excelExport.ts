@@ -7,6 +7,12 @@ interface ExcelColumn {
   width?: number
 }
 
+interface GrandTotalRow {
+  /** Map of column key -> value to show. Non-numeric or omitted keys show '' */
+  values: Record<string, string | number>
+  label?: string  // shown in first cell if provided
+}
+
 interface ExcelExportOptions {
   filename: string
   sheetName: string
@@ -16,7 +22,122 @@ interface ExcelExportOptions {
   isRTL?: boolean
   grandTotals?: {
     enabled: boolean
-    summary?: string
+    summary?: string          // legacy single-cell summary (still supported)
+    row?: GrandTotalRow       // per-column grand total row
+  }
+}
+
+const TABLE_BORDER = {
+  top: { style: 'thin', color: { rgb: '000000' } },
+  bottom: { style: 'thin', color: { rgb: '000000' } },
+  left: { style: 'thin', color: { rgb: '000000' } },
+  right: { style: 'thin', color: { rgb: '000000' } }
+}
+
+const TITLE_BORDER = {
+  top: { style: 'medium', color: { rgb: '000000' } },
+  bottom: { style: 'medium', color: { rgb: '000000' } },
+  left: { style: 'medium', color: { rgb: '000000' } },
+  right: { style: 'medium', color: { rgb: '000000' } }
+}
+
+function applySheetStyles(
+  worksheet: any,
+  columns: ExcelColumn[],
+  data: any[],
+  title: string | undefined,
+  grandTotals: ExcelExportOptions['grandTotals']
+) {
+  const headerRowIndex = title ? 2 : 0
+  const dataStartRow = title ? 3 : 1
+
+  // Title row
+  if (title) {
+    columns.forEach((_, c) => {
+      const addr = XLSX.utils.encode_cell({ r: 0, c })
+      if (!worksheet[addr]) worksheet[addr] = { v: '' }
+      worksheet[addr].s = {
+        font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: 'D4AF37' } },
+        border: TITLE_BORDER,
+        alignment: { horizontal: 'center', vertical: 'center' }
+      }
+    })
+    worksheet['A1'].v = title
+    if (!worksheet['!merges']) worksheet['!merges'] = []
+    worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } })
+  }
+
+  // Header row
+  columns.forEach((_, c) => {
+    const addr = XLSX.utils.encode_cell({ r: headerRowIndex, c })
+    if (!worksheet[addr]) worksheet[addr] = {}
+    worksheet[addr].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: 'B8960C' } },
+      border: TABLE_BORDER,
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+    }
+  })
+
+  // Data rows
+  for (let row = dataStartRow; row < dataStartRow + data.length; row++) {
+    const isAlternate = (row - dataStartRow) % 2 === 1
+    columns.forEach((_, c) => {
+      const addr = XLSX.utils.encode_cell({ r: row, c })
+      if (!worksheet[addr]) worksheet[addr] = { v: '' }
+      worksheet[addr].s = {
+        fill: { fgColor: { rgb: isAlternate ? 'F9FAFB' : 'FFFFFF' } },
+        font: {},
+        border: TABLE_BORDER,
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: false }
+      }
+    })
+  }
+
+  // Grand total row — placed immediately after last data row (no gap)
+  if (grandTotals?.enabled) {
+    const gtRowIndex = dataStartRow + data.length
+
+    if (grandTotals.row) {
+      const { values, label } = grandTotals.row
+      columns.forEach((col, c) => {
+        const addr = XLSX.utils.encode_cell({ r: gtRowIndex, c })
+        const rawVal = values[col.key]
+        const isAmountCol = rawVal !== undefined && rawVal !== ''
+        const cellValue = c === 0 && label
+          ? label
+          : isAmountCol
+            ? `AED ${Number(rawVal).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : ''
+        worksheet[addr] = { v: cellValue }
+        worksheet[addr].s = {
+          font: {
+            bold: true,
+            sz: 11,
+            color: { rgb: c === 0 ? 'B8960C' : isAmountCol ? 'B8960C' : '6B7280' }
+          },
+          fill: { fgColor: { rgb: 'FEF9E7' } },
+          border: TABLE_BORDER,
+          alignment: { horizontal: c === 0 ? 'left' : 'center', vertical: 'center' }
+        }
+      })
+    } else if (grandTotals.summary) {
+      columns.forEach((_, c) => {
+        const addr = XLSX.utils.encode_cell({ r: gtRowIndex, c })
+        if (!worksheet[addr]) worksheet[addr] = { v: '' }
+        worksheet[addr].s = {
+          font: { bold: true, sz: 11, color: { rgb: 'B8960C' } },
+          fill: { fgColor: { rgb: 'FEF9E7' } },
+          border: TABLE_BORDER,
+          alignment: { horizontal: 'center', vertical: 'center' }
+        }
+      })
+      const firstAddr = XLSX.utils.encode_cell({ r: gtRowIndex, c: 0 })
+      worksheet[firstAddr] = { v: grandTotals.summary }
+      if (!worksheet['!merges']) worksheet['!merges'] = []
+      worksheet['!merges'].push({ s: { r: gtRowIndex, c: 0 }, e: { r: gtRowIndex, c: columns.length - 1 } })
+    }
   }
 }
 
@@ -29,155 +150,45 @@ export const exportToExcel = ({
   isRTL = false,
   grandTotals
 }: ExcelExportOptions) => {
-  const tableBorder = {
-    top: { style: 'thin', color: { rgb: '000000' } },
-    bottom: { style: 'thin', color: { rgb: '000000' } },
-    left: { style: 'thin', color: { rgb: '000000' } },
-    right: { style: 'thin', color: { rgb: '000000' } }
-  }
-
-  const titleBorder = {
-    top: { style: 'medium', color: { rgb: '000000' } },
-    bottom: { style: 'medium', color: { rgb: '000000' } },
-    left: { style: 'medium', color: { rgb: '000000' } },
-    right: { style: 'medium', color: { rgb: '000000' } }
-  }
-
   const workbook = XLSX.utils.book_new()
-  
-  // Prepare headers
   const headers = columns.map(col => col.label || col.header || col.key)
-  
-  // Prepare data rows
-  const rows = data.map(item =>
-    columns.map(col => {
-      const value = item[col.key]
-      return value ?? ''
-    })
-  )
-  
-  // Create worksheet data
+  const rows = data.map(item => columns.map(col => item[col.key] ?? ''))
+
+  // Build grand total row for wsData
+  const gtDataRow = grandTotals?.enabled && grandTotals.row
+    ? columns.map((col, c) => {
+        if (c === 0 && grandTotals.row!.label) return grandTotals.row!.label
+        const v = grandTotals.row!.values[col.key]
+        if (v === undefined || v === '') return ''
+        return `AED ${Number(v).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      })
+    : grandTotals?.enabled && grandTotals.summary
+      ? [grandTotals.summary, ...columns.slice(1).map(() => '')]
+      : null
+
   const wsData = [
     ...(title ? [[title], []] : []),
     headers,
-    ...rows
+    ...rows,
+    ...(gtDataRow ? [gtDataRow] : [])
   ]
-  
   const worksheet = XLSX.utils.aoa_to_sheet(wsData)
-  
-  // Set column widths
-  const colWidths = columns.map(col => ({ wch: col.width || 20 }))
-  worksheet['!cols'] = colWidths
-  
-  // Set row heights
+
+  worksheet['!cols'] = columns.map(col => ({ wch: col.width || 20 }))
+
   const rowHeights: any[] = []
-  if (title) {
-    rowHeights[0] = { hpt: 35 } // Title
-    rowHeights[1] = { hpt: 15 } // Empty spacer
-    rowHeights[2] = { hpt: 25 } // Header
-  } else {
-    rowHeights[0] = { hpt: 25 } // Header
-  }
-  
-  for (let r = 0; r < data.length; r++) {
-    rowHeights.push({ hpt: 22 }) // Data rows
-  }
+  if (title) { rowHeights[0] = { hpt: 35 }; rowHeights[1] = { hpt: 15 }; rowHeights[2] = { hpt: 25 } }
+  else { rowHeights[0] = { hpt: 25 } }
+  for (let r = 0; r < data.length; r++) rowHeights.push({ hpt: 22 })
+  if (grandTotals?.enabled) rowHeights.push({ hpt: 24 })
   worksheet['!rows'] = rowHeights
 
-  // Style the header row
-  const headerRowIndex = title ? 2 : 0
-  columns.forEach((_, colIndex) => {
-    const cellAddress = XLSX.utils.encode_cell({ r: headerRowIndex, c: colIndex })
-    if (!worksheet[cellAddress]) worksheet[cellAddress] = {}
-    worksheet[cellAddress].s = {
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: 'B8960C' } }, // DSR Info gold header
-      border: tableBorder,
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
-    }
-  })
-  
-  // Style title if exists
-  if (title) {
-    columns.forEach((_, colIndex) => {
-      const titleAddress = XLSX.utils.encode_cell({ r: 0, c: colIndex })
-      if (!worksheet[titleAddress]) worksheet[titleAddress] = { v: '' }
-      worksheet[titleAddress].s = {
-        font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: 'D4AF37' } },
-        border: titleBorder,
-        alignment: { horizontal: 'center', vertical: 'center' }
-      }
-    })
+  applySheetStyles(worksheet, columns, data, title, grandTotals)
+  if (isRTL) worksheet['!dir'] = 'rtl'
 
-    const titleCell = worksheet['A1']
-    if (titleCell) {
-      titleCell.v = title
-    }
-
-    worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }]
-  }
-  
-  // Add borders and center text to all data cells
-  const dataStartRow = title ? 3 : 1
-  
-  for (let row = dataStartRow; row < dataStartRow + data.length; row++) {
-    columns.forEach((_, colIndex) => {
-      const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex })
-      if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' }
-      
-      const isAlternate = (row - dataStartRow) % 2 === 1
-      
-      worksheet[cellAddress].s = {
-        fill: isAlternate 
-            ? { fgColor: { rgb: 'F9FAFB' } } 
-            : { fgColor: { rgb: 'FFFFFF' } },
-        font: {},
-        border: tableBorder,
-        alignment: { 
-          horizontal: 'center',
-          vertical: 'center',
-          wrapText: false
-        }
-      }
-    })
-  }
-  if (isRTL) {
-    worksheet['!dir'] = 'rtl'
-  }
-  
-  // Add grand totals summary if provided
-  if (grandTotals?.enabled && grandTotals.summary) {
-    const summaryRowIndex = dataStartRow + data.length + 1
-    columns.forEach((_, colIndex) => {
-      const summaryAddress = XLSX.utils.encode_cell({ r: summaryRowIndex, c: colIndex })
-      if (!worksheet[summaryAddress]) worksheet[summaryAddress] = { v: '' }
-      worksheet[summaryAddress].s = {
-        font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
-        fill: { fgColor: { rgb: 'F3F4F6' } },
-        border: tableBorder,
-        alignment: { horizontal: 'center', vertical: 'center' }
-      }
-    })
-
-    const summaryCell = XLSX.utils.encode_cell({ r: summaryRowIndex, c: 0 })
-    worksheet[summaryCell] = { v: grandTotals.summary }
-    
-    // Merge the summary across all columns
-    if (!worksheet['!merges']) worksheet['!merges'] = []
-    worksheet['!merges'].push({ 
-      s: { r: summaryRowIndex, c: 0 }, 
-      e: { r: summaryRowIndex, c: columns.length - 1 } 
-    })
-  }
-  
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
-  
-  // Generate filename with timestamp
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-  const finalFilename = `${filename}_${timestamp}.xlsx`
-  
-  XLSX.writeFile(workbook, finalFilename)
+  XLSX.writeFile(workbook, `${filename}_${timestamp}.xlsx`)
 }
 
 interface MultiSheetExportOptions {
@@ -189,6 +200,7 @@ interface MultiSheetExportOptions {
     grandTotals?: {
       enabled: boolean
       summary?: string
+      row?: GrandTotalRow
     }
   }[]
   columns: ExcelColumn[]
@@ -201,159 +213,48 @@ export const exportMultiSheetExcel = ({
   columns,
   isRTL = false
 }: MultiSheetExportOptions) => {
-  const tableBorder = {
-    top: { style: 'thin', color: { rgb: '000000' } },
-    bottom: { style: 'thin', color: { rgb: '000000' } },
-    left: { style: 'thin', color: { rgb: '000000' } },
-    right: { style: 'thin', color: { rgb: '000000' } }
-  }
-
-  const titleBorder = {
-    top: { style: 'medium', color: { rgb: '000000' } },
-    bottom: { style: 'medium', color: { rgb: '000000' } },
-    left: { style: 'medium', color: { rgb: '000000' } },
-    right: { style: 'medium', color: { rgb: '000000' } }
-  }
-
   const workbook = XLSX.utils.book_new()
-  
-  sheets.forEach((sheet, sheetIndex) => {
-    // Prepare headers
-    const headers = columns.map(col => col.label || col.header || col.key)
-    
-    // Prepare data rows
-    const rows = sheet.data.map(item =>
-      columns.map(col => {
-        const value = item[col.key]
-        return value ?? ''
-      })
-    )
-    
-    // Create worksheet data
+  const headers = columns.map(col => col.label || col.header || col.key)
+
+  sheets.forEach(sheet => {
+    const rows = sheet.data.map(item => columns.map(col => item[col.key] ?? ''))
+
+    const gtDataRow = sheet.grandTotals?.enabled && sheet.grandTotals.row
+      ? columns.map((col, c) => {
+          if (c === 0 && sheet.grandTotals!.row!.label) return sheet.grandTotals!.row!.label
+          const v = sheet.grandTotals!.row!.values[col.key]
+          if (v === undefined || v === '') return ''
+          return `AED ${Number(v).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        })
+      : sheet.grandTotals?.enabled && sheet.grandTotals.summary
+        ? [sheet.grandTotals.summary, ...columns.slice(1).map(() => '')]
+        : null
+
     const wsData = [
       ...(sheet.title ? [[sheet.title], []] : []),
       headers,
-      ...rows
+      ...rows,
+      ...(gtDataRow ? [gtDataRow] : [])
     ]
-    
     const worksheet = XLSX.utils.aoa_to_sheet(wsData)
-    
-    // Set column widths
-    const colWidths = columns.map(col => ({ wch: col.width || 20 }))
-    worksheet['!cols'] = colWidths
-    
-    // Set row heights
+
+    worksheet['!cols'] = columns.map(col => ({ wch: col.width || 20 }))
+
     const rowHeights: any[] = []
-    if (sheet.title) {
-      rowHeights[0] = { hpt: 35 } // Title
-      rowHeights[1] = { hpt: 15 } // Empty spacer
-      rowHeights[2] = { hpt: 25 } // Header
-    } else {
-      rowHeights[0] = { hpt: 25 } // Header
-    }
-    
-    for (let r = 0; r < sheet.data.length; r++) {
-      rowHeights.push({ hpt: 22 }) // Data rows
-    }
+    if (sheet.title) { rowHeights[0] = { hpt: 35 }; rowHeights[1] = { hpt: 15 }; rowHeights[2] = { hpt: 25 } }
+    else { rowHeights[0] = { hpt: 25 } }
+    for (let r = 0; r < sheet.data.length; r++) rowHeights.push({ hpt: 22 })
+    if (sheet.grandTotals?.enabled) rowHeights.push({ hpt: 24 })
     worksheet['!rows'] = rowHeights
 
-    // Style the header row
-    const headerRowIndex = sheet.title ? 2 : 0
-    columns.forEach((_, colIndex) => {
-      const cellAddress = XLSX.utils.encode_cell({ r: headerRowIndex, c: colIndex })
-      if (!worksheet[cellAddress]) worksheet[cellAddress] = {}
-      worksheet[cellAddress].s = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: 'B8960C' } }, // DSR Info gold header
-        border: tableBorder,
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
-      }
-    })
-    
-    // Style title if exists
-    if (sheet.title) {
-      columns.forEach((_, colIndex) => {
-        const titleAddress = XLSX.utils.encode_cell({ r: 0, c: colIndex })
-        if (!worksheet[titleAddress]) worksheet[titleAddress] = { v: '' }
-        worksheet[titleAddress].s = {
-          font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' } },
-          fill: { fgColor: { rgb: 'D4AF37' } },
-          border: titleBorder,
-          alignment: { horizontal: 'center', vertical: 'center' }
-        }
-      })
+    applySheetStyles(worksheet, columns, sheet.data, sheet.title, sheet.grandTotals)
+    if (isRTL) worksheet['!dir'] = 'rtl'
 
-      const titleCell = worksheet['A1']
-      if (titleCell) {
-        titleCell.v = sheet.title
-      }
-
-      worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }]
-    }
-    
-    // Add borders and styling to all data cells
-    const dataStartRow = sheet.title ? 3 : 1
-    
-    for (let row = dataStartRow; row < dataStartRow + sheet.data.length; row++) {
-      columns.forEach((_, colIndex) => {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex })
-        if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' }
-        
-        const isAlternate = (row - dataStartRow) % 2 === 1
-        
-        worksheet[cellAddress].s = {
-          fill: isAlternate 
-              ? { fgColor: { rgb: 'F9FAFB' } } 
-              : { fgColor: { rgb: 'FFFFFF' } },
-          font: {},
-          border: tableBorder,
-          alignment: { 
-            horizontal: 'center',
-            vertical: 'center',
-            wrapText: false
-          }
-        }
-      })
-    }
-    
-    if (isRTL) {
-      worksheet['!dir'] = 'rtl'
-    }
-    
-    // Add grand totals summary if provided
-    if (sheet.grandTotals?.enabled && sheet.grandTotals.summary) {
-      const summaryRowIndex = dataStartRow + sheet.data.length + 1
-      columns.forEach((_, colIndex) => {
-        const summaryAddress = XLSX.utils.encode_cell({ r: summaryRowIndex, c: colIndex })
-        if (!worksheet[summaryAddress]) worksheet[summaryAddress] = { v: '' }
-        worksheet[summaryAddress].s = {
-          font: { bold: true, sz: 12, color: { rgb: '1F2937' } },
-          fill: { fgColor: { rgb: 'F3F4F6' } },
-          border: tableBorder,
-          alignment: { horizontal: 'center', vertical: 'center' }
-        }
-      })
-
-      const summaryCell = XLSX.utils.encode_cell({ r: summaryRowIndex, c: 0 })
-      worksheet[summaryCell] = { v: sheet.grandTotals.summary }
-      
-      // Merge the summary across all columns
-      if (!worksheet['!merges']) worksheet['!merges'] = []
-      worksheet['!merges'].push({ 
-        s: { r: summaryRowIndex, c: 0 }, 
-        e: { r: summaryRowIndex, c: columns.length - 1 } 
-      })
-    }
-    
-    // Add worksheet to workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, sheet.sheetName)
   })
-  
-  // Generate filename with timestamp
+
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-  const finalFilename = `${filename}_${timestamp}.xlsx`
-  
-  XLSX.writeFile(workbook, finalFilename)
+  XLSX.writeFile(workbook, `${filename}_${timestamp}.xlsx`)
 }
 
 // Predefined column configurations for different reports
@@ -369,7 +270,7 @@ export const reportColumns = {
     { key: 'createdByDate', label: 'Created By / Date', width: 36 },
     { key: 'description', label: t('description'), width: 40 }
   ],
-  
+
   transactions: (t: (key: string) => string) => [
     { key: 'transactionId', label: t('batchId'), width: 25 },
     { key: 'date', label: t('date'), width: 18 },
@@ -378,7 +279,7 @@ export const reportColumns = {
     { key: 'commission', label: t('commission'), width: 20 },
     { key: 'status', label: t('status'), width: 15 }
   ],
-  
+
   receiptsAgent: (t: (key: string) => string) => [
     { key: 'receiptNumber', label: 'Batch ID', width: 22 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },

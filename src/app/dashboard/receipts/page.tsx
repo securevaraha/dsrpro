@@ -13,6 +13,8 @@ import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { matchesDateRange } from '@/lib/date-range'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
 interface Receipt {
   _id: string
@@ -61,6 +63,9 @@ export default function Receipts() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [dateRangeStart, setDateRangeStart] = useState('')
+  const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
@@ -245,15 +250,13 @@ export default function Receipts() {
     const matchesBatchId = !filters.batchId || receipt.receiptNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesPOS = !filters.posMachine || filters.posMachine === 'all' || receipt.posMachine?._id === filters.posMachine
     const matchesAgent = !filters.agent || filters.agent === 'all' || (receipt as any).agentId === filters.agent
-    const rDate = new Date(receipt.date)
-    const matchesFrom = !filters.dateFrom || rDate >= new Date(filters.dateFrom)
-    const matchesTo = !filters.dateTo || rDate <= new Date(filters.dateTo + 'T23:59:59')
-    return matchesSearch && matchesBatchId && matchesPOS && matchesAgent && matchesFrom && matchesTo
+    const matchesDateRng = matchesDateRange(receipt.date, dateRangeFilter, dateRangeStart, dateRangeEnd)
+    return matchesSearch && matchesBatchId && matchesPOS && matchesAgent && matchesDateRng
   })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, receipts, itemsPerPage])
+  }, [searchTerm, filters, receipts, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
   const paginatedReceipts = getPaginatedSlice(filteredReceipts, currentPage, itemsPerPage)
   const totalPages = getTotalPages(filteredReceipts.length, itemsPerPage)
@@ -264,6 +267,12 @@ export default function Receipts() {
     }
   }, [currentPage, totalPages])
 
+  const grandTotalCharges = filteredReceipts.reduce((s, r) => s + (r.posMachine?.commissionPercentage != null ? r.amount * r.posMachine.commissionPercentage / 100 : 0), 0)
+  const grandTotalBankCharges = filteredReceipts.reduce((s, r) => s + (r.posMachine?.bankCharges != null ? r.amount * r.posMachine.bankCharges / 100 : 0), 0)
+  const grandTotalVat = filteredReceipts.reduce((s, r) => {
+    const bc = r.posMachine?.bankCharges != null ? r.amount * r.posMachine.bankCharges / 100 : 0
+    return s + (r.posMachine?.vatPercentage != null ? bc * r.posMachine.vatPercentage / 100 : 0)
+  }, 0)
   const grandTotal = filteredReceipts.reduce((s, r) => s + r.amount, 0)
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
@@ -278,8 +287,6 @@ export default function Receipts() {
       { value: 'all', label: 'All Agents' },
       ...agents.map(a => ({ value: a._id, label: a.name }))
     ]}] : []),
-    { key: 'dateFrom', label: 'Date From', type: 'date' as const },
-    { key: 'dateTo', label: 'Date To', type: 'date' as const },
   ]
 
   const availablePosMachines = posMachines.filter((m: any) => {
@@ -442,7 +449,15 @@ export default function Receipts() {
       title: t('receiptsReport'),
       grandTotals: {
         enabled: true,
-        summary: `Grand Total: ${formatAmount(grandTotal)}`
+        row: {
+          label: `Grand Total (${filteredReceipts.length} records)`,
+          values: {
+            amount: grandTotal,
+            charges: grandTotalCharges,
+            bankCharges: grandTotalBankCharges,
+            vat: grandTotalVat,
+          }
+        }
       },
       isRTL: false
     })
@@ -477,7 +492,7 @@ export default function Receipts() {
       </div>
 
       {/* Filters */}
-      <div className="mt-5 flex gap-2">
+      <div className="mt-5 flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -488,6 +503,22 @@ export default function Receipts() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <DateRangeFilter
+          value={dateRangeFilter}
+          startDate={dateRangeStart}
+          endDate={dateRangeEnd}
+          onChange={setDateRangeFilter}
+          onStartDateChange={setDateRangeStart}
+          onEndDateChange={setDateRangeEnd}
+          options={[
+            { value: 'all', label: 'All Time' },
+            { value: 'today', label: 'Today' },
+            { value: 'week', label: 'This Week' },
+            { value: 'month', label: 'This Month' },
+            { value: 'year', label: 'This Year' },
+            { value: 'custom', label: 'Custom Range' },
+          ]}
+        />
         <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
       </div>
 
@@ -610,10 +641,17 @@ export default function Receipts() {
                 </div>
               ))}
               <div className="dubai-card p-4 bg-gray-50 dark:bg-gray-700/50">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</span>
                   <span className="text-base font-bold text-primary">{formatAmount(grandTotal)}</span>
                 </div>
+                {isAdmin && (
+                  <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
+                    <span className="text-gray-500">Charges:</span><span className="font-semibold text-emerald-600 text-right">{formatAmount(grandTotalCharges)}</span>
+                    <span className="text-gray-500">Bank Charges:</span><span className="font-semibold text-rose-600 text-right">{formatAmount(grandTotalBankCharges)}</span>
+                    <span className="text-gray-500">VAT:</span><span className="font-semibold text-rose-600 text-right">{formatAmount(grandTotalVat)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -800,7 +838,18 @@ export default function Receipts() {
                   <tr>
                     <td colSpan={isAdmin ? 4 : 3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">{formatAmount(grandTotal)}</td>
-                    <td colSpan={isAdmin ? 11 : 3} />
+                    {isAdmin && (
+                      <>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-500">—</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-emerald-600">{formatAmount(grandTotalCharges)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-500">—</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-rose-600">{formatAmount(grandTotalBankCharges)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-500">—</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-rose-600">{formatAmount(grandTotalVat)}</td>
+                        <td colSpan={5} />
+                      </>
+                    )}
+                    {!isAdmin && <td colSpan={3} />}
                   </tr>
                 </tfoot>
               </table>
