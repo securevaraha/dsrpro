@@ -205,7 +205,7 @@ export default function Payments() {
         if (totalDue <= 0) {
           throw new Error('No due amount available for this agent')
         }
-        if (payAmount > totalDue) {
+        if (payAmount > totalDue + 0.005) {
           throw new Error(`Pay Amount cannot exceed total due (${formatAmount(totalDue)})`)
         }
 
@@ -381,7 +381,7 @@ export default function Payments() {
     if (parsed <= 0) return
 
     // For new payments, cap to the currently payable due.
-    if (!editingPayment && agentBalance && parsed > currentPayableDue) {
+    if (!editingPayment && agentBalance && parsed > currentPayableDue + 0.005) {
       setFormData({ ...formData, amount: currentPayableDue.toFixed(2) })
       return
     }
@@ -935,7 +935,7 @@ export default function Payments() {
                     <input type="number" placeholder="0.00" required className="form-input"
                       value={formData.amount}
                       min={0.01}
-                      max={!editingPayment && agentBalance ? Number(currentPayableDue.toFixed(2)) : undefined}
+                      max={!editingPayment && agentBalance ? Number((currentPayableDue + 0.005).toFixed(2)) : undefined}
                       step="0.01"
                       onKeyDown={(e) => {
                         if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') {
@@ -947,7 +947,7 @@ export default function Payments() {
                     {!editingPayment && agentBalance && formData.amount && (() => {
                       const entered = Math.max(0, parseFloat(formData.amount) || 0)
                       const due = currentPayableDue
-                      if (entered > due) {
+                      if (entered > due + 0.005) {
                         return (
                           <p className="text-xs text-red-600 dark:text-red-400 mt-1">Pay Amount cannot exceed {formatAmount(due)}.</p>
                         )
@@ -987,7 +987,7 @@ export default function Payments() {
                     || !formData.agentId
                     || !formData.amount
                     || !formData.date
-                    || (!editingPayment && (!!agentBalance && ((safePayAmount <= 0) || (safePayAmount > currentPayableDue))))
+                    || (!editingPayment && (!!agentBalance && ((safePayAmount <= 0) || (safePayAmount > currentPayableDue + 0.005))))
                   }
                   className="dubai-button w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
