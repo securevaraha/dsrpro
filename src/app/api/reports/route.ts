@@ -65,24 +65,28 @@ export async function GET(request: NextRequest) {
     const now = new Date()
 
     switch (range) {
+      case 'all':
+        dateFilter = {}
+        break
       case 'today':
-        dateFilter = { createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()), $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) } }
+        dateFilter = { date: { $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()), $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) } }
         break
       case 'week':
         const weekStart = new Date(now); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0)
-        dateFilter = { createdAt: { $gte: weekStart } }
+        dateFilter = { date: { $gte: weekStart } }
         break
       case 'month':
-        dateFilter = { createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), 1), $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+        dateFilter = { date: { $gte: new Date(now.getFullYear(), now.getMonth(), 1), $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
         break
       case 'year':
-        dateFilter = { createdAt: { $gte: new Date(now.getFullYear(), 0, 1), $lt: new Date(now.getFullYear() + 1, 0, 1) } }
+        dateFilter = { date: { $gte: new Date(now.getFullYear(), 0, 1), $lt: new Date(now.getFullYear() + 1, 0, 1) } }
         break
       case 'custom':
         if (startDate && endDate) {
           const s = new Date(startDate), e = new Date(endDate)
           if (isNaN(s.getTime()) || isNaN(e.getTime())) return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
-          dateFilter = { createdAt: { $gte: s, $lte: e } }
+          e.setHours(23, 59, 59, 999)
+          dateFilter = { date: { $gte: s, $lte: e } }
         }
         break
     }
@@ -135,7 +139,7 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
     return {
       receiptNumber: r.metadata?.receiptNumber || r.transactionId,
       transactionId: r.transactionId,
-      date: r.createdAt, createdAt: r.createdAt, updatedAt: r.updatedAt,
+      date: r.date || r.createdAt, createdAt: r.createdAt, updatedAt: r.updatedAt,
       agentId: r.agentId?._id?.toString() || '',
       agent: r.agentId?.name || 'N/A',
       posMachineId: r.posMachine?._id?.toString() || '',
@@ -311,7 +315,7 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
       transactionId: t.transactionId,
       receiptNumber: t.metadata?.receiptNumber || t.transactionId,
       batchId: t.metadata?.receiptNumber || t.transactionId,
-      date: t.createdAt,
+      date: t.date || t.createdAt,
       agent: t.agentId?.name || 'System Agent',
       client: t.clientId?.name || 'N/A',
       type: t.type || 'transaction',

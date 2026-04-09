@@ -235,8 +235,8 @@ export default function Reports() {
       } else if (reportType === 'settlements') {
         columns = [
           { key: 'batchId', label: 'Batch ID', width: 22 },
-          { key: 'date', label: 'Date', width: 16 },
           { key: 'agent', label: 'Agent', width: 22 },
+          { key: 'date', label: 'Date', width: 16 },
           { key: 'method', label: 'Method', width: 16 },
           { key: 'status', label: 'Status', width: 14 },
           { key: 'amount', label: 'Amount', width: 18 },
@@ -246,8 +246,8 @@ export default function Reports() {
       } else if (reportType === 'payments') {
         columns = [
           { key: 'batchId', label: 'Batch ID', width: 22 },
-          { key: 'date', label: 'Date', width: 16 },
           { key: 'agent', label: 'Agent', width: 22 },
+          { key: 'date', label: 'Date', width: 16 },
           { key: 'method', label: 'Method', width: 16 },
           { key: 'status', label: 'Status', width: 14 },
           { key: 'amount', label: 'Amount', width: 18 },
@@ -831,7 +831,7 @@ export default function Reports() {
                       'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
                     ]
                   ) : [
-                    'Batch ID', 'Date', 'Agent', 'Amount', 'Status', 'Description'
+                    'Batch ID', 'Agent', 'Date', 'Method', 'Status', 'Amount', 'Created By / Date', 'Description'
                   ]).map((h) => (
                     <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
                       {h}
@@ -1019,14 +1019,12 @@ export default function Reports() {
                       return (
                         <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : format(new Date(), 'dd-MMM-yyyy')}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.agent || 'System Agent'}
-                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || 'System Agent'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.posMachine || 'No POS'}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                             {posAmount.toFixed(0)}
@@ -1068,10 +1066,10 @@ export default function Reports() {
                             {item.updatedBy || 'System'}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.createdDate ? format(new Date(item.createdDate), 'dd-MMM-yyyy HH:mm') : format(new Date(), 'dd-MMM-yyyy HH:mm')}
+                            {item.createdDate ? format(new Date(item.createdDate), 'dd-MMM-yyyy HH:mm') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy HH:mm') : '—')}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.updatedDate ? format(new Date(item.updatedDate), 'dd-MMM-yyyy HH:mm') : format(new Date(), 'dd-MMM-yyyy HH:mm')}
+                            {item.updatedDate ? format(new Date(item.updatedDate), 'dd-MMM-yyyy HH:mm') : (item.updatedAt ? format(new Date(item.updatedAt), 'dd-MMM-yyyy HH:mm') : '—')}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
                             {item.description || '—'}
@@ -1084,7 +1082,7 @@ export default function Reports() {
                         <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : format(new Date(), 'dd-MMM-yyyy')}
+                            {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.posMachine || 'No POS'}
@@ -1110,39 +1108,54 @@ export default function Reports() {
                       )
                     }
                   } else {
-                    // Other report types
+                    // Payments and Settlements report types — match their respective pages
+                    const batchId = item.batchId || item.receiptNumber || item.transactionId || '—'
+                    const itemDate = item.date || item.createdAt
+                    const methodColor: Record<string, string> = {
+                      cash: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+                      bank: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+                      upi: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
+                      card: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
+                    }
+                    const method = (item.paymentMethod || item.method || '').toLowerCase()
+                    const status = String(item.status || 'completed').toLowerCase()
                     return (
                       <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                          {item.receiptNumber || item.transactionId || '—'}
-                        </td>
+                        <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || '—'}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                          {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}
+                          {itemDate ? format(new Date(itemDate), 'dd-MMM-yyyy') : '—'}
                         </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                          {item.agent || '—'}
+                        <td className="px-3 py-3 text-sm whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${methodColor[method] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
+                            {method.toUpperCase() || '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-sm whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                            status === 'completed' || status === 'settled' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                            status === 'due' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300' :
+                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                          }`}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </span>
                         </td>
                         <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                           {formatAmount(item.amount || 0)}
                         </td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.status === 'completed' 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                          }`}>
-                            {item.status || 'completed'}
-                          </span>
+                          <div className="meta-compact">
+                            <div className="meta-compact-name">{item.createdBy || 'System'}</div>
+                            <div className="meta-compact-date">{item.createdDate || item.createdAt ? format(new Date(item.createdDate || item.createdAt), 'dd-MMM-yyyy HH:mm') : '—'}</div>
+                          </div>
                         </td>
-                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
-                          {item.description || '—'}
-                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">{item.description || '—'}</td>
                       </tr>
                     )
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 19 : 6) : reportType === 'summary' ? (isAdmin ? 19 : 9) : reportType === 'receipts' ? (isAdmin ? 19 : 8) : 6} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 19 : 6) : reportType === 'summary' ? (isAdmin ? 19 : 9) : reportType === 'receipts' ? (isAdmin ? 19 : 8) : 8} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -1182,13 +1195,13 @@ export default function Reports() {
                     </tr>
                   ) : (
                     <tr>
-                      <td colSpan={reportType === 'settlements' ? 3 : reportType === 'summary' ? 3 : reportType === 'receipts' ? 3 : 3} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                      <td colSpan={3} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Grand Total ({filteredItems.length} records)
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-primary">
                         {reportGrandTotal.toFixed(2)}
                       </td>
-                      <td colSpan={reportType === 'settlements' ? 2 : reportType === 'summary' ? 5 : reportType === 'receipts' ? 3 : 2} />
+                      <td colSpan={4} />
                     </tr>
                   )}
                 </tfoot>

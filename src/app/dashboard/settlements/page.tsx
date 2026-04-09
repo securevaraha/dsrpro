@@ -23,6 +23,7 @@ interface UnsettledPayment {
   paymentMethod: string
   description: string
   status: PaymentStatus
+  date?: string
   createdAt: string
   createdBy?: { name: string }
 }
@@ -35,6 +36,7 @@ interface SettlementHistoryItem {
   paymentMethod: string
   description: string
   status: 'completed'
+  date?: string
   createdAt: string
   source?: string
   createdBy?: { name: string }
@@ -198,7 +200,7 @@ export default function Settlements() {
   const openEditSettlement = (item: SettlementHistoryItem) => {
     setEditingSettlement(item)
     setEditForm({
-      date: format(new Date(item.createdAt), 'yyyy-MM-dd'),
+      date: format(new Date(item.date || item.createdAt), 'yyyy-MM-dd'),
       paymentMethod: item.paymentMethod || 'cash',
       amount: item.amount.toString(),
       description: item.description || '',
@@ -270,7 +272,7 @@ export default function Settlements() {
       p.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || p.agentId?._id === filters.agent
     const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'due'
-    return matchesSearch && matchesAgent && matchesStatus && matchesDateRange(p.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
+    return matchesSearch && matchesAgent && matchesStatus && matchesDateRange(p.date || p.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   const historyFiltered = settlementHistory.filter((h) => {
@@ -280,7 +282,7 @@ export default function Settlements() {
       (h.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesAgent = !filters.agent || filters.agent === 'all' || h.agentId?._id === filters.agent
     const matchesStatus = !filters.status || filters.status === 'all' || filters.status === 'settled'
-    return matchesSearch && matchesAgent && matchesStatus && matchesDateRange(h.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
+    return matchesSearch && matchesAgent && matchesStatus && matchesDateRange(h.date || h.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
@@ -290,7 +292,7 @@ export default function Settlements() {
   const settlementRows = [
     ...filtered.map((p) => ({ ...p, rowType: 'outstanding' as const })),
     ...historyFiltered.map((h) => ({ ...h, rowType: 'history' as const })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  ].sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime())
 
   const paginatedSettlementRows = getPaginatedSlice(settlementRows, currentPage, itemsPerPage)
   const totalPages = getTotalPages(settlementRows.length, itemsPerPage)
@@ -342,7 +344,7 @@ export default function Settlements() {
                       ...p,
                       entryType: 'Outstanding',
                       agentName: p.agentId?.name || '—',
-                      date: format(new Date(p.createdAt), 'dd-MMM-yyyy'),
+                      date: format(new Date(p.date || p.createdAt), 'dd-MMM-yyyy'),
                       amount: Number(p.amount.toFixed(2)),
                       paymentMethod: (p.paymentMethod || '').toUpperCase(),
                       status: p.status === 'due' ? 'Due' : p.status,
@@ -352,7 +354,7 @@ export default function Settlements() {
                       ...h,
                       entryType: 'Settled',
                       agentName: h.agentId?.name || '—',
-                      date: format(new Date(h.createdAt), 'dd-MMM-yyyy'),
+                      date: format(new Date(h.date || h.createdAt), 'dd-MMM-yyyy'),
                       amount: Number(h.amount.toFixed(2)),
                       paymentMethod: (h.paymentMethod || '').toUpperCase(),
                       status: 'Settled',
@@ -460,7 +462,7 @@ export default function Settlements() {
                       </div>
                       <p className="text-xs text-gray-400 mb-1">{p.description}</p>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">{format(new Date(p.createdAt), 'dd-MMM-yyyy')}</span>
+                        <span className="text-xs text-gray-400">{format(new Date(p.date || p.createdAt), 'dd-MMM-yyyy')}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${methodColor[p.paymentMethod] || ''}`}>
                           {p.paymentMethod?.toUpperCase()}
                         </span>
@@ -495,7 +497,7 @@ export default function Settlements() {
                     </div>
                     <p className="text-xs text-gray-400 mb-1">{h.description || 'Settlement payment'}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">{format(new Date(h.createdAt), 'dd-MMM-yyyy')}</span>
+                      <span className="text-xs text-gray-400">{format(new Date(h.date || h.createdAt), 'dd-MMM-yyyy')}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${methodColor[h.paymentMethod] || ''}`}>
                         {h.paymentMethod?.toUpperCase()}
                       </span>
@@ -553,7 +555,7 @@ export default function Settlements() {
                         <tr key={p._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{p.transactionId}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.agentId?.name || '—'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(p.createdAt), 'dd-MMM-yyyy')}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(p.date || p.createdAt), 'dd-MMM-yyyy')}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
                             {formatAmount(p.amount)}
                           </td>
@@ -598,7 +600,7 @@ export default function Settlements() {
                       <tr key={h._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{h.transactionId}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{h.agentId?.name || '—'}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(h.createdAt), 'dd-MMM-yyyy')}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{format(new Date(h.date || h.createdAt), 'dd-MMM-yyyy')}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-primary">
                           {formatAmount(h.amount)}
                         </td>
@@ -707,7 +709,7 @@ export default function Settlements() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Date</span>
-                    <span className="text-gray-700 dark:text-gray-300">{format(new Date(selectedPayment.createdAt), 'dd-MMM-yyyy')}</span>
+                    <span className="text-gray-700 dark:text-gray-300">{format(new Date(selectedPayment.date || selectedPayment.createdAt), 'dd-MMM-yyyy')}</span>
                   </div>
                 </div>
 
