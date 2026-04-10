@@ -41,7 +41,7 @@ const navigation: NavItem[] = [
   { name: 'dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'agent'] },
   { name: 'Admin Panel', href: '/dashboard/admin', icon: Shield, roles: ['admin'] },
   { name: 'Segment', href: '/dashboard/segment', icon: Layers, roles: ['admin'] },
-  { name: 'Brand', href: '/dashboard/brand', icon: Tag, roles: ['admin'] },
+  { name: 'Company/Brand', href: '/dashboard/brand', icon: Tag, roles: ['admin'] },
   { name: 'POS Machines', href: '/dashboard/pos-machines', icon: Wifi, roles: ['admin', 'agent'] },
   { name: 'receipts', href: '/dashboard/receipts', icon: Receipt, roles: ['admin', 'agent'] },
   { name: 'payments', href: '/dashboard/payments', icon: CreditCard, roles: ['admin'] },

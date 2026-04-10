@@ -26,6 +26,7 @@ interface Agent {
 
 interface POSMachine {
   _id: string
+  machineName: string
   segment: string
   brand: 'Network' | 'RAKBank' | 'Geidea' | 'AFS' | 'Other'
   terminalId: string
@@ -92,6 +93,7 @@ export default function POSMachines() {
   const [segments, setSegments] = useState<{ _id: string, name: string }[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 })
   const [formData, setFormData] = useState({
+    machineName: '',
     segment: '',
     brand: '',
     terminalId: '',
@@ -184,16 +186,18 @@ export default function POSMachines() {
   const filteredMachines = machines.filter(machine => {
     const search = searchTerm.toLowerCase()
     const matchesSearch =
+      machine.machineName?.toLowerCase().includes(search) ||
       machine.terminalId?.toLowerCase().includes(search) ||
       machine.merchantId?.toLowerCase().includes(search) ||
       machine.location?.toLowerCase().includes(search) ||
       machine.assignedAgent?.name?.toLowerCase().includes(search)
+    const matchesName = !filters.name || filters.name === 'all' || machine.machineName?.toLowerCase().includes(filters.name.toLowerCase())
     const matchesStatus = !filters.status || filters.status === 'all' || machine.status === filters.status
     const matchesBrand = !filters.brand || filters.brand === 'all' || machine.brand === filters.brand
     const matchesSegment = !filters.segment || filters.segment === 'all' || machine.segment === filters.segment
     const matchesAgent = !isAdmin || !filters.agent || filters.agent === 'all' || machine.assignedAgent?._id === filters.agent
     const matchesDevice = !filters.device || filters.device === 'all' || machine.deviceType === filters.device
-    return matchesSearch && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice && matchesDateRange(machine.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
+    return matchesSearch && matchesName && matchesStatus && matchesBrand && matchesSegment && matchesAgent && matchesDevice && matchesDateRange(machine.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
@@ -210,12 +214,13 @@ export default function POSMachines() {
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
   const filterFields = [
+    { key: 'name', label: 'Name', type: 'text' as const, placeholder: 'Filter by machine name...' },
     { key: 'segment', label: 'Segment', type: 'select' as const, options: [
       { value: 'all', label: 'All Segments' },
       ...segments.map(s => ({ value: s.name, label: s.name }))
     ]},
-    { key: 'brand', label: 'Brand', type: 'select' as const, options: [
-      { value: 'all', label: 'All Brands' },
+    { key: 'brand', label: 'Company/Brand', type: 'select' as const, options: [
+      { value: 'all', label: 'All Company/Brands' },
       ...brands.map(b => ({ value: b.name, label: b.name }))
     ]},
     ...(isAdmin ? [{ key: 'agent', label: 'Agent Name', type: 'select' as const, options: [
@@ -275,8 +280,9 @@ export default function POSMachines() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...submitData,
-            serialNumber: '', // Send empty string for compatibility
-            model: '', // Send empty string for compatibility
+            machineName: formData.machineName,
+            serialNumber: '',
+            model: '',
             vatPercentage: submitData.vatPercentage || 5
           })
         })
@@ -293,8 +299,9 @@ export default function POSMachines() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...submitData,
-            serialNumber: '', // Send empty string for compatibility
-            model: '', // Send empty string for compatibility
+            machineName: formData.machineName,
+            serialNumber: '',
+            model: '',
             vatPercentage: submitData.vatPercentage || 5
           })
         })
@@ -323,6 +330,7 @@ export default function POSMachines() {
   const handleEdit = (machine: POSMachine) => {
     setEditingMachine(machine)
     setFormData({
+      machineName: machine.machineName || '',
       segment: machine.segment || '',
       brand: machine.brand,
       terminalId: machine.terminalId,
@@ -362,7 +370,7 @@ export default function POSMachines() {
 
   const resetForm = () => {
     setFormData({
-      segment: '', brand: '', terminalId: '', merchantId: '',
+      machineName: '', segment: '', brand: '', terminalId: '', merchantId: '',
       deviceType: 'traditional_pos', assignedAgent: '', location: '', bankCharges: '', vatPercentage: '5', commissionPercentage: '',
       status: 'active', notes: '',
     })
@@ -394,8 +402,9 @@ export default function POSMachines() {
                     filename: 'pos_machines_report',
                     sheetName: 'POS Machines',
                     columns: [
+                      { key: 'machineName', label: 'Machine Name', width: 22 },
                       { key: 'segment', label: 'Segment', width: 18 },
-                      { key: 'brand', label: 'Brand', width: 18 },
+                      { key: 'brand', label: 'Company/Brand', width: 18 },
                       { key: 'terminalId', label: 'Terminal', width: 18 },
                       { key: 'merchantId', label: 'Merchant', width: 18 },
                       { key: 'agentName', label: 'Agent Name', width: 24 },
@@ -410,6 +419,7 @@ export default function POSMachines() {
                     ],
                     data: filteredMachines.map(m => ({
                       ...m,
+                      machineName: m.machineName || '—',
                       agentName: m.assignedAgent?.name || 'Unassigned',
                       deviceType: m.deviceType === 'android_pos' ? 'Android POS' : 'Traditional POS',
                       commissionPercentage: `${(m.commissionPercentage || 0).toFixed(2)}%`,
@@ -518,8 +528,9 @@ export default function POSMachines() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 whitespace-nowrap">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800/50">
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Machine Name</div></th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Segment</div></th>
-                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Brand</div></th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Company/Brand</div></th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Terminal</div></th>
                       <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Merchant</div></th>
                       {isAdmin && <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap"><div className="whitespace-nowrap">Agent Name</div></th>}
@@ -540,6 +551,9 @@ export default function POSMachines() {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
                     {paginatedMachines.map((machine) => (
                       <tr key={machine._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {machine.machineName || '—'}
+                        </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {machine.segment || '—'}
                         </td>
@@ -659,8 +673,8 @@ export default function POSMachines() {
                         </div>
                         <div>
 
-                          <p className="font-mono font-medium text-sm text-gray-900 dark:text-white">{machine.terminalId}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">MID: {machine.merchantId}</p>
+                          <p className="font-mono font-medium text-sm text-gray-900 dark:text-white">{machine.machineName || machine.terminalId}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">TID: {machine.terminalId} | MID: {machine.merchantId}</p>
                         </div>
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[machine.status]}`}>
@@ -674,7 +688,7 @@ export default function POSMachines() {
                         <span className="text-xs">{machine.segment || '—'}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Brand</span>
+                        <span className="text-xs text-gray-400">Company/Brand</span>
                         <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${brandColors[machine.brand]}`}>
                           {machine.brand}
                         </span>
@@ -767,6 +781,29 @@ export default function POSMachines() {
                 <FormSkeleton fields={7} />
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Section: Machine Identity */}
+                  <div className="form-section">
+                    <p className="form-section-title">Machine Identity</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="form-label">Machine Name *</label>
+                        <input type="text" required className="form-input" placeholder="e.g. Main Counter POS"
+                          value={formData.machineName}
+                          onChange={(e) => setFormData({...formData, machineName: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Assign to Agent</label>
+                        <select className="form-select" value={formData.assignedAgent} onChange={(e) => setFormData({...formData, assignedAgent: e.target.value})}>
+                          <option value="">— Unassigned —</option>
+                          {agents.map(agent => (
+                            <option key={agent._id} value={agent._id}>{agent.name}{agent.companyName ? ` (${agent.companyName})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Section: Classification */}
                   <div className="form-section">
                     <p className="form-section-title">Classification</p>
@@ -780,12 +817,12 @@ export default function POSMachines() {
                         {segments.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Segments in Admin Panel first</p>}
                       </div>
                       <div>
-                        <label className="form-label">Brand *</label>
+                        <label className="form-label">Company/Brand *</label>
                         <select required className="form-select" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})}>
-                          <option value="" disabled>Select Brand</option>
+                          <option value="" disabled>Select Company/Brand</option>
                           {brands.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
                         </select>
-                        {brands.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Brands in Admin Panel first</p>}
+                        {brands.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Company/Brands in Admin Panel first</p>}
                       </div>
                     </div>
                   </div>
@@ -848,19 +885,10 @@ export default function POSMachines() {
                     </div>
                   </div>
 
-                  {/* Section: Assignment */}
+                  {/* Section: Assignment & Status */}
                   <div className="form-section">
-                    <p className="form-section-title">Assignment & Status</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="form-label">Assign to Agent</label>
-                        <select className="form-select" value={formData.assignedAgent} onChange={(e) => setFormData({...formData, assignedAgent: e.target.value})}>
-                          <option value="">— Unassigned —</option>
-                          {agents.map(agent => (
-                            <option key={agent._id} value={agent._id}>{agent.name}{agent.companyName ? ` (${agent.companyName})` : ''}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <p className="form-section-title">Location & Status</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="form-label">Location</label>
                         <input type="text" className="form-input" placeholder="Ras Al Khor, Dubai"
@@ -889,7 +917,7 @@ export default function POSMachines() {
                       {t('cancel')}
                     </LoadingButton>
                     <LoadingButton type="submit" loading={submitting} variant="primary"
-                      disabled={submitting || !formData.segment || !formData.brand || !formData.terminalId.trim() || !formData.merchantId.trim()}
+                      disabled={submitting || !formData.machineName.trim() || !formData.segment || !formData.brand || !formData.terminalId.trim() || !formData.merchantId.trim()}
                     >
                       {editingMachine ? 'Update Machine' : 'Add Machine'}
                     </LoadingButton>

@@ -641,13 +641,13 @@ export default function Reports() {
       { value: 'all', label: 'All Segments' },
       ...segments.map(s => ({ value: s.name, label: s.name }))
     ]},
-    { key: 'brand', label: 'Brand', type: 'select' as const, options: [
-      { value: 'all', label: 'All Brands' },
+    { key: 'brand', label: 'Company/Brand', type: 'select' as const, options: [
+      { value: 'all', label: 'All Company/Brands' },
       ...brands.map(b => ({ value: b.name, label: b.name }))
     ]},
     { key: 'posMachine', label: 'POS Machine', type: 'select' as const, options: [
       { value: 'all', label: 'All POS Machines' },
-      ...posMachines.map(m => ({ value: m._id, label: `${m.segment} / ${m.brand} — ${m.terminalId}` }))
+      ...posMachines.map(m => ({ value: m._id, label: m.machineName || `${m.segment} / ${m.brand} — ${m.terminalId}` }))
     ]},
     { key: 'agent', label: 'Agent', type: 'select' as const, options: [
       { value: 'all', label: 'All Agents' },

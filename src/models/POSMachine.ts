@@ -6,6 +6,7 @@ if (mongoose.models.POSMachine) {
 }
 
 const POSMachineSchema = new mongoose.Schema({
+  machineName: { type: String, required: false, default: '', trim: true },
   segment: { type: String, required: true, trim: true },
   brand: { 
     type: String, 

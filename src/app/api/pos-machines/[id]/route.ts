@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
     const body = await request.json()
-    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
+    const { machineName, segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
 
     const existing = await POSMachine.findById(id)
     if (!existing) {
@@ -28,6 +28,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const updateData = addAuditFields({
+      ...(typeof machineName === 'string' && { machineName: machineName.trim() }),
       ...(typeof segment === 'string' && { segment: segment.trim() }),
       ...(brand && { brand }),
       ...(typeof terminalId === 'string' && { terminalId: terminalId.trim() }),

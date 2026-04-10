@@ -65,10 +65,10 @@ export default function BrandsPage() {
         const data = await response.json()
         setBrands((data.brands || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
       } else {
-        toast.error('Failed to load brands')
+        toast.error('Failed to load company/brands')
       }
     } catch {
-      toast.error('Failed to load brands')
+      toast.error('Failed to load company/brands')
     } finally {
       setLoading(false)
     }
@@ -77,7 +77,7 @@ export default function BrandsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name.trim()) {
-      toast.error('Brand name is required')
+      toast.error('Company/Brand name is required')
       return
     }
     setSubmitting(true)
@@ -90,17 +90,17 @@ export default function BrandsPage() {
         body: JSON.stringify(formData),
       })
       if (response.ok) {
-        toast.success(editingBrand ? 'Brand updated' : 'Brand created')
+        toast.success(editingBrand ? 'Company/Brand updated' : 'Company/Brand created')
         setShowModal(false)
         setEditingBrand(null)
         setFormData({ name: '', description: '', isActive: true })
         fetchBrands()
       } else {
         const data = await response.json()
-        toast.error(data.error || 'Failed to save brand')
+        toast.error(data.error || 'Failed to save company/brand')
       }
     } catch {
-      toast.error('Failed to save brand')
+      toast.error('Failed to save company/brand')
     } finally {
       setSubmitting(false)
     }
@@ -113,15 +113,15 @@ export default function BrandsPage() {
       const response = await fetchWithAuth(`/api/brands/${deletingBrand._id}`, { method: 'DELETE' })
       const data = await response.json()
       if (response.ok) {
-        toast.success('Brand deleted')
+        toast.success('Company/Brand deleted')
         setShowDeleteDialog(false)
         setDeletingBrand(null)
         fetchBrands()
       } else {
-        toast.error(data.error || 'Failed to delete brand')
+        toast.error(data.error || 'Failed to delete company/brand')
       }
     } catch {
-      toast.error('Failed to delete brand')
+      toast.error('Failed to delete company/brand')
     } finally {
       setDeleting(false)
     }
@@ -152,8 +152,8 @@ export default function BrandsPage() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Brands</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage POS machine brands</p>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Company/Brand</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage POS machine company/brands</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -175,7 +175,7 @@ export default function BrandsPage() {
                     createdByDate: `${b.createdBy?.name || '—'} | ${format(new Date(b.createdAt), 'dd-MMM-yyyy HH:mm')}`,
                     updatedByDate: `${b.updatedBy?.name || '—'} | ${format(new Date(b.updatedAt), 'dd-MMM-yyyy HH:mm')}`,
                   })),
-                  title: 'Brands Report',
+                  title: 'Company/Brand Report',
                   isRTL: false
                 })
               }}
@@ -189,7 +189,7 @@ export default function BrandsPage() {
               className="dubai-button inline-flex items-center justify-center"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Brand
+              Add Company/Brand
             </button>
           </div>
         </div>
@@ -200,7 +200,7 @@ export default function BrandsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search brands..."
+              placeholder="Search company/brands..."
               className="form-input pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -244,10 +244,10 @@ export default function BrandsPage() {
             <div className="dubai-card text-center py-12">
               <Tag className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
               <h3 className="text-base font-medium text-gray-900 dark:text-white mb-1">
-                {searchTerm ? 'No brands found' : 'No brands yet'}
+                {searchTerm ? 'No company/brands found' : 'No company/brands yet'}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {searchTerm ? 'Try a different search term' : 'Create your first brand'}
+                {searchTerm ? 'Try a different search term' : 'Create your first company/brand'}
               </p>
             </div>
           ) : (
@@ -337,7 +337,7 @@ export default function BrandsPage() {
             <div className="modal-content form-modal">
               <div className="modal-header">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{editingBrand ? 'Edit Brand' : 'Add Brand'}</h3>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{editingBrand ? 'Edit Company/Brand' : 'Add Company/Brand'}</h3>
                 </div>
                 <button type="button" onClick={() => { setShowModal(false); setEditingBrand(null) }} className="modal-close-btn">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -346,7 +346,7 @@ export default function BrandsPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="form-label">Name *</label>
-                  <input type="text" required className="form-input" placeholder="Brand name"
+                  <input type="text" required className="form-input" placeholder="Company/Brand name"
                     value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
@@ -384,7 +384,7 @@ export default function BrandsPage() {
                 <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
                   <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete Brand</h3>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete Company/Brand</h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                 Are you sure you want to delete <strong>{deletingBrand.name}</strong>? This action cannot be undone.

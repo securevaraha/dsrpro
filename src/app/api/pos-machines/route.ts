@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    const { segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
+    const { machineName, segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
 
     if (!segment || !terminalId || !merchantId || !brand || !deviceType) {
       return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Brand, and Device Type are required' }, { status: 400 })
@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const machineData = addAuditFields({
+      machineName: machineName?.trim() || '',
       segment: segment.trim(),
       brand,
       terminalId: normalizedTerminalId,
