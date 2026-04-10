@@ -956,7 +956,7 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                            {item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS'}
+                            {item.posMachine || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')}
                           </td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">{formatAmount(amount)}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{chargesPercent > 0 ? `${chargesPercent}%` : '—'}</td>

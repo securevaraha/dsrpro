@@ -23,6 +23,7 @@ interface Receipt {
   date: string
   posMachine: {
     _id: string
+    machineName?: string
     segment: string
     brand: string
     terminalId: string
@@ -433,7 +434,7 @@ export default function Receipts() {
             ...r,
             agent: r.agent || '—',
             date: format(new Date(r.date), 'dd-MMM-yyyy'),
-            posMachineInfo: r.posMachine ? (r.posMachine as any).machineName || `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
+            posMachineInfo: r.posMachine ? r.posMachine.machineName || `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
             chargesPercent: r.posMachine?.commissionPercentage != null ? Number(r.posMachine.commissionPercentage).toFixed(2) : '',
             charges: marginAmt != null ? Number(marginAmt.toFixed(2)) : '',
             bankChargesPercent: r.posMachine?.bankCharges != null ? Number(r.posMachine.bankCharges).toFixed(2) : '',
@@ -556,7 +557,7 @@ export default function Receipts() {
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{receipt.receiptNumber}</span>
                     <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                      {receipt.posMachine ? (receipt.posMachine as any).machineName || `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
+                      {receipt.posMachine ? receipt.posMachine.machineName || `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{receipt.description}</p>
@@ -681,7 +682,7 @@ export default function Receipts() {
                       )}
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                          {receipt.posMachine ? (receipt.posMachine as any).machineName || `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
+                          {receipt.posMachine ? receipt.posMachine.machineName || `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">

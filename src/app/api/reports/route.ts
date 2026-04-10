@@ -112,12 +112,12 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
   const total = await Transaction.countDocuments(query)
   const allReceipts = await Transaction.find(query)
     .populate('agentId', 'name email')
-    .populate('posMachine', 'segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 })
   const receipts = await Transaction.find(query)
     .populate('agentId', 'name email')
-    .populate('posMachine', 'segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 }).skip(skip).limit(limit)
 
@@ -144,9 +144,11 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
       agent: r.agentId?.name || 'N/A',
       posMachineId: r.posMachine?._id?.toString() || '',
       createdBy: r.createdBy?.name || null, updatedBy: r.updatedBy?.name || null,
+      posMachineName: r.posMachine?.machineName || null,
       posMachineSegment: r.posMachine?.segment || null,
       posMachineBrand: r.posMachine?.brand || null,
       posMachineTerminalId: r.posMachine?.terminalId || null,
+      posMachine: r.posMachine?.machineName || (r.posMachine?.segment && r.posMachine?.brand ? `${r.posMachine.segment}/${r.posMachine.brand}` : null),
       bankCharges: r.posMachine?.bankCharges ?? null,
       vatPercentage: r.posMachine?.vatPercentage ?? null,
       commissionPercentage: r.posMachine?.commissionPercentage ?? null,
@@ -283,12 +285,12 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
   const total = await Transaction.countDocuments(query)
   const allTransactions = await Transaction.find(query)
     .populate('agentId', 'name email').populate('clientId', 'name businessType')
-    .populate('posMachine', 'segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 })
   const transactions = await Transaction.find(query)
     .populate('agentId', 'name email').populate('clientId', 'name businessType')
-    .populate('posMachine', 'segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 }).skip(skip).limit(limit)
 
@@ -324,7 +326,7 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
       commission: t.commission || 0,
       status: t.status || 'completed',
       description: t.description || '',
-      posMachine: pos.segment && pos.brand ? `${pos.segment}/${pos.brand}` : 'No POS',
+      posMachine: pos.machineName || (pos.segment && pos.brand ? `${pos.segment}/${pos.brand}` : 'No POS'),
       posMachineTerminalId: pos.terminalId || 'N/A',
       ...f,
       paid: paidAmount,
