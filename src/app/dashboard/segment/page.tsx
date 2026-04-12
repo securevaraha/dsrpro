@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Plus, Edit, Trash2, Layers, Search, Download } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
@@ -227,15 +228,17 @@ export default function SegmentsPage() {
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 Status
               </label>
-              <select 
-                className="form-select text-sm" 
-                value={tempFilters.status || 'all'} 
-                onChange={(e) => setTempFilters(prev => ({ ...prev, status: e.target.value }))}
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              <SearchableSelect
+                className="text-sm"
+                value={tempFilters.status || 'all'}
+                onChange={(value) => setTempFilters(prev => ({ ...prev, status: value }))}
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                ]}
+                placeholder="Select Status"
+              />
             </div>
 
             <div>

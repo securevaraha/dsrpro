@@ -138,6 +138,8 @@ export default function Reports() {
           batchId,
           agent: r.agent || 'System Agent',
           posMachine,
+          posMachineSegment: r.posMachineSegment || r.posMachineName?.split('/')?.[0] || '',
+          posMachineBrand: r.posMachineBrand || r.posMachineName?.split('/')?.[1] || '',
           date: fmtDate(date),
           description: r.description || '—',
           receiptAmount: Number(amount.toFixed(2)),
@@ -173,6 +175,8 @@ export default function Reports() {
               { key: 'batchId', label: 'Batch ID', width: 22 },
               { key: 'agent', label: 'Agent', width: 22 },
               { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'posMachineSegment', label: 'Segment', width: 18 },
+              { key: 'posMachineBrand', label: 'Company/Brand', width: 20 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
               { key: 'chargesPercent', label: 'Charges %', width: 14 },
@@ -194,6 +198,8 @@ export default function Reports() {
               { key: 'batchId', label: 'Batch ID', width: 22 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'posMachineSegment', label: 'Segment', width: 18 },
+              { key: 'posMachineBrand', label: 'Company/Brand', width: 20 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
               { key: 'toReceive', label: 'To Receive', width: 18 },
               { key: 'received', label: 'Received', width: 18 },
@@ -206,6 +212,8 @@ export default function Reports() {
               { key: 'batchId', label: 'Batch ID', width: 22 },
               { key: 'agent', label: 'Agent', width: 22 },
               { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'posMachineSegment', label: 'Segment', width: 18 },
+              { key: 'posMachineBrand', label: 'Company/Brand', width: 20 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'receiptAmount', label: 'Receipt Amount', width: 18 },
               { key: 'chargesPercent', label: 'Charges %', width: 14 },
@@ -227,6 +235,8 @@ export default function Reports() {
               { key: 'batchId', label: 'Batch ID', width: 22 },
               { key: 'date', label: 'Date', width: 16 },
               { key: 'posMachine', label: 'POS Machine', width: 26 },
+              { key: 'posMachineSegment', label: 'Segment', width: 18 },
+              { key: 'posMachineBrand', label: 'Company/Brand', width: 20 },
               { key: 'amount', label: 'Amount', width: 18 },
               { key: 'toReceive', label: 'To Receive', width: 18 },
               { key: 'received', label: 'Received', width: 18 },
@@ -789,7 +799,8 @@ export default function Reports() {
         </div>
 
         {/* Desktop Additional Filters - Always Visible */}
-        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="hidden md:block space-y-3">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
               Batch ID
@@ -892,8 +903,9 @@ export default function Reports() {
               placeholder="Select Agent"
             />
           </div>
+          </div>
 
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 setFilters(pendingFilters)
@@ -964,27 +976,27 @@ export default function Reports() {
                 <tr>
                   {(reportType === 'settlements' ? (
                     isAdmin ? [
-                      'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
+                      'Batch ID', 'Agent', 'POS Machine', 'Segment', 'Company/Brand', 'Date', 'Receipt Amount',
                       'Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'Vat %', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
-                      'Batch ID', 'Date', 'POS Machine', 'POS/Receipt Amount', 'Net Received', 'Description'
+                      'Batch ID', 'Date', 'POS Machine', 'Segment', 'Company/Brand', 'POS/Receipt Amount', 'Net Received', 'Description'
                     ]
                   ) : reportType === 'summary' ? (
                     isAdmin ? [
-                      'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
+                      'Batch ID', 'Agent', 'POS Machine', 'Segment', 'Company/Brand', 'Date', 'Receipt Amount',
                       'Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'Vat %', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
-                      'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
+                      'Batch ID', 'Date', 'POS Machine', 'Segment', 'Company/Brand', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
                     ]
                   ) : reportType === 'receipts' ? (
                     isAdmin ? [
-                      'Batch ID', 'Agent', 'POS Machine', 'Date', 'Receipt Amount',
+                      'Batch ID', 'Agent', 'POS Machine', 'Segment', 'Company/Brand', 'Date', 'Receipt Amount',
                       'Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'Vat %', 'Vat', 'Net Received', 'To Pay', 'Margin', 'Paid', 'Balance',
                       'Created By / Date', 'Updated By / Date', 'Description'
                     ] : [
-                      'Batch ID', 'Date', 'POS Machine', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
+                      'Batch ID', 'Date', 'POS Machine', 'Segment', 'Company/Brand', 'Receipt Amount', 'To Receive', 'Received', 'Remaining Receive', 'Description'
                     ]
                   ) : [
                     'Batch ID', 'Agent', 'Date', 'Method', 'Status', 'Amount', 'Created By / Date', 'Description'
@@ -1020,6 +1032,8 @@ export default function Reports() {
                         <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || 'System Agent'}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{posMachine}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineSegment || '—'}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineBrand || '—'}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
                         </td>
@@ -1075,6 +1089,8 @@ export default function Reports() {
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           {item.posMachine || 'N/A'}
                         </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineSegment || '—'}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineBrand || '—'}</td>
                         <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                           {formatAmount(posAmount)}
                         </td>
@@ -1146,6 +1162,8 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.posMachine || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')}
                           </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineSegment || '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineBrand || '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">{formatAmount(amount)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">{formatAmount(toPayAmount)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? formatAmount(paidAmount) : '—'}</td>
@@ -1182,6 +1200,8 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.posMachine || 'No POS'}
                           </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineSegment || '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineBrand || '—'}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : (item.createdAt ? format(new Date(item.createdAt), 'dd-MMM-yyyy') : '—')}
                           </td>
@@ -1246,6 +1266,8 @@ export default function Reports() {
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                             {item.posMachine || 'No POS'}
                           </td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineSegment || '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.posMachineBrand || '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">
                             {posAmount.toFixed(0)}
                           </td>
@@ -1317,7 +1339,7 @@ export default function Reports() {
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 19 : 6) : reportType === 'summary' ? (isAdmin ? 19 : 8) : reportType === 'receipts' ? (isAdmin ? 18 : 8) : 9} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 21 : 8) : reportType === 'summary' ? (isAdmin ? 21 : 10) : reportType === 'receipts' ? (isAdmin ? 20 : 10) : 9} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -1328,7 +1350,7 @@ export default function Reports() {
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                   {isAdmin && (reportType === 'summary' || reportType === 'receipts' || reportType === 'settlements') ? (
                     <tr>
-                      <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                      <td colSpan={6} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Grand Total ({filteredItems.length} records)
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-amber-500 dark:text-amber-300">{formatAmount(adminGrandTotals.receiptAmount)}</td>
@@ -1347,7 +1369,7 @@ export default function Reports() {
                     </tr>
                   ) : !isAdmin && (reportType === 'summary' || reportType === 'receipts') ? (
                     <tr>
-                      <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                      <td colSpan={6} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Agent Grand Total ({filteredItems.length} records)
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-sky-600 dark:text-sky-300">{formatAmount(agentGrandTotals.toReceive)}</td>
@@ -1357,7 +1379,7 @@ export default function Reports() {
                     </tr>
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                      <td colSpan={6} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Grand Total ({filteredItems.length} records)
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-primary">

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Plus, Edit, Trash2, Monitor, Search, Download } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
@@ -237,15 +238,13 @@ export default function MachinesPage() {
                   {field.label}
                 </label>
                 {field.type === 'select' ? (
-                  <select 
-                    className="form-select text-sm" 
-                    value={tempFilters[field.key] ?? 'all'} 
-                    onChange={(e) => setTempFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
-                  >
-                    {field.options?.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    className="text-sm"
+                    value={tempFilters[field.key] ?? 'all'}
+                    onChange={(value) => setTempFilters(prev => ({ ...prev, [field.key]: value }))}
+                    options={field.options || []}
+                    placeholder={`Select ${field.label}`}
+                  />
                 ) : (
                   <input
                     type="text"

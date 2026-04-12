@@ -327,6 +327,8 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
       status: t.status || 'completed',
       description: t.description || '',
       posMachine: pos.machineName || (pos.segment && pos.brand ? `${pos.segment}/${pos.brand}` : 'No POS'),
+      posMachineSegment: pos.segment || '',
+      posMachineBrand: pos.brand || '',
       posMachineTerminalId: pos.terminalId || 'N/A',
       ...f,
       paid: paidAmount,

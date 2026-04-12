@@ -107,7 +107,7 @@ export function SearchableSelect({
               placeholder="Search..."
             />
           </div>
-          <div className="max-h-80 overflow-y-auto py-1">
+          <div className="max-h-[11rem] overflow-y-auto py-1">
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No results found</div>
             ) : (

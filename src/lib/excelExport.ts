@@ -283,6 +283,8 @@ export const reportColumns = {
   receiptsAgent: (t: (key: string) => string) => [
     { key: 'receiptNumber', label: 'Batch ID', width: 22 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'posMachineSegment', label: 'Segment', width: 18 },
+    { key: 'posMachineBrand', label: 'Company/Brand', width: 20 },
     { key: 'date', label: t('date'), width: 18 },
     { key: 'amount', label: 'Receipt Amount', width: 20 },
     { key: 'description', label: t('description'), width: 40 }
@@ -292,6 +294,8 @@ export const reportColumns = {
     { key: 'receiptNumber', label: 'Batch ID', width: 22 },
     { key: 'agent', label: 'Agent', width: 22 },
     { key: 'posMachineInfo', label: 'POS Machine', width: 25 },
+    { key: 'posMachineSegment', label: 'Segment', width: 18 },
+    { key: 'posMachineBrand', label: 'Company/Brand', width: 20 },
     { key: 'date', label: t('date'), width: 18 },
     { key: 'amount', label: 'Receipt Amount', width: 20 },
     { key: 'chargesPercent', label: 'Charges %', width: 14 },

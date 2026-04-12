@@ -439,6 +439,8 @@ export default function Receipts() {
             agent: r.agent || '—',
             date: format(new Date(r.date), 'dd-MMM-yyyy'),
             posMachineInfo: r.posMachine ? r.posMachine.machineName || `${r.posMachine.segment} / ${r.posMachine.brand}` : 'No POS',
+            posMachineSegment: r.posMachine?.segment || '',
+            posMachineBrand: r.posMachine?.brand || '',
             chargesPercent: r.posMachine?.commissionPercentage != null ? Number(r.posMachine.commissionPercentage).toFixed(2) : '',
             charges: marginAmt != null ? Number(marginAmt.toFixed(2)) : '',
             bankChargesPercent: r.posMachine?.bankCharges != null ? Number(r.posMachine.bankCharges).toFixed(2) : '',
@@ -744,7 +746,7 @@ export default function Receipts() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    {['Batch ID', ...(isAdmin ? ['Agent'] : []), 'POS Machine', t('date'), 'Receipt Amount',
+                    {['Batch ID', ...(isAdmin ? ['Agent'] : []), 'POS Machine', 'Segment', 'Company/Brand', t('date'), 'Receipt Amount',
                       ...(isAdmin ? ['Charges %', 'Charges', 'Bank Charges %', 'Bank Charges', 'VAT %', 'VAT', 'Created By / Date', 'Updated By / Date'] : []),
                       t('description'), 'Preview', t('actions')
                     ].map((h) => (
@@ -765,8 +767,14 @@ export default function Receipts() {
                       )}
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                          {receipt.posMachine ? receipt.posMachine.machineName || `${receipt.posMachine.segment}/${receipt.posMachine.brand}` : 'No POS'}
+                          {receipt.posMachine ? receipt.posMachine.machineName || receipt.posMachine.segment : 'No POS'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {receipt.posMachine?.segment || '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {receipt.posMachine?.brand || '—'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                         {format(new Date(receipt.date), 'dd-MMM-yyyy')}
@@ -920,7 +928,7 @@ export default function Receipts() {
                 </tbody>
                 <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
                   <tr>
-                    <td colSpan={isAdmin ? 4 : 3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
+                    <td colSpan={isAdmin ? 6 : 5} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Grand Total ({filteredReceipts.length} records)</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary">{formatAmount(grandTotal)}</td>
                     {isAdmin && (
                       <>
@@ -934,6 +942,7 @@ export default function Receipts() {
                       </>
                     )}
                     {!isAdmin && <td colSpan={3} />}
+
                   </tr>
                 </tfoot>
               </table>

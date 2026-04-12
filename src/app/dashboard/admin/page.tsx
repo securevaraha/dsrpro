@@ -7,6 +7,7 @@ import {
   Smartphone, AlertTriangle, Eye, EyeOff,
   UserCheck, UserX, Crown, ChevronRight
 } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { RoleGuard } from '@/components/RoleGuard'
@@ -576,24 +577,26 @@ export default function AdminPanel() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <select
+                <SearchableSelect
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as any)}
-                  className="form-select w-auto"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="admin">Admins</option>
-                  <option value="agent">Agents</option>
-                </select>
-                <select
+                  onChange={(value) => setSelectedRole(value as any)}
+                  options={[
+                    { value: 'all', label: 'All Roles' },
+                    { value: 'admin', label: 'Admins' },
+                    { value: 'agent', label: 'Agents' },
+                  ]}
+                  placeholder="All Roles"
+                />
+                <SearchableSelect
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value as any)}
-                  className="form-select w-auto"
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                  onChange={(value) => setSelectedStatus(value as any)}
+                  options={[
+                    { value: 'all', label: 'All Status' },
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                  ]}
+                  placeholder="All Status"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <button
