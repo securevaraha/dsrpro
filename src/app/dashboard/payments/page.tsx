@@ -72,6 +72,7 @@ export default function Payments() {
   })
 
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
+  const [posMachines, setPosMachines] = useState<any[]>([])
   const [agentDueMap, setAgentDueMap] = useState<Record<string, number>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
@@ -91,6 +92,7 @@ export default function Payments() {
     fetchPayments()
     fetchDueEntries()
     fetchAgents()
+    fetchPosMachines()
   }, [])
 
   const fetchDueEntries = async () => {
@@ -155,6 +157,21 @@ export default function Payments() {
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error)
+    }
+  }
+
+  const fetchPosMachines = async () => {
+    try {
+      const response = await fetchWithAuth('/api/pos-machines')
+      if (response.ok) {
+        const data = await response.json()
+        setPosMachines(data.machines || [])
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to fetch POS machines:', errorData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch POS machines:', error)
     }
   }
 
@@ -524,8 +541,8 @@ export default function Payments() {
               type="text"
               placeholder="Filter by batch ID..."
               className="form-input text-sm"
-              value={filters.batchId || ''}
-              onChange={(e) => setFilters(prev => ({ ...prev, batchId: e.target.value }))}
+              value={tempFilters.batchId || ''}
+              onChange={(e) => setTempFilters(prev => ({ ...prev, batchId: e.target.value }))}
             />
           </div>
           
@@ -535,8 +552,8 @@ export default function Payments() {
             </label>
             <SearchableSelect
               className="text-sm"
-              value={filters.agent || 'all'}
-              onChange={(value) => setFilters(prev => ({ ...prev, agent: value }))}
+              value={tempFilters.agent || 'all'}
+              onChange={(value) => setTempFilters(prev => ({ ...prev, agent: value }))}
               options={[
                 { value: 'all', label: 'All Agents' },
                 ...agents.map(a => ({ value: a._id, label: a.name }))
@@ -551,8 +568,8 @@ export default function Payments() {
             </label>
             <SearchableSelect
               className="text-sm"
-              value={filters.status || 'all'}
-              onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
+              value={tempFilters.status || 'all'}
+              onChange={(value) => setTempFilters(prev => ({ ...prev, status: value }))}
               options={[
                 { value: 'all', label: 'All' },
                 { value: 'due', label: 'Due' },
@@ -584,21 +601,31 @@ export default function Payments() {
             />
           </div>
 
-          {activeFilterCount > 0 && (
-            <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => {
+                setFilters(tempFilters)
+                setCurrentPage(1)
+              }}
+              className="dubai-button text-sm px-4 py-2"
+            >
+              Apply Filters
+            </button>
+            {(Object.values(filters).some(v => v && v !== 'all') || Object.values(tempFilters).some(v => v && v !== 'all')) && (
               <button
                 onClick={() => {
                   setFilters({})
+                  setTempFilters({})
                   setDateRangeFilter('all')
                   setDateRangeStart('')
                   setDateRangeEnd('')
                 }}
                 className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
               >
-                Reset Filters ({activeFilterCount})
+                Reset
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Mobile Filter Button */}
@@ -629,7 +656,11 @@ export default function Payments() {
         fields={filterFields}
         values={tempFilters}
         onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
-        onApply={() => setFilters(tempFilters)}
+        onApply={() => {
+          setFilters(tempFilters)
+          setShowFilter(false)
+          setCurrentPage(1)
+        }}
         onReset={() => { setTempFilters({}); setFilters({}) }}
         activeCount={activeFilterCount}
       />

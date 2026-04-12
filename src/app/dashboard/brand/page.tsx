@@ -241,24 +241,28 @@ export default function BrandsPage() {
           </div>
 
           {/* Desktop Filters - Always Visible */}
-          <div className="hidden md:flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Name:</label>
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Name
+              </label>
               <input
                 type="text"
                 placeholder="Filter by name..."
-                className="form-input w-48"
-                value={filters.name || ''}
-                onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                className="form-input text-sm"
+                value={tempFilters.name || ''}
+                onChange={(e) => setTempFilters(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
             
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Segment:</label>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Segment
+              </label>
               <select 
-                className="form-select w-48" 
-                value={filters.segment || 'all'} 
-                onChange={(e) => setFilters(prev => ({ ...prev, segment: e.target.value }))}
+                className="form-select text-sm" 
+                value={tempFilters.segment || 'all'} 
+                onChange={(e) => setTempFilters(prev => ({ ...prev, segment: e.target.value }))}
               >
                 <option value="all">All Segments</option>
                 {segments.map(s => (
@@ -267,12 +271,14 @@ export default function BrandsPage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</label>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Status
+              </label>
               <select 
-                className="form-select w-32" 
-                value={filters.status || 'all'} 
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                className="form-select text-sm" 
+                value={tempFilters.status || 'all'} 
+                onChange={(e) => setTempFilters(prev => ({ ...prev, status: e.target.value }))}
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -280,36 +286,53 @@ export default function BrandsPage() {
               </select>
             </div>
 
-            <DateRangeFilter
-              value={dateRangeFilter}
-              startDate={dateRangeStart}
-              endDate={dateRangeEnd}
-              onChange={setDateRangeFilter}
-              onStartDateChange={setDateRangeStart}
-              onEndDateChange={setDateRangeEnd}
-              options={[
-                { value: 'all', label: 'All Time' },
-                { value: 'today', label: 'Today' },
-                { value: 'week', label: 'This Week' },
-                { value: 'month', label: 'This Month' },
-                { value: 'year', label: 'This Year' },
-                { value: 'custom', label: 'Custom Range' },
-              ]}
-            />
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Date Range
+              </label>
+              <DateRangeFilter
+                value={dateRangeFilter}
+                startDate={dateRangeStart}
+                endDate={dateRangeEnd}
+                onChange={setDateRangeFilter}
+                onStartDateChange={setDateRangeStart}
+                onEndDateChange={setDateRangeEnd}
+                options={[
+                  { value: 'all', label: 'All Time' },
+                  { value: 'today', label: 'Today' },
+                  { value: 'week', label: 'This Week' },
+                  { value: 'month', label: 'This Month' },
+                  { value: 'year', label: 'This Year' },
+                  { value: 'custom', label: 'Custom Range' },
+                ]}
+              />
+            </div>
 
-            {activeFilterCount > 0 && (
+            <div className="flex items-end gap-2">
               <button
                 onClick={() => {
-                  setFilters({})
-                  setDateRangeFilter('all')
-                  setDateRangeStart('')
-                  setDateRangeEnd('')
+                  setFilters(tempFilters)
+                  setCurrentPage(1)
                 }}
-                className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                className="dubai-button text-sm px-4 py-2"
               >
-                Clear Filters ({activeFilterCount})
+                Apply Filters
               </button>
-            )}
+              {(Object.values(filters).some(v => v && v !== 'all') || Object.values(tempFilters).some(v => v && v !== 'all')) && (
+                <button
+                  onClick={() => {
+                    setFilters({})
+                    setTempFilters({})
+                    setDateRangeFilter('all')
+                    setDateRangeStart('')
+                    setDateRangeEnd('')
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Mobile Filter Button */}
@@ -340,7 +363,11 @@ export default function BrandsPage() {
           fields={filterFields}
           values={tempFilters}
           onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
-          onApply={() => setFilters(tempFilters)}
+          onApply={() => {
+            setFilters(tempFilters)
+            setShowFilter(false)
+            setCurrentPage(1)
+          }}
           onReset={() => { setTempFilters({}); setFilters({}) }}
           activeCount={activeFilterCount}
         />

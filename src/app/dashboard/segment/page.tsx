@@ -34,6 +34,7 @@ export default function SegmentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
   const [dateRangeFilter, setDateRangeFilter] = useState('all')
   const [dateRangeStart, setDateRangeStart] = useState('')
   const [dateRangeEnd, setDateRangeEnd] = useState('')
@@ -193,44 +194,133 @@ export default function SegmentsPage() {
           </div>
         </div>
 
-        {/* Search + Filter */}
-        <div className="mt-5 flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
+        {/* Search + Filters */}
+        <div className="mt-5 space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search segments..."
-              className="form-input pl-10"
+              className="form-input pl-10 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <DateRangeFilter
-            value={dateRangeFilter}
-            startDate={dateRangeStart}
-            endDate={dateRangeEnd}
-            onChange={setDateRangeFilter}
-            onStartDateChange={setDateRangeStart}
-            onEndDateChange={setDateRangeEnd}
-            options={[
-              { value: 'all', label: 'All Time' },
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' },
-              { value: 'year', label: 'This Year' },
-              { value: 'custom', label: 'Custom Range' },
-            ]}
-          />
-          <FilterButton onClick={() => setShowFilter(true)} activeCount={activeFilterCount} />
+
+          {/* Desktop Filters - Always Visible */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Name
+              </label>
+              <input
+                type="text"
+                placeholder="Filter by name..."
+                className="form-input text-sm"
+                value={tempFilters.name || ''}
+                onChange={(e) => setTempFilters(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Status
+              </label>
+              <select 
+                className="form-select text-sm" 
+                value={tempFilters.status || 'all'} 
+                onChange={(e) => setTempFilters(prev => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Date Range
+              </label>
+              <DateRangeFilter
+                value={dateRangeFilter}
+                startDate={dateRangeStart}
+                endDate={dateRangeEnd}
+                onChange={setDateRangeFilter}
+                onStartDateChange={setDateRangeStart}
+                onEndDateChange={setDateRangeEnd}
+                options={[
+                  { value: 'all', label: 'All Time' },
+                  { value: 'today', label: 'Today' },
+                  { value: 'week', label: 'This Week' },
+                  { value: 'month', label: 'This Month' },
+                  { value: 'year', label: 'This Year' },
+                  { value: 'custom', label: 'Custom Range' },
+                ]}
+              />
+            </div>
+
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => {
+                  setFilters(tempFilters)
+                  setCurrentPage(1)
+                }}
+                className="dubai-button text-sm px-4 py-2"
+              >
+                Apply Filters
+              </button>
+              {(Object.values(filters).some(v => v && v !== 'all') || Object.values(tempFilters).some(v => v && v !== 'all')) && (
+                <button
+                  onClick={() => {
+                    setFilters({})
+                    setTempFilters({})
+                    setDateRangeFilter('all')
+                    setDateRangeStart('')
+                    setDateRangeEnd('')
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Filter Button */}
+          <div className="md:hidden flex gap-2">
+            <DateRangeFilter
+              value={dateRangeFilter}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              onChange={setDateRangeFilter}
+              onStartDateChange={setDateRangeStart}
+              onEndDateChange={setDateRangeEnd}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'year', label: 'This Year' },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+            />
+            <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          </div>
         </div>
 
         <FilterPanel
           open={showFilter}
-          onClose={() => setShowFilter(false)}
+          onClose={() => { setTempFilters(filters); setShowFilter(false) }}
           fields={filterFields}
-          values={filters}
-          onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-          onReset={() => setFilters({})}
+          values={tempFilters}
+          onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
+          onApply={() => {
+            setFilters(tempFilters)
+            setShowFilter(false)
+            setCurrentPage(1)
+          }}
+          onReset={() => { setTempFilters({}); setFilters({}) }}
           activeCount={activeFilterCount}
         />
 

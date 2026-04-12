@@ -509,30 +509,30 @@ export default function Receipts() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <DateRangeFilter
-            value={dateRangeFilter}
-            startDate={dateRangeStart}
-            endDate={dateRangeEnd}
-            onChange={setDateRangeFilter}
-            onStartDateChange={setDateRangeStart}
-            onEndDateChange={setDateRangeEnd}
-            options={[
-              { value: 'all', label: 'All Time' },
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' },
-              { value: 'year', label: 'This Year' },
-              { value: 'custom', label: 'Custom Range' },
-            ]}
-          />
           {/* Mobile filter button */}
           <div className="md:hidden">
+            <DateRangeFilter
+              value={dateRangeFilter}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              onChange={setDateRangeFilter}
+              onStartDateChange={setDateRangeStart}
+              onEndDateChange={setDateRangeEnd}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'year', label: 'This Year' },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+            />
             <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
           </div>
         </div>
         
         {/* Desktop filters - show directly */}
-        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {filterFields.map((field) => (
             <div key={field.key}>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
@@ -557,6 +557,27 @@ export default function Receipts() {
               )}
             </div>
           ))}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              Date Range
+            </label>
+            <DateRangeFilter
+              value={dateRangeFilter}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              onChange={setDateRangeFilter}
+              onStartDateChange={setDateRangeStart}
+              onEndDateChange={setDateRangeEnd}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'year', label: 'This Year' },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+            />
+          </div>
           <div className="flex items-end gap-2">
             <button
               onClick={() => {
@@ -572,6 +593,9 @@ export default function Receipts() {
                 onClick={() => {
                   setFilters({})
                   setTempFilters({})
+                  setDateRangeFilter('all')
+                  setDateRangeStart('')
+                  setDateRangeEnd('')
                 }}
                 className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
               >

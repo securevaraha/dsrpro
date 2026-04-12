@@ -623,6 +623,28 @@ export default function POSMachines() {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Date Range
+              </label>
+              <DateRangeFilter
+                value={dateRangeFilter}
+                startDate={dateRangeStart}
+                endDate={dateRangeEnd}
+                onChange={setDateRangeFilter}
+                onStartDateChange={setDateRangeStart}
+                onEndDateChange={setDateRangeEnd}
+                options={[
+                  { value: 'all', label: 'All Time' },
+                  { value: 'today', label: 'Today' },
+                  { value: 'week', label: 'This Week' },
+                  { value: 'month', label: 'This Month' },
+                  { value: 'year', label: 'This Year' },
+                  { value: 'custom', label: 'Custom Range' },
+                ]}
+              />
+            </div>
+
             <div className="flex items-end gap-2">
               <button
                 onClick={() => {
@@ -648,26 +670,6 @@ export default function POSMachines() {
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Date Range Filter - Separate Row */}
-          <div className="hidden md:flex items-center gap-4">
-            <DateRangeFilter
-              value={dateRangeFilter}
-              startDate={dateRangeStart}
-              endDate={dateRangeEnd}
-              onChange={setDateRangeFilter}
-              onStartDateChange={setDateRangeStart}
-              onEndDateChange={setDateRangeEnd}
-              options={[
-                { value: 'all', label: 'All Time' },
-                { value: 'today', label: 'Today' },
-                { value: 'week', label: 'This Week' },
-                { value: 'month', label: 'This Month' },
-                { value: 'year', label: 'This Year' },
-                { value: 'custom', label: 'Custom Range' },
-              ]}
-            />
           </div>
 
           {/* Mobile Filter Button */}

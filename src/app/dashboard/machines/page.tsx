@@ -239,8 +239,8 @@ export default function MachinesPage() {
                 {field.type === 'select' ? (
                   <select 
                     className="form-select text-sm" 
-                    value={filters[field.key] ?? 'all'} 
-                    onChange={(e) => setFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    value={tempFilters[field.key] ?? 'all'} 
+                    onChange={(e) => setTempFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
                   >
                     {field.options?.map(option => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -251,27 +251,37 @@ export default function MachinesPage() {
                     type="text"
                     className="form-input text-sm"
                     placeholder={field.placeholder || `Filter by ${field.label.toLowerCase()}...`}
-                    value={filters[field.key] ?? ''}
-                    onChange={(e) => setFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    value={tempFilters[field.key] ?? ''}
+                    onChange={(e) => setTempFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
                   />
                 )}
               </div>
             ))}
-            {activeFilterCount > 0 && (
-              <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => {
+                  setFilters(tempFilters)
+                  setCurrentPage(1)
+                }}
+                className="dubai-button text-sm px-4 py-2"
+              >
+                Apply Filters
+              </button>
+              {(Object.values(filters).some(v => v && v !== 'all') || Object.values(tempFilters).some(v => v && v !== 'all')) && (
                 <button
                   onClick={() => {
                     setFilters({})
+                    setTempFilters({})
                     setDateRangeFilter('all')
                     setDateRangeStart('')
                     setDateRangeEnd('')
                   }}
                   className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
                 >
-                  Reset Filters ({activeFilterCount})
+                  Reset
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -281,7 +291,11 @@ export default function MachinesPage() {
           fields={filterFields}
           values={tempFilters}
           onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
-          onApply={() => setFilters(tempFilters)}
+          onApply={() => {
+            setFilters(tempFilters)
+            setShowFilter(false)
+            setCurrentPage(1)
+          }}
           onReset={() => { setTempFilters({}); setFilters({}) }}
           activeCount={activeFilterCount}
         />
