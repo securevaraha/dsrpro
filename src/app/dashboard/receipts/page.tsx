@@ -250,7 +250,11 @@ export default function Receipts() {
                          receipt.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesBatchId = !filters.batchId || receipt.receiptNumber.toLowerCase().includes(filters.batchId.toLowerCase())
     const matchesPOS = !filters.posMachine || filters.posMachine === 'all' || receipt.posMachine?._id === filters.posMachine
-    const matchesAgent = !filters.agent || filters.agent === 'all' || (receipt as any).agentId === filters.agent
+    const matchesAgent = !filters.agent || filters.agent === 'all' || (
+      // Check both agentId and agent name for matching
+      (receipt as any).agentId === filters.agent || 
+      receipt.agent === agents.find(a => a._id === filters.agent)?.name
+    )
     const matchesDateRng = matchesDateRange(receipt.date, dateRangeFilter, dateRangeStart, dateRangeEnd)
     return matchesSearch && matchesBatchId && matchesPOS && matchesAgent && matchesDateRng
   })
@@ -537,8 +541,8 @@ export default function Receipts() {
               {field.type === 'select' ? (
                 <SearchableSelect
                   className="text-sm"
-                  value={filters[field.key] ?? 'all'}
-                  onChange={(value) => setFilters(prev => ({ ...prev, [field.key]: value }))}
+                  value={tempFilters[field.key] ?? 'all'}
+                  onChange={(value) => setTempFilters(prev => ({ ...prev, [field.key]: value }))}
                   options={field.options || []}
                   placeholder={`Select ${field.label}`}
                 />
@@ -547,22 +551,34 @@ export default function Receipts() {
                   type="text"
                   className="form-input text-sm"
                   placeholder={field.placeholder || `Filter by ${field.label.toLowerCase()}...`}
-                  value={filters[field.key] ?? ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  value={tempFilters[field.key] ?? ''}
+                  onChange={(e) => setTempFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
                 />
               )}
             </div>
           ))}
-          {activeFilterCount > 0 && (
-            <div className="flex items-end">
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => {
+                setFilters(tempFilters)
+                setCurrentPage(1)
+              }}
+              className="dubai-button text-sm px-4 py-2"
+            >
+              Apply Filters
+            </button>
+            {(Object.values(filters).some(v => v && v !== 'all') || Object.values(tempFilters).some(v => v && v !== 'all')) && (
               <button
-                onClick={() => setFilters({})}
+                onClick={() => {
+                  setFilters({})
+                  setTempFilters({})
+                }}
                 className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
               >
-                Reset Filters ({activeFilterCount})
+                Reset
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
