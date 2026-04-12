@@ -29,31 +29,34 @@ export function toTitleCase(value: string): string {
 export function getDateRangeBounds(range: string, startDate?: string, endDate?: string, now = new Date()): DateRangeBounds {
   switch (range) {
     case 'today': {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
       return { start, end }
     }
     case 'week': {
       const start = new Date(now)
       start.setDate(start.getDate() - start.getDay())
       start.setHours(0, 0, 0, 0)
-      return { start, end: now }
+      const end = new Date(now)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
     }
-    case 'month':
-      return {
-        start: new Date(now.getFullYear(), now.getMonth(), 1),
-        end: new Date(now.getFullYear(), now.getMonth() + 1, 1),
-      }
+    case 'month': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      return { start, end }
+    }
     case 'year':
       return {
-        start: new Date(now.getFullYear(), 0, 1),
-        end: new Date(now.getFullYear() + 1, 0, 1),
+        start: new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0),
+        end: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
       }
     case 'custom': {
       if (!startDate || !endDate) return {}
       const start = new Date(startDate)
       const end = new Date(endDate)
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return {}
+      start.setHours(0, 0, 0, 0)
       end.setHours(23, 59, 59, 999)
       return { start, end }
     }

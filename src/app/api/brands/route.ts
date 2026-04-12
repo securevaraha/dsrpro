@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     if (isErrorResponse(auth)) return auth
 
     await connectDB()
-    const { name, description } = await request.json()
+    const { name, description, segment, isActive } = await request.json()
+    console.log('POST /api/brands - Received data:', { name, description, segment, isActive }) // Debug log
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Brand name is required' }, { status: 400 })
@@ -39,12 +40,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brand with this name already exists' }, { status: 409 })
     }
 
-    const brand = await Brand.create({
+    const brandData = {
       name: name.trim(),
       description: description?.trim() || '',
+      segment: segment?.trim() || '',
+      isActive: isActive !== undefined ? isActive : true,
       createdBy: auth.userId,
       updatedBy: auth.userId,
-    })
+    }
+    console.log('Creating brand with data:', brandData) // Debug log
+
+    const brand = await Brand.create(brandData)
+    console.log('Created brand:', brand) // Debug log
 
     return NextResponse.json({ brand }, { status: 201 })
   } catch (error: any) {

@@ -10,7 +10,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     await connectDB()
     const { id } = await params
-    const { name, description, isActive } = await request.json()
+    const { name, description, segment, isActive } = await request.json()
+    console.log('PUT /api/brands - Received data:', { name, description, segment, isActive }) // Debug log
 
     if (name?.trim()) {
       const existing = await Brand.findOne({ name: { $regex: `^${name.trim()}$`, $options: 'i' }, _id: { $ne: id } })
@@ -19,11 +20,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    const updateData = { 
+      name: name?.trim(), 
+      description: description?.trim() || '', 
+      segment: segment?.trim() || '', 
+      isActive, 
+      updatedBy: auth.userId 
+    }
+    console.log('Updating brand with data:', updateData) // Debug log
+
     const brand = await Brand.findByIdAndUpdate(
       id,
-      { name: name?.trim(), description: description?.trim() || '', isActive, updatedBy: auth.userId },
+      updateData,
       { new: true }
     )
+    console.log('Updated brand:', brand) // Debug log
 
     if (!brand) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 })

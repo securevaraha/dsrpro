@@ -13,6 +13,7 @@ import { RoleGuard } from '@/components/RoleGuard'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { matchesDateRange } from '@/lib/date-range'
 import { DateRangeFilter } from '@/components/ui/date-range-filter'
@@ -76,6 +77,7 @@ export default function POSMachines() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [pendingFilters, setPendingFilters] = useState<Record<string, string>>({})
   const [dateRangeFilter, setDateRangeFilter] = useState('all')
   const [dateRangeStart, setDateRangeStart] = useState('')
   const [dateRangeEnd, setDateRangeEnd] = useState('')
@@ -91,6 +93,7 @@ export default function POSMachines() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [brands, setBrands] = useState<{ _id: string, name: string }[]>([])
   const [segments, setSegments] = useState<{ _id: string, name: string }[]>([])
+  const [machineNames, setMachineNames] = useState<{ _id: string, name: string }[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 })
   const [formData, setFormData] = useState({
     machineName: '',
@@ -124,7 +127,9 @@ export default function POSMachines() {
     fetchMachines()
     fetchBrands()
     fetchSegments()
+    fetchMachineNames()
     if (isAdmin) fetchAgents()
+    setPendingFilters(filters)
   }, [isAdmin, user])
 
   const fetchBrands = async () => {
@@ -148,6 +153,37 @@ export default function POSMachines() {
       }
     } catch (e) {
       console.error('Failed to fetch segments:', e)
+    }
+  }
+
+  const fetchMachineNames = async () => {
+    try {
+      const response = await fetchWithAuth('/api/machines')
+      if (response.ok) {
+        const data = await response.json()
+        setMachineNames((data.machines || []).filter((m: any) => m.isActive))
+      }
+    } catch (e) {
+      console.error('Failed to fetch machine names:', e)
+    }
+  }
+
+  const fetchBrandsBySegment = async (segment: string) => {
+    if (!segment) {
+      setBrands([])
+      return
+    }
+    try {
+      const response = await fetchWithAuth(`/api/brands/by-segment?segment=${encodeURIComponent(segment)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBrands(data.brands || [])
+      } else {
+        setBrands([])
+      }
+    } catch (e) {
+      console.error('Failed to fetch brands by segment:', e)
+      setBrands([])
     }
   }
 
@@ -466,44 +502,208 @@ export default function POSMachines() {
         </div>
 
         {/* Filters */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
+        <div className="mt-6 space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search..."
-              className="form-input pl-10"
+              className="form-input pl-10 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <DateRangeFilter
-            value={dateRangeFilter}
-            startDate={dateRangeStart}
-            endDate={dateRangeEnd}
-            onChange={setDateRangeFilter}
-            onStartDateChange={setDateRangeStart}
-            onEndDateChange={setDateRangeEnd}
-            options={[
-              { value: 'all', label: 'All Time' },
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' },
-              { value: 'year', label: 'This Year' },
-              { value: 'custom', label: 'Custom Range' },
-            ]}
-          />
-          <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+
+          {/* Desktop Filters - Always Visible */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Name
+              </label>
+              <input
+                type="text"
+                placeholder="Filter by machine name..."
+                className="form-input text-sm"
+                value={pendingFilters.name || ''}
+                onChange={(e) => setPendingFilters(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Segment
+              </label>
+              <SearchableSelect
+                className="text-sm"
+                value={pendingFilters.segment || 'all'}
+                onChange={(value) => {
+                  setPendingFilters(prev => ({ 
+                    ...prev, 
+                    segment: value,
+                    brand: value === 'all' ? 'all' : prev.brand
+                  }))
+                }}
+                options={[
+                  { value: 'all', label: 'All Segments' },
+                  ...segments.map(s => ({ value: s.name, label: s.name }))
+                ]}
+                placeholder="Select Segment"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Brand
+              </label>
+              <SearchableSelect
+                className="text-sm"
+                value={pendingFilters.brand || 'all'}
+                onChange={(value) => setPendingFilters(prev => ({ ...prev, brand: value }))}
+                options={[
+                  { value: 'all', label: 'All Brands' },
+                  ...brands.filter(b => !pendingFilters.segment || pendingFilters.segment === 'all' || 
+                    machines.some(m => m.segment === pendingFilters.segment && m.brand === b.name)
+                  ).map(b => ({ value: b.name, label: b.name }))
+                ]}
+                placeholder="Select Brand"
+              />
+            </div>
+
+            {isAdmin && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                  Agent
+                </label>
+                <SearchableSelect
+                  className="text-sm"
+                  value={pendingFilters.agent || 'all'}
+                  onChange={(value) => setPendingFilters(prev => ({ ...prev, agent: value }))}
+                  options={[
+                    { value: 'all', label: 'All Agents' },
+                    ...agents.map(a => ({ value: a._id, label: a.name }))
+                  ]}
+                  placeholder="Select Agent"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Device
+              </label>
+              <SearchableSelect
+                className="text-sm"
+                value={pendingFilters.device || 'all'}
+                onChange={(value) => setPendingFilters(prev => ({ ...prev, device: value }))}
+                options={[
+                  { value: 'all', label: 'All Devices' },
+                  { value: 'traditional_pos', label: 'Traditional POS' },
+                  { value: 'android_pos', label: 'Android POS' },
+                ]}
+                placeholder="Select Device"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Status
+              </label>
+              <SearchableSelect
+                className="text-sm"
+                value={pendingFilters.status || 'all'}
+                onChange={(value) => setPendingFilters(prev => ({ ...prev, status: value }))}
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                  { value: 'maintenance', label: 'Maintenance' },
+                ]}
+                placeholder="Select Status"
+              />
+            </div>
+
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => {
+                  setFilters(pendingFilters)
+                  setCurrentPage(1)
+                }}
+                className="dubai-button text-sm px-4 py-2"
+              >
+                Apply Filters
+              </button>
+              {(Object.values(filters).some(v => v && v !== 'all') || Object.values(pendingFilters).some(v => v && v !== 'all')) && (
+                <button
+                  onClick={() => {
+                    setFilters({})
+                    setPendingFilters({})
+                    setDateRangeFilter('all')
+                    setDateRangeStart('')
+                    setDateRangeEnd('')
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Date Range Filter - Separate Row */}
+          <div className="hidden md:flex items-center gap-4">
+            <DateRangeFilter
+              value={dateRangeFilter}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              onChange={setDateRangeFilter}
+              onStartDateChange={setDateRangeStart}
+              onEndDateChange={setDateRangeEnd}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'year', label: 'This Year' },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+            />
+          </div>
+
+          {/* Mobile Filter Button */}
+          <div className="md:hidden flex gap-2">
+            <DateRangeFilter
+              value={dateRangeFilter}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              onChange={setDateRangeFilter}
+              onStartDateChange={setDateRangeStart}
+              onEndDateChange={setDateRangeEnd}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'year', label: 'This Year' },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+            />
+            <FilterButton onClick={() => { setPendingFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          </div>
         </div>
 
         <FilterPanel
           open={showFilter}
-          onClose={() => { setTempFilters(filters); setShowFilter(false) }}
+          onClose={() => { setPendingFilters(filters); setShowFilter(false) }}
           fields={filterFields}
-          values={tempFilters}
-          onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
-          onApply={() => setFilters(tempFilters)}
-          onReset={() => { setTempFilters({}); setFilters({}) }}
+          values={pendingFilters}
+          onChange={(key, value) => setPendingFilters(prev => ({ ...prev, [key]: value }))}
+          onApply={() => {
+            setFilters(pendingFilters)
+            setShowFilter(false)
+            setCurrentPage(1)
+          }}
+          onReset={() => { setPendingFilters({}); setFilters({}) }}
           activeCount={activeFilterCount}
         />
 
@@ -786,11 +986,35 @@ export default function POSMachines() {
                     <p className="form-section-title">Machine Identity</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
+                        <label className="form-label">Segment *</label>
+                        <select required className="form-select" value={formData.segment} onChange={(e) => {
+                          const newSegment = e.target.value
+                          setFormData({...formData, segment: newSegment, brand: ''})
+                          fetchBrandsBySegment(newSegment)
+                        }}>
+                          <option value="" disabled>Select Segment</option>
+                          {segments.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+                        </select>
+                        {segments.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Segments in Admin Panel first</p>}
+                      </div>
+                      <div>
+                        <label className="form-label">Company/Brand *</label>
+                        <select required className="form-select" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})} disabled={!formData.segment}>
+                          <option value="" disabled>Select Company/Brand</option>
+                          {brands.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
+                        </select>
+                        {!formData.segment && <p className="text-xs text-gray-500 mt-1">Select a segment first</p>}
+                        {formData.segment && brands.length === 0 && <p className="text-xs text-amber-500 mt-1">No brands available for this segment</p>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
                         <label className="form-label">Machine Name *</label>
-                        <input type="text" required className="form-input" placeholder="e.g. Main Counter POS"
-                          value={formData.machineName}
-                          onChange={(e) => setFormData({...formData, machineName: e.target.value})}
-                        />
+                        <select required className="form-select" value={formData.machineName} onChange={(e) => setFormData({...formData, machineName: e.target.value})}>
+                          <option value="" disabled>Select Machine Name</option>
+                          {machineNames.map(m => <option key={m._id} value={m.name}>{m.name}</option>)}
+                        </select>
+                        {machineNames.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Machine Names in Admin Panel first</p>}
                       </div>
                       <div>
                         <label className="form-label">Assign to Agent</label>
@@ -800,29 +1024,6 @@ export default function POSMachines() {
                             <option key={agent._id} value={agent._id}>{agent.name}{agent.companyName ? ` (${agent.companyName})` : ''}</option>
                           ))}
                         </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section: Classification */}
-                  <div className="form-section">
-                    <p className="form-section-title">Classification</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="form-label">Segment *</label>
-                        <select required className="form-select" value={formData.segment} onChange={(e) => setFormData({...formData, segment: e.target.value})}>
-                          <option value="" disabled>Select Segment</option>
-                          {segments.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
-                        </select>
-                        {segments.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Segments in Admin Panel first</p>}
-                      </div>
-                      <div>
-                        <label className="form-label">Company/Brand *</label>
-                        <select required className="form-select" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})}>
-                          <option value="" disabled>Select Company/Brand</option>
-                          {brands.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
-                        </select>
-                        {brands.length === 0 && <p className="text-xs text-amber-500 mt-1">Create Company/Brands in Admin Panel first</p>}
                       </div>
                     </div>
                   </div>

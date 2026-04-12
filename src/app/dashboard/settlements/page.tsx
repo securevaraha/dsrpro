@@ -8,6 +8,7 @@ import { RoleGuard } from '@/components/RoleGuard'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { FilterPanel, FilterButton } from '@/components/ui/filter-panel'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/ui/table-pagination'
 import { matchesDateRange } from '@/lib/date-range'
@@ -88,6 +89,7 @@ export default function Settlements() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [pendingFilters, setPendingFilters] = useState<Record<string, string>>({})
   const [dateRangeFilter, setDateRangeFilter] = useState('all')
   const [dateRangeStart, setDateRangeStart] = useState('')
   const [dateRangeEnd, setDateRangeEnd] = useState('')
@@ -113,6 +115,7 @@ export default function Settlements() {
     fetchUnsettled()
     fetchSettlementHistory()
     fetchAgents()
+    setPendingFilters(filters)
   }, [])
 
   const fetchUnsettled = async () => {
@@ -380,45 +383,138 @@ export default function Settlements() {
           </div>
         </div>
 
-        {/* Search + Filter */}
-        <div className="mt-5 flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
+        {/* Search + Filters */}
+        <div className="mt-5 space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search by batch ID, agent, description..."
-              className="form-input pl-10"
+              className="form-input pl-10 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <DateRangeFilter
-            value={dateRangeFilter}
-            startDate={dateRangeStart}
-            endDate={dateRangeEnd}
-            onChange={setDateRangeFilter}
-            onStartDateChange={setDateRangeStart}
-            onEndDateChange={setDateRangeEnd}
-            options={[
-              { value: 'all', label: 'All Time' },
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' },
-              { value: 'year', label: 'This Year' },
-              { value: 'custom', label: 'Custom Range' },
-            ]}
-          />
-          <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+
+          {/* Desktop Filters - Always Visible */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Agent
+              </label>
+              <SearchableSelect
+                className="text-sm"
+                value={pendingFilters.agent || 'all'}
+                onChange={(value) => setPendingFilters(prev => ({ ...prev, agent: value }))}
+                options={[
+                  { value: 'all', label: 'All Agents' },
+                  ...agents.map(a => ({ value: a._id, label: a.name }))
+                ]}
+                placeholder="Select Agent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Status
+              </label>
+              <SearchableSelect
+                className="text-sm"
+                value={pendingFilters.status || 'all'}
+                onChange={(value) => setPendingFilters(prev => ({ ...prev, status: value }))}
+                options={[
+                  { value: 'all', label: 'All Statuses' },
+                  { value: 'due', label: 'Due' },
+                  { value: 'settled', label: 'Settled' },
+                ]}
+                placeholder="Select Status"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Date Range
+              </label>
+              <DateRangeFilter
+                value={dateRangeFilter}
+                startDate={dateRangeStart}
+                endDate={dateRangeEnd}
+                onChange={setDateRangeFilter}
+                onStartDateChange={setDateRangeStart}
+                onEndDateChange={setDateRangeEnd}
+                options={[
+                  { value: 'all', label: 'All Time' },
+                  { value: 'today', label: 'Today' },
+                  { value: 'week', label: 'This Week' },
+                  { value: 'month', label: 'This Month' },
+                  { value: 'year', label: 'This Year' },
+                  { value: 'custom', label: 'Custom Range' },
+                ]}
+              />
+            </div>
+
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => {
+                  setFilters(pendingFilters)
+                  setCurrentPage(1)
+                }}
+                className="dubai-button text-sm px-4 py-2"
+              >
+                Apply Filters
+              </button>
+              {(Object.values(filters).some(v => v && v !== 'all') || Object.values(pendingFilters).some(v => v && v !== 'all')) && (
+                <button
+                  onClick={() => {
+                    setFilters({})
+                    setPendingFilters({})
+                    setDateRangeFilter('all')
+                    setDateRangeStart('')
+                    setDateRangeEnd('')
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Filter Button */}
+          <div className="md:hidden flex gap-2">
+            <DateRangeFilter
+              value={dateRangeFilter}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              onChange={setDateRangeFilter}
+              onStartDateChange={setDateRangeStart}
+              onEndDateChange={setDateRangeEnd}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: 'This Month' },
+                { value: 'year', label: 'This Year' },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+            />
+            <FilterButton onClick={() => { setPendingFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          </div>
         </div>
 
         <FilterPanel
           open={showFilter}
-          onClose={() => { setTempFilters(filters); setShowFilter(false) }}
+          onClose={() => { setPendingFilters(filters); setShowFilter(false) }}
           fields={filterFields}
-          values={tempFilters}
-          onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
-          onApply={() => setFilters(tempFilters)}
-          onReset={() => { setTempFilters({}); setFilters({}) }}
+          values={pendingFilters}
+          onChange={(key, value) => setPendingFilters(prev => ({ ...prev, [key]: value }))}
+          onApply={() => {
+            setFilters(pendingFilters)
+            setShowFilter(false)
+            setCurrentPage(1)
+          }}
+          onReset={() => { setPendingFilters({}); setFilters({}) }}
           activeCount={activeFilterCount}
         />
 

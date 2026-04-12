@@ -79,14 +79,20 @@ export function SearchableSelect({
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          'form-input w-full text-left flex items-center gap-2 cursor-pointer',
+          'form-input w-full text-left flex items-start gap-2 cursor-pointer min-h-[2.5rem] py-2',
           disabled && 'opacity-60 cursor-not-allowed'
         )}
       >
-        <span className={cn('flex-1 truncate', !selectedOption && 'text-gray-400 dark:text-gray-500')}>
-          {selectedOption?.label || placeholder}
+        <span className={cn('flex-1', !selectedOption && 'text-gray-400 dark:text-gray-500')}>
+          {selectedOption?.label ? (
+            <div className="whitespace-pre-line text-sm leading-tight">
+              {selectedOption.label}
+            </div>
+          ) : (
+            placeholder
+          )}
         </span>
-        <ChevronDown className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform mt-1', open && 'rotate-180')} />
       </button>
 
       {open && (
@@ -101,7 +107,7 @@ export function SearchableSelect({
               placeholder="Search..."
             />
           </div>
-          <div className="max-h-40 overflow-y-auto py-1">
+          <div className="max-h-80 overflow-y-auto py-1">
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No results found</div>
             ) : (
@@ -116,13 +122,13 @@ export function SearchableSelect({
                       setOpen(false)
                     }}
                     className={cn(
-                      'w-full px-3 py-2 text-sm text-left flex items-center justify-between gap-2',
+                      'w-full px-3 py-3 text-sm text-left flex items-start justify-between gap-2',
                       'hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
                       selected && 'text-primary'
                     )}
                   >
-                    <span className="truncate">{opt.label}</span>
-                    {selected && <Check className="h-4 w-4 shrink-0" />}
+                    <div className="whitespace-pre-line leading-tight flex-1">{opt.label}</div>
+                    {selected && <Check className="h-4 w-4 shrink-0 mt-0.5" />}
                   </button>
                 )
               })

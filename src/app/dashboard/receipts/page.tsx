@@ -493,34 +493,77 @@ export default function Receipts() {
       </div>
 
       {/* Filters */}
-      <div className="mt-5 flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search receipts..."
-            className="form-input pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+      <div className="mt-5 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search receipts..."
+              className="form-input pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <DateRangeFilter
+            value={dateRangeFilter}
+            startDate={dateRangeStart}
+            endDate={dateRangeEnd}
+            onChange={setDateRangeFilter}
+            onStartDateChange={setDateRangeStart}
+            onEndDateChange={setDateRangeEnd}
+            options={[
+              { value: 'all', label: 'All Time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+              { value: 'year', label: 'This Year' },
+              { value: 'custom', label: 'Custom Range' },
+            ]}
           />
+          {/* Mobile filter button */}
+          <div className="md:hidden">
+            <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          </div>
         </div>
-        <DateRangeFilter
-          value={dateRangeFilter}
-          startDate={dateRangeStart}
-          endDate={dateRangeEnd}
-          onChange={setDateRangeFilter}
-          onStartDateChange={setDateRangeStart}
-          onEndDateChange={setDateRangeEnd}
-          options={[
-            { value: 'all', label: 'All Time' },
-            { value: 'today', label: 'Today' },
-            { value: 'week', label: 'This Week' },
-            { value: 'month', label: 'This Month' },
-            { value: 'year', label: 'This Year' },
-            { value: 'custom', label: 'Custom Range' },
-          ]}
-        />
-        <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+        
+        {/* Desktop filters - show directly */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filterFields.map((field) => (
+            <div key={field.key}>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                {field.label}
+              </label>
+              {field.type === 'select' ? (
+                <SearchableSelect
+                  className="text-sm"
+                  value={filters[field.key] ?? 'all'}
+                  onChange={(value) => setFilters(prev => ({ ...prev, [field.key]: value }))}
+                  options={field.options || []}
+                  placeholder={`Select ${field.label}`}
+                />
+              ) : (
+                <input
+                  type="text"
+                  className="form-input text-sm"
+                  placeholder={field.placeholder || `Filter by ${field.label.toLowerCase()}...`}
+                  value={filters[field.key] ?? ''}
+                  onChange={(e) => setFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+                />
+              )}
+            </div>
+          ))}
+          {activeFilterCount > 0 && (
+            <div className="flex items-end">
+              <button
+                onClick={() => setFilters({})}
+                className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+              >
+                Reset Filters ({activeFilterCount})
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <FilterPanel
@@ -913,7 +956,7 @@ export default function Receipts() {
                       { value: '', label: 'Select POS Machine' },
                       ...availablePosMachines.map((m) => ({
                         value: m._id,
-                        label: `${m.machineName || (m.segment + ' / ' + m.brand)} — ${m.terminalId}${m.status !== 'active' ? ` (${m.status})` : ''}`,
+                        label: `${m.machineName || 'Unnamed Machine'}\n${m.segment} - ${m.brand}\nTerminal: ${m.terminalId} | Merchant: ${m.merchantId || 'N/A'}`,
                       })),
                     ]}
                     placeholder="Select POS Machine"

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Tag, Search, Download } from 'lucide-react'
+import { Plus, Edit, Trash2, Monitor, Search, Download } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
 import { RoleGuard } from '@/components/RoleGuard'
@@ -11,11 +11,10 @@ import { TablePagination, getPaginatedSlice, getTotalPages } from '@/components/
 import { matchesDateRange } from '@/lib/date-range'
 import { DateRangeFilter } from '@/components/ui/date-range-filter'
 
-interface Brand {
+interface Machine {
   _id: string
   name: string
   description: string
-  segment?: string
   isActive: boolean
   createdBy?: { name: string }
   updatedBy?: { name: string }
@@ -23,14 +22,13 @@ interface Brand {
   updatedAt: string
 }
 
-export default function BrandsPage() {
-  const [brands, setBrands] = useState<Brand[]>([])
-  const [segments, setSegments] = useState<{ _id: string, name: string }[]>([])
+export default function MachinesPage() {
+  const [machines, setMachines] = useState<Machine[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
-  const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null)
+  const [editingMachine, setEditingMachine] = useState<Machine | null>(null)
+  const [deletingMachine, setDeletingMachine] = useState<Machine | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -42,14 +40,10 @@ export default function BrandsPage() {
   const [dateRangeEnd, setDateRangeEnd] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(5)
-  const [formData, setFormData] = useState({ name: '', description: '', segment: '', isActive: true })
+  const [formData, setFormData] = useState({ name: '', description: '', isActive: true })
 
   const filterFields = [
     { key: 'name', label: 'Name', type: 'text' as const, placeholder: 'Filter by name...' },
-    { key: 'segment', label: 'Segment', type: 'select' as const, options: [
-      { value: 'all', label: 'All Segments' },
-      ...segments.map(s => ({ value: s.name, label: s.name }))
-    ]},
     { key: 'status', label: 'Status', type: 'select' as const, options: [
       { value: 'all', label: 'All Status' },
       { value: 'active', label: 'Active' },
@@ -60,38 +54,21 @@ export default function BrandsPage() {
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length
 
   useEffect(() => {
-    fetchBrands()
-    fetchSegments()
+    fetchMachines()
   }, [])
 
-  const fetchSegments = async () => {
-    try {
-      const response = await fetchWithAuth('/api/segments')
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Segments loaded:', data.segments) // Debug log
-        setSegments(data.segments || [])
-      } else {
-        console.error('Failed to fetch segments:', response.status)
-      }
-    } catch (e) {
-      console.error('Failed to fetch segments:', e)
-    }
-  }
-
-  const fetchBrands = async () => {
+  const fetchMachines = async () => {
     try {
       setLoading(true)
-      const response = await fetchWithAuth('/api/brands')
+      const response = await fetchWithAuth('/api/machines')
       if (response.ok) {
         const data = await response.json()
-        console.log('Brands loaded:', data.brands) // Debug log
-        setBrands((data.brands || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+        setMachines((data.machines || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
       } else {
-        toast.error('Failed to load company/brands')
+        toast.error('Failed to load machines')
       }
     } catch {
-      toast.error('Failed to load company/brands')
+      toast.error('Failed to load machines')
     } finally {
       setLoading(false)
     }
@@ -100,78 +77,71 @@ export default function BrandsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name.trim()) {
-      toast.error('Company/Brand name is required')
+      toast.error('Machine name is required')
       return
     }
     setSubmitting(true)
-    console.log('Submitting form data:', formData) // Debug log
     try {
-      const url = editingBrand ? `/api/brands/${editingBrand._id}` : '/api/brands'
-      const method = editingBrand ? 'PUT' : 'POST'
+      const url = editingMachine ? `/api/machines/${editingMachine._id}` : '/api/machines'
+      const method = editingMachine ? 'PUT' : 'POST'
       const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
-      console.log('API Response:', response.status) // Debug log
       if (response.ok) {
-        const result = await response.json()
-        console.log('API Result:', result) // Debug log
-        toast.success(editingBrand ? 'Company/Brand updated' : 'Company/Brand created')
+        toast.success(editingMachine ? 'Machine updated' : 'Machine created')
         setShowModal(false)
-        setEditingBrand(null)
-        setFormData({ name: '', description: '', segment: '', isActive: true })
-        fetchBrands()
+        setEditingMachine(null)
+        setFormData({ name: '', description: '', isActive: true })
+        fetchMachines()
       } else {
         const data = await response.json()
-        console.error('API Error:', data) // Debug log
-        toast.error(data.error || 'Failed to save company/brand')
+        toast.error(data.error || 'Failed to save machine')
       }
     } catch {
-      toast.error('Failed to save company/brand')
+      toast.error('Failed to save machine')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!deletingBrand) return
+    if (!deletingMachine) return
     setDeleting(true)
     try {
-      const response = await fetchWithAuth(`/api/brands/${deletingBrand._id}`, { method: 'DELETE' })
+      const response = await fetchWithAuth(`/api/machines/${deletingMachine._id}`, { method: 'DELETE' })
       const data = await response.json()
       if (response.ok) {
-        toast.success('Company/Brand deleted')
+        toast.success('Machine deleted')
         setShowDeleteDialog(false)
-        setDeletingBrand(null)
-        fetchBrands()
+        setDeletingMachine(null)
+        fetchMachines()
       } else {
-        toast.error(data.error || 'Failed to delete company/brand')
+        toast.error(data.error || 'Failed to delete machine')
       }
     } catch {
-      toast.error('Failed to delete company/brand')
+      toast.error('Failed to delete machine')
     } finally {
       setDeleting(false)
     }
   }
 
-  const filteredBrands = brands.filter(b => {
-    const matchesSearch = b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.segment?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesName = !filters.name || b.name.toLowerCase().includes(filters.name.toLowerCase())
-    const matchesSegment = !filters.segment || filters.segment === 'all' || b.segment === filters.segment
+  const filteredMachines = machines.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesName = !filters.name || m.name.toLowerCase().includes(filters.name.toLowerCase())
     const matchesStatus = !filters.status || filters.status === 'all' ||
-      (filters.status === 'active' ? b.isActive : !b.isActive)
-    return matchesSearch && matchesName && matchesSegment && matchesStatus && matchesDateRange(b.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
+      (filters.status === 'active' ? m.isActive : !m.isActive)
+    return matchesSearch && matchesName && matchesStatus && matchesDateRange(m.createdAt, dateRangeFilter, dateRangeStart, dateRangeEnd)
   })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filters, brands, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
+  }, [searchTerm, filters, machines, itemsPerPage, dateRangeFilter, dateRangeStart, dateRangeEnd])
 
-  const paginatedBrands = getPaginatedSlice(filteredBrands, currentPage, itemsPerPage)
-  const totalPages = getTotalPages(filteredBrands.length, itemsPerPage)
+  const paginatedMachines = getPaginatedSlice(filteredMachines, currentPage, itemsPerPage)
+  const totalPages = getTotalPages(filteredMachines.length, itemsPerPage)
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages)
@@ -182,32 +152,30 @@ export default function BrandsPage() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Company/Brand</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage POS machine company/brands</p>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Machine Names</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage machine names and descriptions for POS machines</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => {
                 const { exportToExcel } = require('@/lib/excelExport')
                 exportToExcel({
-                  filename: 'brands_report',
-                  sheetName: 'Brands',
+                  filename: 'machines_report',
+                  sheetName: 'Machines',
                   columns: [
                     { key: 'name', label: 'Name', width: 24 },
-                    { key: 'segment', label: 'Segment', width: 20 },
                     { key: 'description', label: 'Description', width: 36 },
                     { key: 'createdByDate', label: 'Created By / Date', width: 30 },
                     { key: 'updatedByDate', label: 'Updated By / Date', width: 30 },
                     { key: 'status', label: 'Status', width: 14 },
                   ],
-                  data: filteredBrands.map(b => ({
-                    ...b,
-                    segment: b.segment || '—',
-                    status: b.isActive ? 'Active' : 'Inactive',
-                    createdByDate: `${b.createdBy?.name || '—'} | ${format(new Date(b.createdAt), 'dd-MMM-yyyy HH:mm')}`,
-                    updatedByDate: `${b.updatedBy?.name || '—'} | ${format(new Date(b.updatedAt), 'dd-MMM-yyyy HH:mm')}`,
+                  data: filteredMachines.map(m => ({
+                    ...m,
+                    status: m.isActive ? 'Active' : 'Inactive',
+                    createdByDate: `${m.createdBy?.name || '—'} | ${format(new Date(m.createdAt), 'dd-MMM-yyyy HH:mm')}`,
+                    updatedByDate: `${m.updatedBy?.name || '—'} | ${format(new Date(m.updatedAt), 'dd-MMM-yyyy HH:mm')}`,
                   })),
-                  title: 'Company/Brand Report',
+                  title: 'Machine Names Report',
                   isRTL: false
                 })
               }}
@@ -217,69 +185,28 @@ export default function BrandsPage() {
               Export
             </button>
             <button
-              onClick={() => { setEditingBrand(null); setFormData({ name: '', description: '', segment: '', isActive: true }); setShowModal(true) }}
+              onClick={() => { setEditingMachine(null); setFormData({ name: '', description: '', isActive: true }); setShowModal(true) }}
               className="dubai-button inline-flex items-center justify-center"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Company/Brand
+              Add Machine Name
             </button>
           </div>
         </div>
 
-        {/* Search + Filters */}
-        <div className="mt-5 space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search company/brands..."
-              className="form-input pl-10 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Desktop Filters - Always Visible */}
-          <div className="hidden md:flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Name:</label>
+        {/* Filters */}
+        <div className="mt-5 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Filter by name..."
-                className="form-input w-48"
-                value={filters.name || ''}
-                onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Search machine names..."
+                className="form-input pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Segment:</label>
-              <select 
-                className="form-select w-48" 
-                value={filters.segment || 'all'} 
-                onChange={(e) => setFilters(prev => ({ ...prev, segment: e.target.value }))}
-              >
-                <option value="all">All Segments</option>
-                {segments.map(s => (
-                  <option key={s._id} value={s.name}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</label>
-              <select 
-                className="form-select w-32" 
-                value={filters.status || 'all'} 
-                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-
             <DateRangeFilter
               value={dateRangeFilter}
               startDate={dateRangeStart}
@@ -296,41 +223,55 @@ export default function BrandsPage() {
                 { value: 'custom', label: 'Custom Range' },
               ]}
             />
-
-            {activeFilterCount > 0 && (
-              <button
-                onClick={() => {
-                  setFilters({})
-                  setDateRangeFilter('all')
-                  setDateRangeStart('')
-                  setDateRangeEnd('')
-                }}
-                className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
-              >
-                Clear Filters ({activeFilterCount})
-              </button>
-            )}
+            {/* Mobile filter button */}
+            <div className="md:hidden">
+              <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+            </div>
           </div>
-
-          {/* Mobile Filter Button */}
-          <div className="md:hidden flex gap-2">
-            <DateRangeFilter
-              value={dateRangeFilter}
-              startDate={dateRangeStart}
-              endDate={dateRangeEnd}
-              onChange={setDateRangeFilter}
-              onStartDateChange={setDateRangeStart}
-              onEndDateChange={setDateRangeEnd}
-              options={[
-                { value: 'all', label: 'All Time' },
-                { value: 'today', label: 'Today' },
-                { value: 'week', label: 'This Week' },
-                { value: 'month', label: 'This Month' },
-                { value: 'year', label: 'This Year' },
-                { value: 'custom', label: 'Custom Range' },
-              ]}
-            />
-            <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          
+          {/* Desktop filters - show directly */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filterFields.map((field) => (
+              <div key={field.key}>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                  {field.label}
+                </label>
+                {field.type === 'select' ? (
+                  <select 
+                    className="form-select text-sm" 
+                    value={filters[field.key] ?? 'all'} 
+                    onChange={(e) => setFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  >
+                    {field.options?.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="form-input text-sm"
+                    placeholder={field.placeholder || `Filter by ${field.label.toLowerCase()}...`}
+                    value={filters[field.key] ?? ''}
+                    onChange={(e) => setFilters(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  />
+                )}
+              </div>
+            ))}
+            {activeFilterCount > 0 && (
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setFilters({})
+                    setDateRangeFilter('all')
+                    setDateRangeStart('')
+                    setDateRangeEnd('')
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+                >
+                  Reset Filters ({activeFilterCount})
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -349,14 +290,14 @@ export default function BrandsPage() {
         <div className="mt-6">
           {loading ? (
             <TableSkeleton rows={4} columns={5} />
-          ) : filteredBrands.length === 0 ? (
+          ) : filteredMachines.length === 0 ? (
             <div className="dubai-card text-center py-12">
-              <Tag className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <Monitor className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
               <h3 className="text-base font-medium text-gray-900 dark:text-white mb-1">
-                {searchTerm ? 'No company/brands found' : 'No company/brands yet'}
+                {searchTerm ? 'No machine names found' : 'No machine names yet'}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {searchTerm ? 'Try a different search term' : 'Create your first company/brand'}
+                {searchTerm ? 'Try a different search term' : 'Create your first machine name'}
               </p>
             </div>
           ) : (
@@ -365,7 +306,6 @@ export default function BrandsPage() {
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800/50">
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Segment</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By / Date</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Updated By / Date</th>
@@ -374,44 +314,41 @@ export default function BrandsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {paginatedBrands.map((brand) => (
-                    <tr key={brand._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  {paginatedMachines.map((machine) => (
+                    <tr key={machine._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-5 py-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {brand.name}
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300">
-                        {brand.segment || '—'}
+                        {machine.name}
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 max-w-[200px] truncate">
-                        {brand.description || '—'}
+                        {machine.description || '—'}
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <div className="meta-compact">
-                          <div className="meta-compact-name">{brand.createdBy?.name || '—'}</div>
-                          <div className="meta-compact-date">{format(new Date(brand.createdAt), 'dd-MMM-yyyy HH:mm')}</div>
+                          <div className="meta-compact-name">{machine.createdBy?.name || '—'}</div>
+                          <div className="meta-compact-date">{format(new Date(machine.createdAt), 'dd-MMM-yyyy HH:mm')}</div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <div className="meta-compact">
-                          <div className="meta-compact-name">{brand.updatedBy?.name || '—'}</div>
-                          <div className="meta-compact-date">{format(new Date(brand.updatedAt), 'dd-MMM-yyyy HH:mm')}</div>
+                          <div className="meta-compact-name">{machine.updatedBy?.name || '—'}</div>
+                          <div className="meta-compact-date">{format(new Date(machine.updatedAt), 'dd-MMM-yyyy HH:mm')}</div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          brand.isActive
+                          machine.isActive
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
                             : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
                         }`}>
-                          {brand.isActive ? 'Active' : 'Inactive'}
+                          {machine.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-center">
                         <div className="flex justify-center gap-1">
                           <button
                             onClick={() => {
-                              setEditingBrand(brand)
-                              setFormData({ name: brand.name, description: brand.description || '', segment: brand.segment || '', isActive: brand.isActive ?? true })
+                              setEditingMachine(machine)
+                              setFormData({ name: machine.name, description: machine.description || '', isActive: machine.isActive ?? true })
                               setShowModal(true)
                             }}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -419,7 +356,7 @@ export default function BrandsPage() {
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => { setDeletingBrand(brand); setShowDeleteDialog(true) }}
+                            onClick={() => { setDeletingMachine(machine); setShowDeleteDialog(true) }}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -434,9 +371,9 @@ export default function BrandsPage() {
           )}
         </div>
 
-        {!loading && filteredBrands.length > 0 && (
+        {!loading && filteredMachines.length > 0 && (
           <TablePagination
-            totalItems={filteredBrands.length}
+            totalItems={filteredMachines.length}
             currentPage={currentPage}
             itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
@@ -450,36 +387,22 @@ export default function BrandsPage() {
             <div className="modal-content form-modal">
               <div className="modal-header">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{editingBrand ? 'Edit Company/Brand' : 'Add Company/Brand'}</h3>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{editingMachine ? 'Edit Machine Name' : 'Add Machine Name'}</h3>
                 </div>
-                <button type="button" onClick={() => { setShowModal(false); setEditingBrand(null) }} className="modal-close-btn">
+                <button type="button" onClick={() => { setShowModal(false); setEditingMachine(null) }} className="modal-close-btn">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="form-label">Name *</label>
-                  <input type="text" required className="form-input" placeholder="Company/Brand name"
+                  <input type="text" required className="form-input" placeholder="Machine name"
                     value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="form-label">Segment</label>
-                  <select className="form-select" value={formData.segment} onChange={(e) => setFormData({ ...formData, segment: e.target.value })}>
-                    <option value="">— No Segment —</option>
-                    {segments.map(segment => (
-                      <option key={segment._id} value={segment.name}>{segment.name}</option>
-                    ))}
-                  </select>
-                  {segments.length === 0 ? (
-                    <p className="text-xs text-amber-500 mt-1">Create Segments in Admin Panel first</p>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">{segments.length} segments available</p>
-                  )}
-                </div>
-                <div>
                   <label className="form-label">Description</label>
-                  <input type="text" className="form-input" placeholder="Optional description"
+                  <textarea className="form-input" rows={3} placeholder="Optional description"
                     value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
@@ -493,9 +416,9 @@ export default function BrandsPage() {
                   </select>
                 </div>
                 <div className="flex justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <button type="button" onClick={() => { setShowModal(false); setEditingBrand(null) }} className="btn-secondary">Cancel</button>
+                  <button type="button" onClick={() => { setShowModal(false); setEditingMachine(null) }} className="btn-secondary">Cancel</button>
                   <button type="submit" disabled={submitting || !formData.name.trim()} className="dubai-button disabled:opacity-50 disabled:cursor-not-allowed">
-                    {submitting ? 'Saving...' : (editingBrand ? 'Update' : 'Create')}
+                    {submitting ? 'Saving...' : (editingMachine ? 'Update' : 'Create')}
                   </button>
                 </div>
               </form>
@@ -504,17 +427,17 @@ export default function BrandsPage() {
         )}
 
         {/* Delete Confirmation */}
-        {showDeleteDialog && deletingBrand && (
+        {showDeleteDialog && deletingMachine && (
           <div className="modal-overlay">
             <div className="modal-content max-w-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
                   <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete Company/Brand</h3>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete Machine Name</h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                Are you sure you want to delete <strong>{deletingBrand.name}</strong>? This action cannot be undone.
+                Are you sure you want to delete <strong>{deletingMachine.name}</strong>? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
                 <button onClick={() => setShowDeleteDialog(false)} disabled={deleting} className="btn-secondary disabled:opacity-50">Cancel</button>

@@ -1,17 +1,16 @@
 import mongoose from 'mongoose';
 
 // Clear cached model to pick up schema changes
-if (mongoose.models.Brand) {
-  delete mongoose.models.Brand
+if (mongoose.models.Machine) {
+  delete mongoose.models.Machine
 }
 
-const BrandSchema = new mongoose.Schema({
+const MachineSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true, trim: true },
   description: { type: String, default: '', trim: true },
-  segment: { type: String, required: false, trim: true },
   isActive: { type: Boolean, default: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
-export default mongoose.models.Brand || mongoose.model('Brand', BrandSchema);
+export default mongoose.models.Machine || mongoose.model('Machine', MachineSchema);

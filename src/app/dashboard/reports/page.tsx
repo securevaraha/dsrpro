@@ -65,6 +65,7 @@ export default function Reports() {
   const [showFilter, setShowFilter] = useState(false)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [tempFilters, setTempFilters] = useState<Record<string, string>>({})
+  const [pendingFilters, setPendingFilters] = useState<Record<string, string>>({})
   const [agents, setAgents] = useState<{_id: string, name: string}[]>([])
   const [posMachines, setPosMachines] = useState<any[]>([])
   const [segments, setSegments] = useState<{_id: string, name: string}[]>([])
@@ -80,6 +81,7 @@ export default function Reports() {
     fetchWithAuth('/api/pos-machines').then(r => r.ok ? r.json() : null).then(d => d && setPosMachines(d.machines || []))
     fetchWithAuth('/api/segments').then(r => r.ok ? r.json() : null).then(d => d && setSegments(d.segments || []))
     fetchWithAuth('/api/brands').then(r => r.ok ? r.json() : null).then(d => d && setBrands(d.brands || []))
+    setPendingFilters(filters)
   }, [])
 
   const fetchReportData = async () => {
@@ -390,6 +392,21 @@ export default function Reports() {
     return matchBatchId && matchAgent && matchPOS && matchSegment && matchBrand && matchFrom && matchTo
   })
 
+  // Filter POS machines based on selected segment and brand
+  const filteredPosMachines = posMachines.filter((machine: any) => {
+    const segmentMatch = !pendingFilters.segment || pendingFilters.segment === 'all' || machine.segment === pendingFilters.segment
+    const brandMatch = !pendingFilters.brand || pendingFilters.brand === 'all' || machine.brand === pendingFilters.brand
+    return segmentMatch && brandMatch
+  })
+
+  // Filter agents based on selected POS machine (if applicable)
+  const filteredAgents = agents.filter((agent: any) => {
+    if (!pendingFilters.posMachine || pendingFilters.posMachine === 'all') return true
+    const selectedMachine = posMachines.find(m => m._id === pendingFilters.posMachine)
+    if (!selectedMachine) return true
+    return selectedMachine.assignedAgent === agent._id || !selectedMachine.assignedAgent
+  })
+
   useEffect(() => {
     setCurrentPage(1)
   }, [reportType, dateRange, filters, itemsPerPage])
@@ -670,96 +687,235 @@ export default function Reports() {
             <span className="hidden sm:inline">{t('exportExcel')}</span>
             <span className="sm:hidden">Excel</span>
           </button>
-          <FilterButton onClick={() => { setTempFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          {/* Mobile Filter Button */}
+          <div className="md:hidden">
+            <FilterButton onClick={() => { setPendingFilters(filters); setShowFilter(true) }} activeCount={activeFilterCount} />
+          </div>
         </div>
       </div>
 
       <FilterPanel
         open={showFilter}
         onClose={() => {
-          setTempFilters(filters)
+          setPendingFilters(filters)
           setShowFilter(false)
         }}
         fields={filterFields}
-        values={tempFilters}
-        onChange={(key, value) => setTempFilters(prev => ({ ...prev, [key]: value }))}
-        onApply={() => setFilters(tempFilters)}
-        onReset={() => { setTempFilters({}); setFilters({}) }}
+        values={pendingFilters}
+        onChange={(key, value) => setPendingFilters(prev => ({ ...prev, [key]: value }))}
+        onApply={() => {
+          setFilters(pendingFilters)
+          setShowFilter(false)
+          setCurrentPage(1)
+        }}
+        onReset={() => { setPendingFilters({}); setFilters({}) }}
         activeCount={activeFilterCount}
       />
 
       {/* Filters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="col-span-2 md:col-span-1">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Report Type
-          </label>
-          <SearchableSelect
-            value={reportType}
-            onChange={(value) => setReportType(value)}
-            options={[
-              { value: 'summary', label: 'Summary Report' },
-              { value: 'receipts', label: 'Receipts Report' },
-              { value: 'payments', label: 'Payments Report' },
-              { value: 'settlements', label: 'Settlements Report' },
-            ]}
-            placeholder="Report Type"
-          />
+      <div className="space-y-4">
+        {/* Main Report Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wide">
+              Report Type
+            </label>
+            <SearchableSelect
+              value={reportType}
+              onChange={(value) => setReportType(value)}
+              options={[
+                { value: 'summary', label: 'Summary Report' },
+                { value: 'receipts', label: 'Receipts Report' },
+                { value: 'payments', label: 'Payments Report' },
+                { value: 'settlements', label: 'Settlements Report' },
+              ]}
+              placeholder="Select Report Type"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wide">
+              Date Range
+            </label>
+            <SearchableSelect
+              value={dateRange}
+              onChange={(value) => setDateRange(value)}
+              options={[
+                { value: 'all', label: 'All Time' },
+                { value: 'today', label: 'Today' },
+                { value: 'week', label: 'This Week' },
+                { value: 'month', label: t('monthlyReport') },
+                { value: 'year', label: t('yearlyReport') },
+                { value: 'custom', label: 'Custom Range' },
+              ]}
+              placeholder="Select Date Range"
+            />
+          </div>
+          {dateRange === 'custom' && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wide">
+                  Start Date
+                </label>
+                <DatePicker 
+                  placeholder="Select Start Date" 
+                  value={startDate} 
+                  onChange={(date) => {
+                    setStartDate(date)
+                    if (endDate && date && new Date(date) > new Date(endDate)) {
+                      toast.error('Start date cannot be after end date')
+                      setStartDate('')
+                    }
+                  }} 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wide">
+                  End Date
+                </label>
+                <DatePicker 
+                  placeholder="Select End Date" 
+                  value={endDate} 
+                  onChange={(date) => {
+                    setEndDate(date)
+                    if (startDate && date && new Date(startDate) > new Date(date)) {
+                      toast.error('End date cannot be before start date')
+                      setEndDate('')
+                    }
+                  }} 
+                />
+              </div>
+            </>
+          )}
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Date Range
-          </label>
-          <SearchableSelect
-            value={dateRange}
-            onChange={(value) => setDateRange(value)}
-            options={[
-              { value: 'all', label: 'All Time' },
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: t('monthlyReport') },
-              { value: 'year', label: t('yearlyReport') },
-              { value: 'custom', label: 'Custom Range' },
-            ]}
-            placeholder="Date Range"
-          />
+
+        {/* Desktop Additional Filters - Always Visible */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              Batch ID
+            </label>
+            <input
+              type="text"
+              placeholder="Filter by batch ID..."
+              className="form-input text-sm"
+              value={pendingFilters.batchId || ''}
+              onChange={(e) => setPendingFilters(prev => ({ ...prev, batchId: e.target.value }))}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              Segment
+            </label>
+            <SearchableSelect
+              className="text-sm"
+              value={pendingFilters.segment || 'all'}
+              onChange={(value) => {
+                setPendingFilters(prev => ({ 
+                  ...prev, 
+                  segment: value,
+                  brand: value === 'all' ? 'all' : prev.brand,
+                  posMachine: 'all',
+                  agent: 'all'
+                }))
+              }}
+              options={[
+                { value: 'all', label: 'All Segments' },
+                ...segments.map(s => ({ value: s.name, label: s.name }))
+              ]}
+              placeholder="Select Segment"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              Brand
+            </label>
+            <SearchableSelect
+              className="text-sm"
+              value={pendingFilters.brand || 'all'}
+              onChange={(value) => {
+                setPendingFilters(prev => ({ 
+                  ...prev, 
+                  brand: value,
+                  posMachine: 'all',
+                  agent: 'all'
+                }))
+              }}
+              options={[
+                { value: 'all', label: 'All Brands' },
+                ...brands.filter(b => !pendingFilters.segment || pendingFilters.segment === 'all' || 
+                  posMachines.some(m => m.segment === pendingFilters.segment && m.brand === b.name)
+                ).map(b => ({ value: b.name, label: b.name }))
+              ]}
+              placeholder="Select Brand"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              POS Machine
+            </label>
+            <SearchableSelect
+              className="text-sm"
+              value={pendingFilters.posMachine || 'all'}
+              onChange={(value) => {
+                setPendingFilters(prev => ({ 
+                  ...prev, 
+                  posMachine: value,
+                  agent: 'all'
+                }))
+              }}
+              options={[
+                { value: 'all', label: 'All POS Machines' },
+                ...filteredPosMachines.map(m => ({ 
+                  value: m._id, 
+                  label: `${m.machineName || 'Unnamed'} | ${m.segment}/${m.brand} | Terminal: ${m.terminalId} | Merchant: ${m.merchantId || 'N/A'}` 
+                }))
+              ]}
+              placeholder="Select POS Machine"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              Agent
+            </label>
+            <SearchableSelect
+              className="text-sm"
+              value={pendingFilters.agent || 'all'}
+              onChange={(value) => setPendingFilters(prev => ({ ...prev, agent: value }))}
+              options={[
+                { value: 'all', label: 'All Agents' },
+                ...filteredAgents.map(a => ({ value: a._id, label: a.name }))
+              ]}
+              placeholder="Select Agent"
+            />
+          </div>
+
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => {
+                setFilters(pendingFilters)
+                setCurrentPage(1)
+              }}
+              className="dubai-button text-sm px-4 py-2"
+            >
+              Apply Filters
+            </button>
+            {(Object.values(filters).some(v => v && v !== 'all') || Object.values(pendingFilters).some(v => v && v !== 'all')) && (
+              <button
+                onClick={() => {
+                  setFilters({})
+                  setPendingFilters({})
+                }}
+                className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors px-3 py-2 rounded-lg border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:border-red-700"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
-        {dateRange === 'custom' && (
-          <>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Start Date
-              </label>
-              <DatePicker 
-                placeholder="Start Date" 
-                value={startDate} 
-                onChange={(date) => {
-                  setStartDate(date)
-                  if (endDate && date && new Date(date) > new Date(endDate)) {
-                    toast.error('Start date cannot be after end date')
-                    setStartDate('')
-                  }
-                }} 
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                End Date
-              </label>
-              <DatePicker 
-                placeholder="End Date" 
-                value={endDate} 
-                onChange={(date) => {
-                  setEndDate(date)
-                  if (startDate && date && new Date(startDate) > new Date(date)) {
-                    toast.error('End date cannot be before start date')
-                    setEndDate('')
-                  }
-                }} 
-              />
-            </div>
-          </>
-        )}
       </div>
 
       {/* Summary Cards */}
@@ -987,6 +1143,9 @@ export default function Reports() {
                         <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                           <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.receiptNumber || item.transactionId}</td>
                           <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.date ? format(new Date(item.date), 'dd-MMM-yyyy') : '—'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {item.posMachine || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')}
+                          </td>
                           <td className="px-3 py-3 text-sm font-semibold text-primary whitespace-nowrap">{formatAmount(amount)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-blue-600 whitespace-nowrap">{formatAmount(toPayAmount)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-green-600 whitespace-nowrap">{paidAmount > 0 ? formatAmount(paidAmount) : '—'}</td>
@@ -1124,6 +1283,9 @@ export default function Reports() {
                         <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{batchId}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{item.agent || '—'}</td>
                         <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                          {item.posMachine || (item.posMachineSegment && item.posMachineBrand ? `${item.posMachineSegment}/${item.posMachineBrand}` : 'No POS')}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                           {itemDate ? format(new Date(itemDate), 'dd-MMM-yyyy') : '—'}
                         </td>
                         <td className="px-3 py-3 text-sm whitespace-nowrap">
@@ -1155,7 +1317,7 @@ export default function Reports() {
                   }
                 }) : (
                   <tr>
-                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 19 : 6) : reportType === 'summary' ? (isAdmin ? 19 : 9) : reportType === 'receipts' ? (isAdmin ? 19 : 8) : 8} className="px-4 py-12 text-center">
+                    <td colSpan={reportType === 'settlements' ? (isAdmin ? 19 : 6) : reportType === 'summary' ? (isAdmin ? 19 : 8) : reportType === 'receipts' ? (isAdmin ? 18 : 8) : 9} className="px-4 py-12 text-center">
                       <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-sm text-gray-500 dark:text-gray-400">No data available for selected criteria</p>
                     </td>
@@ -1195,7 +1357,7 @@ export default function Reports() {
                     </tr>
                   ) : (
                     <tr>
-                      <td colSpan={3} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                      <td colSpan={4} className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">
                         Grand Total ({filteredItems.length} records)
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap text-sm font-bold text-primary">
