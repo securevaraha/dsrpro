@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { LanguageProvider } from '@/components/LanguageProvider'
+import MaintenanceGate from '@/components/MaintenanceGate'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,36 +24,38 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <LanguageProvider>
-          <ThemeProvider>
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
-            <Toaster 
-              position="bottom-center"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: 'var(--toast-bg)',
-                  color: 'var(--toast-text)',
-                  border: '1px solid var(--toast-border)',
-                },
-                success: {
-                  iconTheme: {
-                    primary: '#10B981',
-                    secondary: '#fff',
+        <MaintenanceGate>
+          <LanguageProvider>
+            <ThemeProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+              <Toaster 
+                position="bottom-center"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: 'var(--toast-bg)',
+                    color: 'var(--toast-text)',
+                    border: '1px solid var(--toast-border)',
                   },
-                },
-                error: {
-                  iconTheme: {
-                    primary: '#EF4444',
-                    secondary: '#fff',
+                  success: {
+                    iconTheme: {
+                      primary: '#10B981',
+                      secondary: '#fff',
+                    },
                   },
-                },
-              }}
-            />
-          </ThemeProvider>
-        </LanguageProvider>
+                  error: {
+                    iconTheme: {
+                      primary: '#EF4444',
+                      secondary: '#fff',
+                    },
+                  },
+                }}
+              />
+            </ThemeProvider>
+          </LanguageProvider>
+        </MaintenanceGate>
       </body>
     </html>
   )
