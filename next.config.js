@@ -5,6 +5,9 @@ const nextConfig = {
       { protocol: 'http', hostname: 'localhost' },
     ],
   },
+  outputFileTracingIncludes: {
+    '/middleware': ['./middleware.ts'],
+  },
 }
 
 module.exports = nextConfig

@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true'
-
 export function middleware(request: NextRequest) {
+  const maintenanceMode = process.env.MAINTENANCE_MODE === 'true'
   const { pathname } = request.nextUrl
 
-  // Allow maintenance page, static assets, and favicon
+  if (!maintenanceMode) {
+    return NextResponse.next()
+  }
+
+  // Allow maintenance page and static assets
   if (
     pathname === '/maintenance' ||
     pathname.startsWith('/_next') ||
@@ -17,14 +20,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // If maintenance mode is ON, redirect everything to /maintenance
-  if (MAINTENANCE_MODE) {
-    return NextResponse.redirect(new URL('/maintenance', request.url))
-  }
-
-  return NextResponse.next()
+  return NextResponse.redirect(new URL('/maintenance', request.url))
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
