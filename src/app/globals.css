@@ -168,15 +168,31 @@
   }
   
   /* Hide scrollbars from forms, modals, and select dropdowns */
-  form, .form-modal, .modal-content, select {
+  form, .form-modal, select {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
   form::-webkit-scrollbar,
   .form-modal::-webkit-scrollbar,
-  .modal-content::-webkit-scrollbar,
   select::-webkit-scrollbar {
     display: none;
+  }
+  .modal-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156,163,175,0.4) transparent;
+  }
+  .modal-content::-webkit-scrollbar {
+    width: 5px;
+  }
+  .modal-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .modal-content::-webkit-scrollbar-thumb {
+    background-color: rgba(156,163,175,0.4);
+    border-radius: 9999px;
+  }
+  .modal-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156,163,175,0.6);
   }
 
   .form-input {
@@ -215,7 +231,7 @@
     @apply fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4;
   }
   .modal-content {
-    @apply relative w-full sm:max-w-2xl lg:max-w-3xl bg-white dark:bg-gray-800 border-0 sm:border border-gray-200/80 dark:border-gray-700/60 shadow-modal rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 lg:p-6 max-h-[100dvh] sm:max-h-[94dvh] overflow-y-auto;
+    @apply relative w-full sm:max-w-2xl lg:max-w-3xl bg-white dark:bg-gray-800 border-0 sm:border border-gray-200/80 dark:border-gray-700/60 shadow-modal rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 lg:p-6 max-h-[90dvh] sm:max-h-[85dvh] overflow-y-auto;
     animation: slideUp 0.2s ease-out;
   }
   .form-modal {

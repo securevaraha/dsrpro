@@ -71,7 +71,8 @@ export default function Receipts() {
   const [itemsPerPage, setItemsPerPage] = useState(5)
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [showImagePreview, setShowImagePreview] = useState(false)
-  const [previewImage, setPreviewImage] = useState({ url: '', fileName: '' })
+  const [previewImages, setPreviewImages] = useState<{ url: string; fileName: string }[]>([])
+  const [previewInitialIndex, setPreviewInitialIndex] = useState(0)
   const [formData, setFormData] = useState({
     receiptNumber: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -160,51 +161,64 @@ export default function Receipts() {
     }
   }
 
+  const MAX_ATTACHMENTS = 5
+
   const handleFileUpload = async (files: FileList) => {
     if (!files || files.length === 0) return
     
-    // Only allow one file at a time
-    if (uploadedFiles.length > 0) {
-      toast.error('Please remove the existing file before uploading a new one')
+    const remaining = MAX_ATTACHMENTS - uploadedFiles.length
+    if (remaining <= 0) {
+      toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed per receipt`)
       return
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remaining)
+    if (filesToUpload.length < files.length) {
+      toast(`Only uploading ${filesToUpload.length} of ${files.length} files (max ${MAX_ATTACHMENTS} total)`)
     }
     
     setUploading(true)
-    const file = files[0] // Only take the first file
+    const newUrls: string[] = []
     
     try {
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`File ${file.name} is not supported. Please upload images or PDF files.`)
-        return
+      for (const file of filesToUpload) {
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+        if (!allowedTypes.includes(file.type)) {
+          toast.error(`${file.name} is not supported. Use images or PDF.`)
+          continue
+        }
+        
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is too large. Max 5MB.`)
+          continue
+        }
+        
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          newUrls.push(result.url)
+        } else {
+          const error = await response.json()
+          toast.error(`Failed: ${file.name} — ${error.error}`)
+        }
       }
       
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`File ${file.name} is too large. Maximum size is 5MB.`)
-        return
-      }
-      
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUploadedFiles([result.url]) // Replace existing file
-        toast.success('File uploaded successfully')
-      } else {
-        const error = await response.json()
-        toast.error(`Failed to upload ${file.name}: ${error.error}`)
+      if (newUrls.length > 0) {
+        setUploadedFiles(prev => [...prev, ...newUrls])
+        toast.success(`${newUrls.length} file${newUrls.length > 1 ? 's' : ''} uploaded`)
       }
     } catch (error) {
       console.error('Upload error:', error)
-      toast.error('Failed to upload file')
+      toast.error('Failed to upload file(s)')
     } finally {
       setUploading(false)
     }
@@ -230,16 +244,22 @@ export default function Receipts() {
     return url
   }
   
-  const handleImagePreview = (url: string, fileName: string) => {
-    const isImage = isImageAttachment(fileName || url)
-    const viewUrl = getAttachmentViewUrl(url)
-    if (isImage) {
-      setPreviewImage({ url: viewUrl, fileName })
-      setShowImagePreview(true)
-    } else {
-      // For PDFs, still open in new tab
-      window.open(viewUrl, '_blank')
+  const handleImagePreview = (attachments: string[], startIndex = 0) => {
+    const images = attachments
+      .map(url => ({ url: getAttachmentViewUrl(url), fileName: getAttachmentFileName(url, 'Attachment') }))
+      .filter(img => isImageAttachment(img.fileName))
+    
+    if (images.length === 0) {
+      // All are PDFs, open first in new tab
+      window.open(getAttachmentViewUrl(attachments[startIndex] || attachments[0]), '_blank')
+      return
     }
+    
+    // Adjust startIndex if non-image files were filtered out
+    const adjustedIndex = Math.min(startIndex, images.length - 1)
+    setPreviewImages(images)
+    setPreviewInitialIndex(adjustedIndex)
+    setShowImagePreview(true)
   }
   const removeUploadedFile = (url: string) => {
     setUploadedFiles(prev => prev.filter(f => f !== url))
@@ -664,24 +684,12 @@ export default function Receipts() {
                           return (
                             <div key={index} className="relative w-12 h-12">
                               {isImage ? (
-                                <>
-                                  <img 
-                                    src={viewUrl} 
-                                    alt={`Receipt ${receipt.receiptNumber}`}
-                                    className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
-                                    onClick={() => handleImagePreview(url, fileName)}
-                                    onError={(e) => {
-                                      const t = e.target as HTMLImageElement
-                                      t.style.display = 'none'
-                                      const fallback = t.parentElement?.querySelector('.img-fallback')
-                                      fallback?.classList.remove('hidden')
-                                      fallback?.classList.add('flex')
-                                    }}
-                                  />
-                                  <button onClick={() => handleImagePreview(url, fileName)} className="img-fallback hidden w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded items-center justify-center">
-                                    <File className="h-6 w-6 text-gray-400" />
-                                  </button>
-                                </>
+                                <img 
+                                  src={viewUrl} 
+                                  alt={`Receipt ${receipt.receiptNumber}`}
+                                  className="w-12 h-12 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer" 
+                                  onClick={() => handleImagePreview(receipt.attachments!, index)}
+                                />
                               ) : (
                                 <button onClick={() => window.open(viewUrl, '_blank')} className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
                                   <File className="h-6 w-6 text-red-500" />
@@ -696,11 +704,7 @@ export default function Receipts() {
                   <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
                     {receipt.attachments && receipt.attachments.length > 0 && (
                       <button
-                        onClick={() => {
-                          const firstAttachment = receipt.attachments![0]
-                          const fileName = firstAttachment.split('/').pop() || 'Attachment'
-                          handleImagePreview(firstAttachment, fileName)
-                        }}
+                        onClick={() => handleImagePreview(receipt.attachments!, 0)}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <Eye className="h-4 w-4" />
@@ -852,7 +856,7 @@ export default function Receipts() {
                                         src={viewUrl} 
                                         alt={`Receipt ${receipt.receiptNumber}`}
                                         className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:scale-110 transition-transform" 
-                                        onClick={() => handleImagePreview(url, fileName)}
+                                        onClick={() => handleImagePreview(receipt.attachments!, index)}
                                         title="Click to preview image"
                                         onError={(e) => {
                                           const t = e.target as HTMLImageElement
@@ -863,7 +867,7 @@ export default function Receipts() {
                                         }}
                                       />
                                       <button
-                                        onClick={() => handleImagePreview(url, fileName)}
+                                        onClick={() => handleImagePreview(receipt.attachments!, index)}
                                         className="img-fallback hidden w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded items-center justify-center"
                                         title="Preview unavailable"
                                       >
@@ -891,11 +895,7 @@ export default function Receipts() {
                         <div className="flex justify-center gap-1">
                           {receipt.attachments && receipt.attachments.length > 0 && (
                             <button
-                              onClick={() => {
-                                const firstAttachment = receipt.attachments![0]
-                                const fileName = getAttachmentFileName(firstAttachment, 'Attachment')
-                                handleImagePreview(firstAttachment, fileName)
-                              }}
+                              onClick={() => handleImagePreview(receipt.attachments!, 0)}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                               title="View attachment"
                             >
@@ -1051,40 +1051,44 @@ export default function Receipts() {
               <div className="form-section">
                 <p className="form-section-title">Attachment</p>
                 <div
-                  className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-5 text-center hover:border-primary/60 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-700/30"
+                  className={`border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-5 text-center hover:border-primary/60 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-700/30 ${uploadedFiles.length >= MAX_ATTACHMENTS ? 'opacity-50 pointer-events-none' : ''}`}
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary', 'bg-primary/5') }}
                   onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary', 'bg-primary/5') }}
                   onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary', 'bg-primary/5'); if (e.dataTransfer.files) handleFileUpload(e.dataTransfer.files) }}
                 >
-                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { if (e.target.files) handleFileUpload(e.target.files) }} />
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={(e) => { if (e.target.files) handleFileUpload(e.target.files); e.target.value = '' }} />
                   <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">{uploading ? 'Uploading...' : 'Click, drag & drop, or paste to upload'}</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF or PDF — max 5MB • Ctrl+V to paste</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF or PDF — max 5MB each • Up to {MAX_ATTACHMENTS} files • Ctrl+V to paste</p>
                 </div>
                 {uploadedFiles.length > 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
-                    {uploadedFiles.map((url, index) => {
-                      const fileName = getAttachmentFileName(url, `File ${index + 1}`)
-                      const isImage = isImageAttachment(fileName)
-                      const viewUrl = getAttachmentViewUrl(url)
-                      return (
-                        <div key={url} className="flex items-center gap-3 flex-1 min-w-0">
-                          {isImage
-                            ? <img src={viewUrl} alt={fileName} className="w-10 h-10 object-cover rounded-lg border border-gray-200 dark:border-gray-600 flex-shrink-0" />
-                            : <div className="w-10 h-10 bg-red-50 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0"><File className="h-5 w-5 text-red-500" /></div>
-                          }
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{fileName}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
-                              <span className="text-xs text-gray-300 dark:text-gray-600">•</span>
-                              <button type="button" onClick={() => removeUploadedFile(url)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{uploadedFiles.length}/{MAX_ATTACHMENTS} files attached</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {uploadedFiles.map((url, index) => {
+                        const fileName = getAttachmentFileName(url, `File ${index + 1}`)
+                        const isImage = isImageAttachment(fileName)
+                        const viewUrl = getAttachmentViewUrl(url)
+                        return (
+                          <div key={url} className="relative group p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center gap-2">
+                              {isImage
+                                ? <img src={viewUrl} alt={fileName} className="w-10 h-10 object-cover rounded border border-gray-200 dark:border-gray-600 flex-shrink-0" />
+                                : <div className="w-10 h-10 bg-red-50 dark:bg-red-900/30 rounded flex items-center justify-center flex-shrink-0"><File className="h-5 w-5 text-red-500" /></div>
+                              }
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{fileName}</p>
+                                <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">View</a>
+                              </div>
                             </div>
+                            <button type="button" onClick={() => removeUploadedFile(url)} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600" title="Remove">
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1146,8 +1150,8 @@ export default function Receipts() {
       <ImagePreviewModal
         isOpen={showImagePreview}
         onClose={() => setShowImagePreview(false)}
-        imageUrl={previewImage.url}
-        fileName={previewImage.fileName}
+        images={previewImages}
+        initialIndex={previewInitialIndex}
       />
     </div>
   )
