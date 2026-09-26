@@ -5,6 +5,7 @@ import Notification from '@/models/Notification'
 import '@/models/POSMachine'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { calcReceiptFinancials } from '../agent-balance/route'
+import { POS_RATE_FIELDS } from '@/lib/posCharges'
 
 export async function POST(request: NextRequest) {
   const auth = requireRole(request, ['admin'])
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   // Get all receipts oldest first (FIFO)
   const receipts = await Transaction.find({ type: 'receipt', agentId })
-    .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', POS_RATE_FIELDS)
     .sort({ createdAt: 1 })
 
   if (receiptId) {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
   })()
 
   for (const r of orderedReceipts as any[]) {
-    const fin = calcReceiptFinancials(r.amount || 0, r.posMachine)
+    const fin = calcReceiptFinancials(r.amount || 0, r)
     const alreadyPaid = Math.min(r.paidAmount || 0, fin.toPayAmount)
     const alreadySettled = Math.min(r.settlementAmount || 0, Math.max(0, fin.toPayAmount - alreadyPaid))
     outstandingDueBefore += Math.max(0, fin.toPayAmount - alreadyPaid - alreadySettled)
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   const updates: { id: string; paidAmount: number; dueAmount: number }[] = []
 
   for (const r of receipts as any[]) {
-    const fin = calcReceiptFinancials(r.amount || 0, r.posMachine)
+    const fin = calcReceiptFinancials(r.amount || 0, r)
     const alreadyPaid = Math.min(r.paidAmount || 0, fin.toPayAmount)
     const alreadySettled = Math.min(r.settlementAmount || 0, Math.max(0, fin.toPayAmount - alreadyPaid))
     const due = Math.max(0, fin.toPayAmount - alreadyPaid - alreadySettled)

@@ -58,6 +58,15 @@ const transactionSchema = new mongoose.Schema({
     required: false
   },
   description: String,
+  // Rates frozen at the time the receipt was recorded (for its date).
+  // Reports/balances use these, so later POS rate changes never alter this receipt.
+  chargeRates: {
+    commissionPercentage: { type: Number },
+    bankCharges: { type: Number },
+    vatPercentage: { type: Number },
+    effectiveFrom: { type: Date },
+    capturedAt: { type: Date },
+  },
   paidAmount: { type: Number, default: 0 },
   settlementAmount: { type: Number, default: 0 },
   dueAmount: { type: Number, default: 0 },

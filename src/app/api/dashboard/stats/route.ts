@@ -4,6 +4,7 @@ import Transaction from '@/models/Transaction'
 import User from '@/models/User'
 import POSMachine from '@/models/POSMachine'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
+import { calcFinancials, getReceiptRates, POS_RATE_FIELDS } from '@/lib/posCharges'
 
 function getPeriodRange(period: string): { start: Date; end: Date } {
   const now = new Date()
@@ -188,8 +189,8 @@ export async function GET(request: NextRequest) {
       type: { $in: ['sale', 'receipt'] },
       posMachine: { $exists: true, $ne: null }
     })
-      .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
-      .select('amount posMachine')
+      .populate('posMachine', POS_RATE_FIELDS)
+      .select('amount posMachine date createdAt chargeRates')
 
     let totalBankCharges = 0
     let totalVAT = 0
@@ -198,15 +199,10 @@ export async function GET(request: NextRequest) {
       const pos = (txn as any).posMachine
       const amt = (txn as any).amount || 0
       if (pos) {
-        const chargesAmount = amt * ((pos.commissionPercentage || 0) / 100)
-        const bankChargesAmount = amt * ((pos.bankCharges || 0) / 100)
-        const vatAmount = bankChargesAmount * ((pos.vatPercentage || 0) / 100)
-        const netReceived = amt - bankChargesAmount - vatAmount
-        const toPayAmount = amt - chargesAmount
-
-        totalBankCharges += bankChargesAmount
-        totalVAT += vatAmount
-        totalMargin += netReceived - toPayAmount
+        const f = calcFinancials(amt, getReceiptRates(txn))
+        totalBankCharges += f.bankChargesAmount
+        totalVAT += f.vatAmount
+        totalMargin += f.marginAmount
       }
     }
 

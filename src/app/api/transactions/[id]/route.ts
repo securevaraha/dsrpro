@@ -7,18 +7,7 @@ import '@/models/User'
 import '@/models/Client'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
-
-function calcToPayAmount(amount: number, pos: any) {
-  const marginPercent = pos?.commissionPercentage || 0
-  const bankChargesPercent = pos?.bankCharges || 0
-  const vatPercent = pos?.vatPercentage || 0
-
-  const marginAmount = (amount * marginPercent) / 100
-  const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount = (bankChargesAmount * vatPercent) / 100
-
-  return amount - bankChargesAmount - vatAmount - marginAmount
-}
+import { buildRateSnapshot, calcFinancials, hasSnapshot, ratesFromPos, toDayKey, POS_RATE_FIELDS } from '@/lib/posCharges'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -43,6 +32,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     
     const updateData = await request.json()
+    // Rate snapshot is server-controlled only.
+    delete updateData.chargeRates
     // Prevent role escalation via update — strip sensitive fields for non-admin
     if (auth.role !== 'admin') {
       delete updateData.agentId
@@ -58,10 +49,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       let posMachineDoc: any = null
       if (effectivePosMachineId && mongoose.Types.ObjectId.isValid(String(effectivePosMachineId))) {
-        posMachineDoc = await POSMachine.findById(effectivePosMachineId).select('bankCharges vatPercentage commissionPercentage')
+        posMachineDoc = await POSMachine.findById(effectivePosMachineId).select(POS_RATE_FIELDS)
       }
 
-      const toPayAmount = Math.max(0, calcToPayAmount(effectiveAmount, posMachineDoc))
+      // Keep the receipt's frozen rates unless its POS machine or date changed;
+      // then take the rates effective on the (new) date for the (new) machine.
+      const effectiveDate = updateData.date ? new Date(updateData.date) : (transaction.date || transaction.createdAt)
+      const posChanged = String(effectivePosMachineId || '') !== String(transaction.posMachine || '')
+      const dateChanged = !!updateData.date && toDayKey(updateData.date) !== toDayKey(transaction.date || transaction.createdAt)
+      let rates: any
+      if (hasSnapshot(transaction) && !posChanged && !dateChanged) {
+        rates = ratesFromPos(transaction.chargeRates)
+      } else if (posMachineDoc) {
+        rates = buildRateSnapshot(posMachineDoc, effectiveDate)
+        auditedData.chargeRates = rates
+      } else {
+        rates = ratesFromPos(null)
+      }
+
+      // Same formula as reports/settlements: To Pay = amount - charges.
+      const toPayAmount = Math.max(0, calcFinancials(effectiveAmount, rates).toPayAmount)
       const paidAmount = Math.max(0, Math.min(effectivePaidRaw, toPayAmount))
       const settlementAmount = Math.max(0, Math.min(effectiveSettlementRaw, Math.max(0, toPayAmount - paidAmount)))
       const dueAmount = Math.max(0, toPayAmount - paidAmount - settlementAmount)

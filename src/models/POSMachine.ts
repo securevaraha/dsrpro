@@ -36,6 +36,21 @@ const POSMachineSchema = new mongoose.Schema({
   bankCharges: { type: Number, default: 0, min: 0 },
   vatPercentage: { type: Number, default: 5, min: 0, max: 100 },
   commissionPercentage: { type: Number, default: 0, min: 0, max: 100 },
+  // Date-effective history of the three rates above. The top-level fields always
+  // mirror the entry that is effective today; receipts are priced by the entry
+  // effective on the receipt's own date (see src/lib/posCharges.ts).
+  chargeHistory: {
+    type: [new mongoose.Schema({
+      commissionPercentage: { type: Number, default: 0, min: 0, max: 100 },
+      bankCharges: { type: Number, default: 0, min: 0 },
+      vatPercentage: { type: Number, default: 5, min: 0, max: 100 },
+      effectiveFrom: { type: Date, required: true },
+      changedAt: { type: Date, default: Date.now },
+      changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      note: { type: String, default: '' },
+    }, { _id: true })],
+    default: [],
+  },
   status: { 
     type: String, 
     enum: ['active', 'inactive', 'maintenance'], 

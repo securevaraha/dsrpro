@@ -5,6 +5,18 @@ import Notification from '@/models/Notification'
 import '@/models/User'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
+import Transaction from '@/models/Transaction'
+import {
+  ChargeRates, getRatesForDate, ratesFromPos, sameRates, sortedHistory,
+  toDayKey, toDayStart, upsertHistoryEntry, buildRateSnapshot, calcFinancials,
+} from '@/lib/posCharges'
+
+const BASELINE_DATE = '2000-01-01'
+
+const parseRate = (v: any, fallback: number) => {
+  const n = parseFloat(v)
+  return Number.isFinite(n) ? n : fallback
+}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
     const body = await request.json()
-    const { machineName, segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
+    const { machineName, segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes, chargesEffectiveFrom, applyToExisting, chargesNote } = body
 
     const existing = await POSMachine.findById(id)
     if (!existing) {
@@ -38,12 +50,44 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...(deviceType && { deviceType }),
       ...(assignedAgent !== undefined && { assignedAgent: assignedAgent || null }),
       ...(typeof location === 'string' && { location: location.trim() }),
-      ...(typeof bankCharges !== 'undefined' && { bankCharges: parseFloat(bankCharges) || 0 }),
-      ...(typeof vatPercentage !== 'undefined' && { vatPercentage: parseFloat(vatPercentage) || 5 }),
-      ...(typeof commissionPercentage !== 'undefined' && { commissionPercentage: parseFloat(commissionPercentage) || 0 }),
       ...(status && { status }),
       ...(typeof notes === 'string' && { notes: notes.trim() }),
     }, auth.userId, true)
+
+    // ── Charges: record a dated change instead of overwriting history ──────────
+    // Rates effective today (top-level fields can lag behind a scheduled change).
+    const currentRates = sortedHistory(existing).length ? getRatesForDate(existing, new Date()) : ratesFromPos(existing)
+    const submittedRates: ChargeRates = {
+      commissionPercentage: typeof commissionPercentage !== 'undefined' ? parseRate(commissionPercentage, 0) : currentRates.commissionPercentage,
+      bankCharges: typeof bankCharges !== 'undefined' ? parseRate(bankCharges, 0) : currentRates.bankCharges,
+      vatPercentage: typeof vatPercentage !== 'undefined' ? parseRate(vatPercentage, 5) : currentRates.vatPercentage,
+    }
+
+    const todayKey = toDayKey(new Date())
+    const effectiveKey = chargesEffectiveFrom ? toDayKey(chargesEffectiveFrom) : todayKey
+    if (!effectiveKey) {
+      return NextResponse.json({ error: 'Invalid "Charges effective from" date' }, { status: 400 })
+    }
+
+    // Seed a baseline from the machine's pre-existing rates so receipts that
+    // were recorded before any history existed keep pricing exactly as before.
+    let history: any[] = sortedHistory(existing).map((h: any) => (h.toObject ? h.toObject() : { ...h }))
+    if (history.length === 0) {
+      upsertHistoryEntry(history, currentRates, BASELINE_DATE, existing.createdBy, 'Baseline (rates before date-wise history)')
+    }
+
+    let chargesChanged = false
+    let reappliedReceipts = 0
+    const ratesOnEffectiveDate = getRatesForDate({ chargeHistory: history }, effectiveKey)
+    if (!sameRates(submittedRates, ratesOnEffectiveDate)) {
+      upsertHistoryEntry(history, submittedRates, effectiveKey, auth.userId, typeof chargesNote === 'string' ? chargesNote.trim() : '')
+      chargesChanged = true
+    }
+    history = sortedHistory({ chargeHistory: history })
+
+    // Top-level fields always mirror the rates effective today.
+    const todayRates = getRatesForDate({ chargeHistory: history }, todayKey)
+    Object.assign(updateData, todayRates, { chargeHistory: history })
 
     const machine = await POSMachine.findByIdAndUpdate(id, updateData, { new: true })
       .populate('assignedAgent', 'name email companyName')
@@ -61,7 +105,36 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    return NextResponse.json({ message: 'POS Machine updated', machine })
+    // Optional, explicit: re-price receipts already recorded on/after the
+    // effective date (only up to the next scheduled change). Never automatic.
+    if (chargesChanged && applyToExisting === true && machine) {
+      const from = toDayStart(effectiveKey)
+      const next = history.find((h: any) => toDayKey(h.effectiveFrom) > effectiveKey)
+      const to = next ? toDayStart(next.effectiveFrom) : null
+      const range: any = to ? { $gte: from, $lt: to } : { $gte: from }
+      const receipts = await Transaction.find({
+        type: 'receipt',
+        posMachine: machine._id,
+        $or: [{ date: range }, { date: null, createdAt: range }],
+      })
+      for (const r of receipts as any[]) {
+        const snap = buildRateSnapshot(machine, r.date || r.createdAt)
+        const fin = calcFinancials(r.amount || 0, snap)
+        // Money already paid/settled is never touched — only the due is recomputed.
+        const paid = r.paidAmount || 0
+        const settled = r.settlementAmount || 0
+        await Transaction.updateOne({ _id: r._id }, {
+          $set: {
+            chargeRates: snap,
+            dueAmount: Math.max(0, fin.toPayAmount - paid - settled),
+            updatedBy: auth.userId,
+          },
+        })
+        reappliedReceipts++
+      }
+    }
+
+    return NextResponse.json({ message: 'POS Machine updated', machine, chargesChanged, chargesEffectiveFrom: chargesChanged ? effectiveKey : null, reappliedReceipts })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update POS machine' }, { status: 500 })
   }

@@ -6,6 +6,7 @@ import Notification from '@/models/Notification'
 import '@/models/User'
 import { requireRole, requireAuth, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
+import { getRatesForDate, sortedHistory } from '@/lib/posCharges'
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +44,13 @@ export async function GET(request: NextRequest) {
       .skip((page - 1) * limit)
       .limit(limit)
 
+    // Show the rates effective TODAY (a future-dated change becomes visible on its date).
+    const machinesOut = machines.map((m: any) => {
+      const obj = m.toObject()
+      if (sortedHistory(obj).length) Object.assign(obj, getRatesForDate(obj, new Date()))
+      return obj
+    })
+
     const stats = {
       total: await POSMachine.countDocuments(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}),
       active: await POSMachine.countDocuments({ ...(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'active' }),
@@ -50,7 +58,7 @@ export async function GET(request: NextRequest) {
       maintenance: await POSMachine.countDocuments({ ...(auth.role.toLowerCase() === 'agent' ? { assignedAgent: auth.userId } : {}), status: 'maintenance' }),
     }
 
-    return NextResponse.json({ machines, stats, total, page, limit })
+    return NextResponse.json({ machines: machinesOut, stats, total, page, limit })
   } catch (error: any) {
     console.error('GET /api/pos-machines error:', error)
     return NextResponse.json({ 
@@ -70,6 +78,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     const { machineName, segment, brand, terminalId, merchantId, serialNumber, model, deviceType, assignedAgent, location, bankCharges, vatPercentage, commissionPercentage, status, notes } = body
+    const parseRate = (v: any, fallback: number) => { const n = parseFloat(v); return Number.isFinite(n) ? n : fallback }
+    const initialRates = {
+      commissionPercentage: parseRate(commissionPercentage, 0),
+      bankCharges: parseRate(bankCharges, 0),
+      vatPercentage: parseRate(vatPercentage, 5),
+    }
 
     if (!segment || !terminalId || !merchantId || !brand || !deviceType) {
       return NextResponse.json({ error: 'Segment, Terminal ID, Merchant ID, Brand, and Device Type are required' }, { status: 400 })
@@ -100,9 +114,9 @@ export async function POST(request: NextRequest) {
       deviceType,
       assignedAgent: assignedAgent || null,
       location: location?.trim() || '',
-      bankCharges: parseFloat(bankCharges) || 0,
-      vatPercentage: parseFloat(vatPercentage) || 5,
-      commissionPercentage: parseFloat(commissionPercentage) || 0,
+      ...initialRates,
+      // Initial rates apply to every receipt of this machine until changed.
+      chargeHistory: [{ ...initialRates, effectiveFrom: new Date('2000-01-01T00:00:00.000Z'), changedAt: new Date(), changedBy: auth.userId, note: 'Initial rates' }],
       status: status || 'active',
       notes: notes?.trim() || '',
     }, auth.userId)

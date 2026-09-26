@@ -17,6 +17,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { matchesDateRange } from '@/lib/date-range'
 import { DateRangeFilter } from '@/components/ui/date-range-filter'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface Agent {
   _id: string
@@ -40,6 +41,15 @@ interface POSMachine {
   bankCharges: number
   vatPercentage: number
   commissionPercentage: number
+  chargeHistory?: {
+    _id?: string
+    commissionPercentage: number
+    bankCharges: number
+    vatPercentage: number
+    effectiveFrom: string
+    changedAt?: string
+    note?: string
+  }[]
   status: 'active' | 'inactive' | 'maintenance'
   notes: string
   createdAt: string
@@ -109,6 +119,8 @@ export default function POSMachines() {
     commissionPercentage: '',
     status: 'active' as string,
     notes: '',
+    chargesEffectiveFrom: format(new Date(), 'yyyy-MM-dd'),
+    applyToExisting: false,
   })
 
   const {
@@ -287,7 +299,9 @@ export default function POSMachines() {
     }
 
     // Validate VAT percentage
-    const vatPercentage = parseFloat(formData.vatPercentage) || 5
+    // Allow a genuine 0% VAT (previously `|| 5` silently turned 0 into 5).
+    const parsedVat = parseFloat(formData.vatPercentage)
+    const vatPercentage = Number.isFinite(parsedVat) ? parsedVat : 5
     if (vatPercentage < 0 || vatPercentage > 100) {
       toast.error('VAT percentage must be between 0 and 100')
       return
@@ -319,7 +333,9 @@ export default function POSMachines() {
             machineName: formData.machineName,
             serialNumber: '',
             model: '',
-            vatPercentage: submitData.vatPercentage || 5
+            vatPercentage: submitData.vatPercentage,
+            chargesEffectiveFrom: formData.chargesEffectiveFrom,
+            applyToExisting: formData.applyToExisting,
           })
         })
         
@@ -328,7 +344,17 @@ export default function POSMachines() {
           throw new Error(err.error || 'Update failed')
         }
         
-        toast.success('POS Machine updated successfully')
+        const result = await response.json().catch(() => ({}))
+        if (result?.chargesChanged) {
+          const eff = format(new Date(result.chargesEffectiveFrom), 'dd-MMM-yyyy')
+          toast.success(
+            result.reappliedReceipts > 0
+              ? `Charges updated from ${eff}. ${result.reappliedReceipts} existing receipt(s) re-priced.`
+              : `Charges updated. New rates apply to receipts dated ${eff} onwards.`
+          )
+        } else {
+          toast.success('POS Machine updated successfully')
+        }
       } else {
         const response = await fetch('/api/pos-machines', {
           method: 'POST',
@@ -338,7 +364,7 @@ export default function POSMachines() {
             machineName: formData.machineName,
             serialNumber: '',
             model: '',
-            vatPercentage: submitData.vatPercentage || 5
+            vatPercentage: submitData.vatPercentage
           })
         })
         
@@ -379,6 +405,8 @@ export default function POSMachines() {
       commissionPercentage: machine.commissionPercentage?.toString() || '',
       status: machine.status,
       notes: machine.notes || '',
+      chargesEffectiveFrom: format(new Date(), 'yyyy-MM-dd'),
+      applyToExisting: false,
     })
     setShowModal(true)
   }
@@ -409,6 +437,7 @@ export default function POSMachines() {
       machineName: '', segment: '', brand: '', terminalId: '', merchantId: '',
       deviceType: 'traditional_pos', assignedAgent: '', location: '', bankCharges: '', vatPercentage: '5', commissionPercentage: '',
       status: 'active', notes: '',
+      chargesEffectiveFrom: format(new Date(), 'yyyy-MM-dd'), applyToExisting: false,
     })
   }
 
@@ -460,7 +489,7 @@ export default function POSMachines() {
                       deviceType: m.deviceType === 'android_pos' ? 'Android POS' : 'Traditional POS',
                       commissionPercentage: `${(m.commissionPercentage || 0).toFixed(2)}%`,
                       bankCharges: `${(m.bankCharges || 0).toFixed(2)}%`,
-                      vatPercentage: `${m.vatPercentage || 5}%`,
+                      vatPercentage: `${m.vatPercentage ?? 5}%`,
                       status: m.status.charAt(0).toUpperCase() + m.status.slice(1),
                       createdByDate: formatAudit(m.createdBy?.name, m.createdAt),
                       updatedByDate: formatAudit(m.updatedBy?.name, m.updatedAt || m.createdAt),
@@ -807,7 +836,7 @@ export default function POSMachines() {
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
                               <span className="text-sm text-gray-900 dark:text-gray-100">
-                                {machine.vatPercentage || 5}%
+                                {machine.vatPercentage ?? 5}%
                               </span>
                             </td>
                           </>
@@ -911,7 +940,7 @@ export default function POSMachines() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-400">VAT</span>
-                            <span className="text-xs font-medium">{machine.vatPercentage || 5}%</span>
+                            <span className="text-xs font-medium">{machine.vatPercentage ?? 5}%</span>
                           </div>
                         </>
                       )}
@@ -1086,6 +1115,76 @@ export default function POSMachines() {
                         />
                       </div>
                     </div>
+                    {editingMachine && (() => {
+                      const num = (v: any) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0 }
+                      const ratesEdited =
+                        num(formData.commissionPercentage) !== num(editingMachine.commissionPercentage) ||
+                        num(formData.bankCharges) !== num(editingMachine.bankCharges) ||
+                        num(formData.vatPercentage || 5) !== num(editingMachine.vatPercentage ?? 5)
+                      const history = [...(editingMachine.chargeHistory || [])]
+                        .sort((a, b) => new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime())
+                      return (
+                        <div className="mt-4 space-y-3">
+                          {ratesEdited && (
+                            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-3 space-y-3">
+                              <p className="text-xs text-amber-800 dark:text-amber-200">
+                                Rates changed. Receipts dated before the effective date keep their old rates;
+                                receipts dated on/after it use the new rates.
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                                <DatePicker
+                                  label="Charges effective from"
+                                  required
+                                  value={formData.chargesEffectiveFrom}
+                                  onChange={(v) => setFormData({ ...formData, chargesEffectiveFrom: v })}
+                                />
+                                <label className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={formData.applyToExisting}
+                                    onChange={(e) => setFormData({ ...formData, applyToExisting: e.target.checked })}
+                                  />
+                                  <span>
+                                    Also re-price receipts <b>already entered</b> dated on/after this date
+                                    (paid amounts are kept; only the due is recalculated)
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+                          )}
+                          {history.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Charges history</p>
+                              <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-700">
+                                <table className="min-w-full text-xs">
+                                  <thead className="bg-gray-50 dark:bg-gray-800">
+                                    <tr>
+                                      <th className="px-2 py-1 text-left">Effective from</th>
+                                      <th className="px-2 py-1 text-right">Charges %</th>
+                                      <th className="px-2 py-1 text-right">Bank %</th>
+                                      <th className="px-2 py-1 text-right">VAT %</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {history.map((h, i) => (
+                                      <tr key={h._id || i} className="border-t border-gray-100 dark:border-gray-700">
+                                        <td className="px-2 py-1">
+                                          {new Date(h.effectiveFrom).getUTCFullYear() <= 2000 ? 'Initial' : format(new Date(h.effectiveFrom), 'dd-MMM-yyyy')}
+                                        </td>
+                                        <td className="px-2 py-1 text-right">{Number(h.commissionPercentage || 0).toFixed(2)}</td>
+                                        <td className="px-2 py-1 text-right">{Number(h.bankCharges || 0).toFixed(2)}</td>
+                                        <td className="px-2 py-1 text-right">{Number(h.vatPercentage || 0).toFixed(2)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Section: Assignment & Status */}

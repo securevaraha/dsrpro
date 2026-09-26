@@ -4,38 +4,12 @@ import Transaction from '@/models/Transaction'
 import '@/models/POSMachine'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 
-// Shared calculation — single source of truth used everywhere
-// amount=100, charges=3.75%, bankCharges=2.7%, VAT=5%
-//   netReceived = 100 - 2.70 - 0.135 = 97.165
-//   toPayAmount = 100 - 3.75         = 96.25
-//   marginAmount = netReceived - toPayAmount = 0.915
-export function calcReceiptFinancials(amount: number, pos: any) {
-  const chargesPercent     = pos?.commissionPercentage || 0
-  const bankChargesPercent = pos?.bankCharges          || 0
-  const vatPercent         = pos?.vatPercentage        || 0
+import { calcFinancials, getReceiptRates, POS_RATE_FIELDS } from '@/lib/posCharges'
 
-  const chargesAmount     = (amount * chargesPercent)     / 100
-  const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount         = (bankChargesAmount * vatPercent) / 100
-
-  const netReceived  = amount - bankChargesAmount - vatAmount
-  const toPayAmount  = amount - chargesAmount
-  const marginAmount = netReceived - toPayAmount
-
-  return {
-    chargesPercent,
-    chargesAmount,
-    bankChargesPercent,
-    bankChargesAmount,
-    vatPercent,
-    vatAmount,
-    toPayAmount,
-    netReceived,
-    marginAmount,
-    // Legacy aliases for existing consumers.
-    marginPercent: chargesPercent,
-    finalMargin: marginAmount,
-  }
+// Shared calculation — single source of truth lives in src/lib/posCharges.ts.
+// Pass the RECEIPT (not the POS machine) so its own date-correct rates are used.
+export function calcReceiptFinancials(amount: number, receipt: any) {
+  return calcFinancials(amount, getReceiptRates(receipt))
 }
 
 export async function GET(request: NextRequest) {
@@ -48,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (!agentId) return NextResponse.json({ error: 'agentId required' }, { status: 400 })
 
   const receipts = await Transaction.find({ type: 'receipt', agentId })
-    .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', POS_RATE_FIELDS)
     .sort({ createdAt: 1 })
 
   let totalToPay = 0
@@ -56,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   const receiptDetails = receipts.map((r: any) => {
     const amount = r.amount || 0
-    const fin = calcReceiptFinancials(amount, r.posMachine)
+    const fin = calcReceiptFinancials(amount, r)
     totalToPay += fin.toPayAmount
     totalNetReceived += fin.netReceived
 

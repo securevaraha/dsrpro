@@ -8,14 +8,7 @@ import POSMachine from '@/models/POSMachine'
 import Notification from '@/models/Notification'
 import { requireAuth, requireRole, isErrorResponse } from '@/lib/auth'
 import { addAuditFields } from '@/lib/audit'
-
-function calcToPayAmount(amount: number, pos: any) {
-  const marginPercent = pos?.commissionPercentage || 0
-  const marginAmount = (amount * marginPercent) / 100
-
-  // Keep aligned with reports/settlements formula: To Pay = amount - charges.
-  return amount - marginAmount
-}
+import { buildRateSnapshot, calcFinancials, getReceiptRates, POS_RATE_FIELDS } from '@/lib/posCharges'
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,17 +39,30 @@ export async function GET(request: NextRequest) {
     const transactions = await Transaction.find(query)
       .populate('agentId', 'name email')
       .populate('clientId', 'name businessType')
-      .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
+      .populate('posMachine', `machineName segment brand terminalId ${POS_RATE_FIELDS}`)
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip((page - 1) * limit)
+
+    // Expose each receipt's OWN rates (snapshot / rates on its date) in the
+    // posMachine rate fields the UI already reads, instead of today's rates.
+    const transactionsOut = transactions.map((t: any) => {
+      const obj = t.toObject()
+      if (obj.posMachine && typeof obj.posMachine === 'object') {
+        const rates = getReceiptRates(obj)
+        delete obj.posMachine.chargeHistory
+        Object.assign(obj.posMachine, rates)
+        obj.chargeRates = { ...(obj.chargeRates || {}), ...rates }
+      }
+      return obj
+    })
     
     const total = await Transaction.countDocuments(query)
     
     return NextResponse.json({ 
-      transactions,
+      transactions: transactionsOut,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       total
@@ -138,8 +144,13 @@ export async function POST(request: NextRequest) {
       ...(date ? { date: new Date(date) } : {}),
     }, auth.userId)
 
+    // Freeze the rates effective on the receipt's date onto the receipt.
+    if (posDoc) {
+      transactionData.chargeRates = buildRateSnapshot(posDoc, transactionData.date || new Date())
+    }
+
     if (transactionData.type === 'receipt') {
-      const toPay = calcToPayAmount(parsedAmount, posDoc)
+      const toPay = calcFinancials(parsedAmount, transactionData.chargeRates).toPayAmount
       const safeToPay = Number.isFinite(toPay) ? Math.max(0, toPay) : parsedAmount
       transactionData.paidAmount = 0
       transactionData.settlementAmount = 0

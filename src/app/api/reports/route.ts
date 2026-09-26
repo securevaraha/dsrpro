@@ -5,45 +5,10 @@ import MerchantSettlement from '@/models/MerchantSettlement'
 import User from '@/models/User'
 import Client from '@/models/Client'
 import '@/models/POSMachine'
+import { calcFinancials, getReceiptRates, POS_RATE_FIELDS } from '@/lib/posCharges'
 import { requireAuth, isErrorResponse } from '@/lib/auth'
 
-// ─── Single source of truth for all financial calculations ───────────────────
-// amount=100, charges=3.75%, bankCharges=2.7%, VAT=5%
-//   chargesAmount     = 100 × 3.75% = 3.75
-//   bankChargesAmount = 100 × 2.7%  = 2.70
-//   vatAmount         = 2.70 × 5%   = 0.135  ← VAT on BANK CHARGES amount
-//   netReceived       = 100 - 2.70 - 0.135 = 97.165
-//   toPayAmount       = 100 - 3.75         = 96.25
-//   marginAmount      = 97.165 - 96.25     = 0.915   (admin's earning)
-function calcFinancials(amount: number, pos: any) {
-  const chargesPercent     = pos?.commissionPercentage || 0
-  const bankChargesPercent = pos?.bankCharges          || 0
-  const vatPercent         = pos?.vatPercentage        || 0
-
-  const chargesAmount     = (amount * chargesPercent)     / 100
-  const bankChargesAmount = (amount * bankChargesPercent) / 100
-  const vatAmount         = (bankChargesAmount * vatPercent) / 100
-
-  const netReceived  = amount - bankChargesAmount - vatAmount
-  const toPayAmount  = amount - chargesAmount
-  const marginAmount = netReceived - toPayAmount
-
-  return {
-    chargesPercent,
-    chargesAmount,
-    bankChargesPercent,
-    bankChargesAmount,
-    vatPercent,
-    vatAmount,
-    netReceived,
-    toPayAmount,
-    marginAmount,
-    // Legacy aliases retained for existing consumers.
-    marginPercent: chargesPercent,
-    finalMargin: marginAmount,
-  }
-}
-
+// Financial formula + date-effective rate resolution: src/lib/posCharges.ts
 export async function GET(request: NextRequest) {
   try {
     const auth = requireAuth(request)
@@ -112,18 +77,18 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
   const total = await Transaction.countDocuments(query)
   const allReceipts = await Transaction.find(query)
     .populate('agentId', 'name email')
-    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', `machineName segment brand terminalId ${POS_RATE_FIELDS}`)
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 })
   const receipts = await Transaction.find(query)
     .populate('agentId', 'name email')
-    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', `machineName segment brand terminalId ${POS_RATE_FIELDS}`)
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 }).skip(skip).limit(limit)
 
   let totalBankCharges = 0, totalMargin = 0, totalVAT = 0
   const totalAmount = allReceipts.reduce((sum: number, r: any) => {
-    const f = calcFinancials(r.amount || 0, r.posMachine)
+    const f = calcFinancials(r.amount || 0, getReceiptRates(r))
     totalBankCharges += f.bankChargesAmount
     totalMargin      += f.marginAmount
     totalVAT         += f.vatAmount
@@ -132,7 +97,7 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
 
   const mapItem = (r: any) => {
     const amount = r.amount || 0
-    const f = calcFinancials(amount, r.posMachine)
+    const f = calcFinancials(amount, getReceiptRates(r))
     const paidAmount = Math.min(r.paidAmount || 0, f.toPayAmount)
     const settlementAmount = Math.min(r.settlementAmount || 0, Math.max(0, f.toPayAmount - paidAmount))
     const dueAmount  = Math.max(0, f.toPayAmount - paidAmount - settlementAmount)
@@ -149,9 +114,7 @@ async function generateReceiptReport(dateFilter: any, auth: any, agentId?: strin
       posMachineBrand: r.posMachine?.brand || null,
       posMachineTerminalId: r.posMachine?.terminalId || null,
       posMachine: r.posMachine?.machineName || (r.posMachine?.segment && r.posMachine?.brand ? `${r.posMachine.segment}/${r.posMachine.brand}` : null),
-      bankCharges: r.posMachine?.bankCharges ?? null,
-      vatPercentage: r.posMachine?.vatPercentage ?? null,
-      commissionPercentage: r.posMachine?.commissionPercentage ?? null,
+      ...(r.posMachine ? getReceiptRates(r) : { bankCharges: null, vatPercentage: null, commissionPercentage: null }),
       paymentMethod: r.paymentMethod, amount,
       ...f, paidAmount, settlementAmount, dueAmount,
       description: r.description, status: r.status,
@@ -285,12 +248,12 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
   const total = await Transaction.countDocuments(query)
   const allTransactions = await Transaction.find(query)
     .populate('agentId', 'name email').populate('clientId', 'name businessType')
-    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', `machineName segment brand terminalId ${POS_RATE_FIELDS}`)
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 })
   const transactions = await Transaction.find(query)
     .populate('agentId', 'name email').populate('clientId', 'name businessType')
-    .populate('posMachine', 'machineName segment brand terminalId bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', `machineName segment brand terminalId ${POS_RATE_FIELDS}`)
     .populate('createdBy', 'name').populate('updatedBy', 'name')
     .sort({ createdAt: -1 }).skip(skip).limit(limit)
 
@@ -298,7 +261,7 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
 
   let totalBankCharges = 0, totalMargin = 0, totalVAT = 0
   const totalRevenue = allTransactions.reduce((sum: number, t: any) => {
-    const f = calcFinancials(t.amount || 0, t.posMachine)
+    const f = calcFinancials(t.amount || 0, getReceiptRates(t))
     totalBankCharges += f.bankChargesAmount
     totalMargin      += f.marginAmount
     totalVAT         += f.vatAmount
@@ -308,7 +271,7 @@ async function generateSummaryReport(dateFilter: any, auth: any, page = 1, limit
   const mapItem = (t: any) => {
     const posAmount = t.amount || 0
     const pos = t.posMachine || {}
-    const f = calcFinancials(posAmount, pos)
+    const f = calcFinancials(posAmount, getReceiptRates(t))
     const paidAmount = Math.min(t.paidAmount || 0, f.toPayAmount)
     const settlementAmount = Math.min(t.settlementAmount || 0, Math.max(0, f.toPayAmount - paidAmount))
     const dueAmount = Math.max(0, f.toPayAmount - paidAmount - settlementAmount)

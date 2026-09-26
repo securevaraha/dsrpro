@@ -5,6 +5,7 @@ import '@/models/User'
 import '@/models/POSMachine'
 import { requireRole, isErrorResponse } from '@/lib/auth'
 import { calcReceiptFinancials } from '../agent-balance/route'
+import { POS_RATE_FIELDS } from '@/lib/posCharges'
 
 export async function GET(request: NextRequest) {
   const auth = requireRole(request, ['admin'])
@@ -14,13 +15,13 @@ export async function GET(request: NextRequest) {
 
   const receipts = await Transaction.find({ type: 'receipt' })
     .populate('agentId', 'name')
-    .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', POS_RATE_FIELDS)
     .sort({ createdAt: -1 })
 
   const grouped: Record<string, any> = {}
 
   for (const r of receipts as any[]) {
-    const fin = calcReceiptFinancials(r.amount || 0, r.posMachine)
+    const fin = calcReceiptFinancials(r.amount || 0, r)
     const paidAmount = Math.min(r.paidAmount || 0, fin.toPayAmount)
     const settlementAmount = Math.min(r.settlementAmount || 0, Math.max(0, fin.toPayAmount - paidAmount))
     const dueAmount = Math.max(0, fin.toPayAmount - paidAmount - settlementAmount)
@@ -75,14 +76,14 @@ export async function POST(request: NextRequest) {
   }
 
   const receipts = await Transaction.find({ type: 'receipt', agentId })
-    .populate('posMachine', 'bankCharges vatPercentage commissionPercentage')
+    .populate('posMachine', POS_RATE_FIELDS)
     .sort({ createdAt: 1 })
 
   let settledReceipts = 0
   let settledAmount = 0
 
   for (const r of receipts as any[]) {
-    const fin = calcReceiptFinancials(r.amount || 0, r.posMachine)
+    const fin = calcReceiptFinancials(r.amount || 0, r)
     const paidAmount = Math.min(r.paidAmount || 0, fin.toPayAmount)
     const existingSettlement = Math.min(r.settlementAmount || 0, Math.max(0, fin.toPayAmount - paidAmount))
     const dueAmount = Math.max(0, fin.toPayAmount - paidAmount - existingSettlement)
