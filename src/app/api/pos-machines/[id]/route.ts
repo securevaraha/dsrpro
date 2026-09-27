@@ -10,6 +10,7 @@ import {
   ChargeRates, getRatesForDate, ratesFromPos, sameRates, sortedHistory,
   toDayKey, toDayStart, upsertHistoryEntry, buildRateSnapshot, calcFinancials,
 } from '@/lib/posCharges'
+import { freezeUnfrozenReceipts } from '@/lib/freezeReceipts'
 
 const BASELINE_DATE = '2000-01-01'
 
@@ -85,6 +86,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     history = sortedHistory({ chargeHistory: history })
 
+    // Lock existing receipts to the rates they show now, BEFORE the new rates are saved.
+    let lockedReceipts = 0
+    if (chargesChanged) lockedReceipts = await freezeUnfrozenReceipts(existing)
+
     // Top-level fields always mirror the rates effective today.
     const todayRates = getRatesForDate({ chargeHistory: history }, todayKey)
     Object.assign(updateData, todayRates, { chargeHistory: history })
@@ -134,7 +139,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    return NextResponse.json({ message: 'POS Machine updated', machine, chargesChanged, chargesEffectiveFrom: chargesChanged ? effectiveKey : null, reappliedReceipts })
+    return NextResponse.json({ message: 'POS Machine updated', machine, chargesChanged, chargesEffectiveFrom: chargesChanged ? effectiveKey : null, reappliedReceipts, lockedReceipts })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update POS machine' }, { status: 500 })
   }

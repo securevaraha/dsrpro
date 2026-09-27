@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { Plus, Edit, Trash2, Search, Smartphone, Monitor, MapPin, User, Hash, CreditCard, Wifi, Download } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, Smartphone, Monitor, MapPin, User, Hash, CreditCard, Wifi, Download, History, Percent } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { useLanguage } from '@/components/LanguageProvider'
 import { TableSkeleton, FormSkeleton } from '@/components/ui/skeleton'
@@ -18,6 +18,7 @@ import { fetchWithAuth } from '@/lib/fetchWithAuth'
 import { matchesDateRange } from '@/lib/date-range'
 import { DateRangeFilter } from '@/components/ui/date-range-filter'
 import { DatePicker } from '@/components/ui/date-picker'
+import ChargesSetupModal, { ChargesTab } from '@/components/ChargesSetupModal'
 
 interface Agent {
   _id: string
@@ -104,6 +105,8 @@ export default function POSMachines() {
   const [brands, setBrands] = useState<{ _id: string, name: string }[]>([])
   const [segments, setSegments] = useState<{ _id: string, name: string }[]>([])
   const [machineNames, setMachineNames] = useState<{ _id: string, name: string }[]>([])
+  const [chargesModal, setChargesModal] = useState<{ open: boolean; tab: ChargesTab; machine: string }>({ open: false, tab: 'bulk', machine: '' })
+  const openCharges = (tab: ChargesTab, machine = '') => setChargesModal({ open: true, tab, machine })
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 })
   const [formData, setFormData] = useState({
     machineName: '',
@@ -503,6 +506,14 @@ export default function POSMachines() {
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </button>
+              <button
+                onClick={() => openCharges('bulk')}
+                className="btn-secondary inline-flex items-center justify-center"
+                title="Monthly rate update, rates history and one-time setup"
+              >
+                <Percent className="h-4 w-4 mr-2" />
+                Charges Setup
+              </button>
               <LoadingButton
                 onClick={() => { resetForm(); setShowModal(true) }}
                 loading={optimisticLoading}
@@ -875,6 +886,9 @@ export default function POSMachines() {
                         {isAdmin && (
                           <td className="px-5 py-3.5 whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => openCharges('history', machine.terminalId)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Charges history">
+                                <History className="h-4 w-4" />
+                              </button>
                               <button onClick={() => handleEdit(machine)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
                                 <Edit className="h-4 w-4" />
                               </button>
@@ -966,6 +980,9 @@ export default function POSMachines() {
 
                     {isAdmin && (
                       <div className="flex justify-end gap-1 pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <button onClick={() => openCharges('history', machine.terminalId)} className="p-1.5 text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Charges history">
+                          <History className="h-4 w-4" />
+                        </button>
                         <button onClick={() => handleEdit(machine)} className="p-1.5 text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
                           <Edit className="h-4 w-4" />
                         </button>
@@ -1229,6 +1246,17 @@ export default function POSMachines() {
             </div>
           </div>
         )}
+      {isAdmin && (
+        <ChargesSetupModal
+          open={chargesModal.open}
+          initialTab={chargesModal.tab}
+          machineFilter={chargesModal.machine}
+          brands={brands}
+          segments={segments}
+          onClose={() => setChargesModal({ open: false, tab: 'bulk', machine: '' })}
+          onChanged={fetchMachines}
+        />
+      )}
       {/* Delete Confirmation Dialog */}
       {showDeleteDialog && deletingMachine && (
         <div className="modal-overlay">

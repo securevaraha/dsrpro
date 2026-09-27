@@ -17,6 +17,48 @@ import { buildRateSnapshot, ratesFromPos, sortedHistory } from '@/lib/posCharges
 // Result: every amount on every screen stays exactly what it is now; from here
 // on, rate changes only affect receipts dated on/after their effective date.
 // Amounts (paid / settlement / due) are NOT modified.
+//
+//   GET  /api/migrate/pos-charge-history            → status only (read-only)
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = requireRole(request, ['admin'])
+    if (isErrorResponse(auth)) return auth
+    await connectDB()
+
+    const machinesTotal = await POSMachine.countDocuments({})
+    const machinesWithHistory = await POSMachine.countDocuments({ 'chargeHistory.0': { $exists: true } })
+    const receiptsLinked = await Transaction.countDocuments({ posMachine: { $ne: null } })
+    const receiptsFrozen = await Transaction.countDocuments({
+      posMachine: { $ne: null },
+      'chargeRates.commissionPercentage': { $exists: true },
+    })
+
+    // Receipts whose POS machine was deleted cannot be frozen (migration skips them).
+    const machineIds = (await POSMachine.find({}).select('_id').lean()).map((m: any) => m._id)
+    const receiptsOrphaned = await Transaction.countDocuments({
+      posMachine: { $ne: null, $nin: machineIds },
+      'chargeRates.commissionPercentage': { $exists: false },
+    })
+
+    const machinesPending = machinesTotal - machinesWithHistory
+    const receiptsPending = Math.max(0, receiptsLinked - receiptsFrozen - receiptsOrphaned)
+    return NextResponse.json({
+      machinesTotal,
+      machinesWithHistory,
+      machinesPending,
+      receiptsLinked,
+      receiptsFrozen,
+      receiptsPending,
+      receiptsOrphaned,
+      migrated: machinesPending === 0 && receiptsPending === 0,
+    })
+  } catch (error: any) {
+    console.error('pos-charge-history status error:', error)
+    return NextResponse.json({ error: 'Status check failed', details: error.message }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = requireRole(request, ['admin'])
