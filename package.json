@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cpanel": "node scripts/cpanel-build.mjs",
     "start": "next start",
     "lint": "next lint",
     "seed": "node scripts/createSuperAdmin.js",
